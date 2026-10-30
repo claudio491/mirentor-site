@@ -1953,6 +1953,52 @@ html.no-js .wall-meter, html.still .wall-meter { display: none; } /* nothing run
 .wall-sb { display: none; }
 .wall.is-motion .wall-hud .wall-sb { display: inline-flex; color: var(--mist); background: none; }
 .wall-sb .dot { background: var(--mist); opacity: 0.6; }
+/* The lens without signal, over a waiting camera's picture (dimmed by the module): a grey layer that takes its colour
+   and a raster. At rest unseen; the module raises them on standby and moves them down out of the frame as the camera
+   acquires, the raster's top edge a scan line with a soft trail above it. */
+.wall-mono, .wall-scan { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+.wall-mono { background: #8a9096; mix-blend-mode: color; }
+.wall-scan { background: repeating-linear-gradient(180deg, rgba(14, 15, 17, 0.62) 0 1px, rgba(14, 15, 17, 0) 1px 3px), rgba(17, 19, 21, 0.3); }
+.wall-scan::before { content: ""; position: absolute; left: 0; right: 0; top: -2px; height: 2px; background: var(--wall-line); }
+.wall-scan::after { content: ""; position: absolute; left: 0; right: 0; bottom: calc(100% + 2px); height: 36px; background: linear-gradient(rgba(233, 235, 236, 0), rgba(233, 235, 236, 0.16)); }
+/* Each hand's viewfinder at the lock (built by the module around the joints, in plate pixels) */
+.wall-lk { opacity: 0; }
+.wall-lk path { fill: none; stroke: var(--porcelain); stroke-width: 1.5; stroke-linecap: square; vector-effect: non-scaling-stroke; }
+
+/* The beat's total over the wall: a readout in a viewfinder that locks on, counts the cameras, then settles into the
+   meter (all by transform and opacity, from the module) */
+.wall.is-motion .wall-stage { position: relative; }
+.wall-total {
+  position: absolute; left: 0; top: 0; z-index: 4; pointer-events: none; opacity: 0; transform-origin: 0 0;
+  display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; column-gap: 20px; align-items: end;
+  padding: 16px 24px 18px 22px; background: rgba(27, 29, 32, 0.88); white-space: nowrap;
+}
+.wall-total-x { grid-row: 1 / 3; align-self: center; font-weight: 500; font-size: clamp(56px, 5vw, 84px); line-height: 0.9; letter-spacing: -0.02em; color: var(--porcelain); }
+.wall-total-k { align-self: end; color: var(--mist); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+.wall-total-n { font-weight: 500; font-size: clamp(26px, 2.2vw, 36px); line-height: 1; letter-spacing: 0.02em; color: var(--signal); }
+.wall-total-vf { position: absolute; inset: -7px; }
+.wall-total-vf i { position: absolute; width: 16px; height: 16px; border: 0 solid var(--porcelain); }
+.wall-total-vf i:nth-child(1) { top: 0; left: 0; border-width: 2px 0 0 2px; }
+.wall-total-vf i:nth-child(2) { top: 0; right: 0; border-width: 2px 2px 0 0; }
+.wall-total-vf i:nth-child(3) { bottom: 0; left: 0; border-width: 0 0 2px 2px; }
+.wall-total-vf i:nth-child(4) { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+@media (max-width: 899px) {
+  .wall-total { column-gap: 12px; padding: 12px 14px 14px 12px; }
+  .wall-total-x { font-size: clamp(44px, 12vw, 64px); }
+  .wall-total-n { font-size: clamp(22px, 6vw, 30px); }
+}
+
+/* Under 900 px with motion, the band's line is the beat's caption: it sits under the meter and rises after the hit (the
+   module), so it never gives the punchline away above a wall still waiting. No JS: it stays in the head. */
+@media (max-width: 899px) and (prefers-reduced-motion: no-preference) {
+  html.js .wall-stage { display: flex; flex-direction: column; }
+  html.js .wall-head { display: contents; }
+  html.js .wall .wall-title, html.js .wall .wall-src { margin-top: var(--space-3); }
+  html.js .wall .wall-src { align-self: flex-start; }
+  html.js .wall .wall-grid { margin-top: var(--space-4); }
+  html.js .wall .wall-meter { order: 1; }
+  html.js .wall .wall-line { order: 2; margin-top: var(--space-3); }
+}
 
 /* REC: every camera on one shared phase, synced to the clock's second by the module; runs only while the module says
    the wall is on screen and not paused (.is-run) */
@@ -2016,13 +2062,15 @@ html.no-js .wall-meter, html.still .wall-meter { display: none; } /* nothing run
 .wall.is-stage .wall-count { height: 30px; align-items: center; padding: 0 9px; border-radius: 2px; background: rgba(27, 29, 32, 0.84); }
 
 /* The beat's scan line: one pass over the whole wall, top to bottom. The box is the wall's (set by the module), the
-   line rides its top edge and the box moves by transform. */
+   line rides its top edge with end ticks, a soft band trails it and a short glow leads it; the box moves by transform. */
 .wall-sweep { position: absolute; left: var(--edge); right: var(--edge); top: 0; z-index: 2; pointer-events: none; opacity: 0; }
 .wall-sweep::before {
-  content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 7px;
-  border-top: 1.5px solid var(--wall-line);
-  background: linear-gradient(var(--wall-line), var(--wall-line)) left top / 1.5px 7px no-repeat, linear-gradient(var(--wall-line), var(--wall-line)) right top / 1.5px 7px no-repeat;
+  content: ""; position: absolute; left: -6px; right: -6px; top: -1px; height: 12px;
+  border-top: 2px solid var(--porcelain);
+  background: linear-gradient(var(--porcelain), var(--porcelain)) left top / 2px 12px no-repeat, linear-gradient(var(--porcelain), var(--porcelain)) right top / 2px 12px no-repeat,
+    linear-gradient(rgba(233, 235, 236, 0.3), rgba(233, 235, 236, 0)) center top / 100% 12px no-repeat;
 }
+.wall-sweep::after { content: ""; position: absolute; left: 0; right: 0; bottom: calc(100% + 1px); height: 96px; background: linear-gradient(rgba(233, 235, 236, 0), rgba(233, 235, 236, 0.13)); }
 
 /* The visor's clone: window, picture, tracked hands, brackets and the centre camera's chip, all moved by transform.
    Like the held visor (hero.css), it carries no hand boxes or tags, and no HUD row or scrim: those left with the hero. */
