@@ -1,6 +1,3 @@
-// depth.js: WebGL2 depth parallax for the Full tier. Far pixels drift with a slow head-bob while near pixels
-// (hands, forearms) stay put, as in real first-person footage; the overlays therefore stay on the hands.
-// Grain lives in the shader. Returns null when WebGL2 is unavailable.
 import { PLATE_ZOOM, coverMap, focusOf } from './overlay.js';
 
 const VS = `#version 300 es
@@ -91,7 +88,6 @@ export function createDepthRenderer(canvas, { maxShift = 0.015, grain = 0.025, o
     gl.viewport(0, 0, w, h);
   }
 
-  /** Registers a plate (decoded color image and depth image) under an id. */
   function addPlate(id, colorImg, depthImg) {
     if (lost || textures.has(id)) return;
     textures.set(id, { color: texture(colorImg), depth: texture(depthImg), w: colorImg.naturalWidth, h: colorImg.naturalHeight });
@@ -108,7 +104,6 @@ export function createDepthRenderer(canvas, { maxShift = 0.015, grain = 0.025, o
     gl.uniform2f(u.uScale, W / (current.w * m.s), H / (current.h * m.s));
     gl.uniform2f(u.uBase, -m.ox / (current.w * m.s), -m.oy / (current.h * m.s));
     const t = (now - t0) / 1000;
-    // Head-bob: two slow incommensurate sines per axis, never above maxShift.
     const ox = maxShift * (0.62 * Math.sin(t * 2 * Math.PI * 0.8 * 0.5) + 0.38 * Math.sin(t * 1.31 + 1.7));
     const oy = maxShift * 0.7 * (0.6 * Math.sin(t * 2 * Math.PI * 0.8 * 0.37 + 0.4) + 0.4 * Math.sin(t * 0.93 + 2.2));
     gl.uniform2f(u.uOffset, ox, oy);

@@ -1,10 +1,6 @@
-// ch02.js: chapter 02 "Cómo funciona". The rail fills step by step as each step number passes 60% of the
-// viewport (and empties again going back), and the head camera drawing draws its lines once when it enters.
-// Without JS, in the still tier, or when the drawing is already in view at load, both show their final state.
 const EASE_TRACK = 'cubic-bezier(0.2, 0.8, 0.2, 1)'; // the brand's track curve: a line draws like a bone
 const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';
 const LINE = 0.6; // a step counts as reached once its number is above 60% of the viewport height
-// Draw order by group: band, strap, mount, camera, lens, buckle, view frame, hands, leaders.
 const DRAW_MS = [700, 700, 360, 480, 360, 360, 480, 600, 360];
 const STAGGER = 110;
 
@@ -17,7 +13,6 @@ export function init(el, { tier } = {}) {
   if (kit) drawOnEnter(kit);
 }
 
-/** Lines stay 1.5 px however large the drawing renders: --u is viewBox units per CSS pixel. */
 function keepStroke(kit) {
   const svg = kit.querySelector('svg');
   if (!svg) return;
@@ -50,13 +45,11 @@ function rail(el, list) {
   };
   const onScroll = () => { if (!frame) frame = requestAnimationFrame(measure); };
 
-  // First state without transitions, so a rail already on screen never animates backwards.
   el.classList.add('is-live', 'no-trans');
   measure();
   void el.offsetHeight;
   el.classList.remove('no-trans');
 
-  // Listen only while the chapter is near the viewport; settle the state again when it leaves.
   const io = new IntersectionObserver(([e]) => {
     if (e.isIntersecting) {
       addEventListener('scroll', onScroll, { passive: true });

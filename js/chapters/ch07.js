@@ -1,19 +1,3 @@
-// ch07.js: "Una ciudad a la vez". Four cities on a dot map of Latin America (Natural Earth 110m, built offline).
-// Choosing a city shows its card: coordinates, local time (Intl, refreshed on each minute while the chapter is near
-// the screen), the country's consent rule with its source, and "Join the <city> waitlist".
-//
-// Without this module every card shows and each city link jumps to its card. With it, the links act as buttons
-// (aria-expanded, aria-controls) and one card shows at a time: the visitor's own city when their time zone matches
-// one of the four, otherwise Ciudad de Panamá.
-//
-// Motion: the four markers pulse once when the map enters (ring 1 to 2.4 in 900 ms, 120 ms apart, north to south);
-// a new card rises 8 px in 240 ms; the scale pins slide to the city in 360 ms (CSS). Tier "still": none of it, and a
-// map already on screen at load does not pulse. Nothing loops.
-//
-// "Join" dispatches window "mirentor:prefill", then scrolls to #lista-de-espera, with
-//   detail { city, country, cityId, countryCode, source: 'ch07' }
-//   city, country: display names in the page language; cityId: panama | medellin | lima | cdmx; countryCode: PA | CO | PE | MX
-// A prefill from another chapter (ch06) that names one of the four cityId values selects that city here too.
 
 export const CITIES = {
   panama: { tz: 'America/Panama', code: 'PA' },
@@ -26,19 +10,15 @@ const PULSE_GAP = 120;
 const CARD_MS = 240;
 const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
-/** Pure: the city whose time zone the visitor shares, otherwise the first one. */
 export function pickDefault(visitorTz, ids = Object.keys(CITIES)) {
   return ids.find((id) => CITIES[id]?.tz === visitorTz) || ids[0];
 }
 
-/** Pure: wall time in a city, "14:05" (es) or "2:05 PM" (en). Any space (ICU may use a narrow one, which the font
- *  subset lacks) becomes a no-break space, so the time never wraps or falls back to a system font. */
 export function localTime(date, tz, lang = 'es') {
   const opts = lang === 'en' ? { timeZone: tz, hour: 'numeric', minute: '2-digit' } : { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
   return new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'es-419', opts).format(date).replace(/\s/g, ' ');
 }
 
-/** Pure: offset from UTC, "UTC-5". */
 export function utcOffset(date, tz) {
   const part = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(date).find((p) => p.type === 'timeZoneName');
   const v = (part?.value || 'GMT').replace('GMT', 'UTC').replace('−', '-');
@@ -55,7 +35,6 @@ export function init(el, { tier = 'full', lang = document.documentElement.lang }
   const text = (node) => (node ? node.textContent.trim() : '');
   let current = '';
 
-  // Local time: every card's clock, so a switch never shows a stale one.
   const clocks = [...cards.values()].map((c) => ({ tz: c.dataset.tz, row: c.querySelector('[data-time]'), time: c.querySelector('[data-clock]'), off: c.querySelector('[data-offset]') }));
   function tick() {
     const now = new Date();
@@ -132,10 +111,8 @@ export function init(el, { tier = 'full', lang = document.documentElement.lang }
   el.classList.add('is-live');
 
   if (!('IntersectionObserver' in window)) return;
-  // The clock runs only while the chapter is near the screen.
   new IntersectionObserver(([e]) => (e.isIntersecting ? start() : stop()), { rootMargin: '200px 0px' }).observe(el);
 
-  // One pulse per marker, the first time the map comes into view (not when it is already there at load).
   const map = el.querySelector('.ch07-map');
   if (!motion || !map) return;
   let first = true;

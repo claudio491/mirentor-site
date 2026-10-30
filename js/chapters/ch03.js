@@ -1,10 +1,3 @@
-// ch03.js: the Ficha de turno (chapter 03, "Qué cuenta"). A sample shift from 07:00 to 16:00: work with hands in
-// frame counts, the break and lunch do not. Every state is a pure function of the shift time t (minutes after 07:00),
-// never accumulated, so scrolling back and forth always lands on the true count.
-//   wide + full:  a scroll-driven playhead (GSAP ScrollTrigger scrub) with a short pin, under one viewport.
-//   wide + lite:  the playhead plays the shift once when the card is in view.
-//   narrow:       a vertical time card whose rows punch in as they enter; the counter adds each row.
-//   still:        nothing runs. The markup already shows the final state.
 import { loadGsap } from '../vendor.js';
 
 export const SHIFT_MIN = 540; // 07:00 to 16:00
@@ -13,20 +6,17 @@ const PLAY_MS = 4800; // lite: the whole shift in 4.8 s, linear (it is a clock)
 const ROW_MS = 480; // narrow: one row's fill and count (matches the CSS transition)
 const pad = (n) => String(n).padStart(2, '0');
 
-/** Minutes that count up to shift time t, for segments [{ a, d, counts }]. */
 export function countedAt(t, segs) {
   let m = 0;
   for (const s of segs) if (s.counts) m += Math.min(Math.max(t - s.a, 0), s.d);
   return m;
 }
 
-/** Shift time as a wall clock, "HH:MM". */
 export function clockAt(t) {
   const m = Math.floor(START_MIN + t + 1e-6);
   return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
 }
 
-/** Minutes as "7 h 45 min". */
 export function hm(min) {
   const m = Math.floor(min + 1e-6);
   return `${Math.floor(m / 60)} h ${pad(m % 60)} min`;
@@ -59,11 +49,9 @@ export function init(el, { tier } = {}) {
   };
   wide.addEventListener?.('change', setup);
   setup();
-  // main.js waits for this before it sorts and refreshes every scroll scene in page order.
   return card.ready || undefined;
 }
 
-/** Back to the final state, as the markup ships it. */
 function reset(c) {
   delete c.fig.dataset.mode;
   c.fig.classList.remove('is-scan');
@@ -76,7 +64,6 @@ function reset(c) {
   setText(c.count, hm(countedAt(SHIFT_MIN, c.segs)));
 }
 
-/** Draw the card at shift time t (wide layouts). */
 function render(c, t) {
   t = Math.min(SHIFT_MIN, Math.max(0, t));
   if (SHIFT_MIN - t < 0.01) t = SHIFT_MIN;
@@ -96,7 +83,6 @@ function render(c, t) {
   setText(c.count, hm(countedAt(t, c.segs)));
 }
 
-/** Keep the ruler width current for the playhead. */
 function measure(c) {
   c.w = c.ruler.clientWidth;
   const ro = new ResizeObserver(() => { c.w = c.ruler.clientWidth; render(c, c.t); });
@@ -104,7 +90,6 @@ function measure(c) {
   return ro;
 }
 
-/** Full tier: scroll scrubs the shift. Pinned for at most one viewport when the card fits on screen. */
 function scrub(c) {
   c.fig.dataset.mode = 'scrub';
   const ro = measure(c);
@@ -142,7 +127,6 @@ function scrub(c) {
   };
 }
 
-/** Lite tier: the shift plays once, as a clock, when most of the card is in view. */
 function play(c) {
   c.fig.dataset.mode = 'play';
   const ro = measure(c);
@@ -164,7 +148,6 @@ function play(c) {
   return () => { io.disconnect(); cancelAnimationFrame(raf); ro.disconnect(); };
 }
 
-/** Narrow layouts: each row punches in as it enters. The counter adds the minutes of each counted row. */
 function rows(c) {
   c.fig.dataset.mode = 'rows';
   let target = 0;

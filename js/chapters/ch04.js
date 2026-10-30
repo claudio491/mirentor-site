@@ -1,12 +1,6 @@
-// ch04.js: chapter 04 "El dinero". Draws, from the real layout, the three streams that carry one accepted hour to its
-// three shares, and the loop of the pay rule in the graphite band. Brand gesture: the joints appear, then the lines draw
-// in (700 ms, --ease-track, 100 ms apart), once, when each diagram enters the view; nothing loops afterwards.
-// Tier "still" (reduced motion) and anything already in view at load get the final state at once. Without JS the
-// text, ruler, slots and loop nodes are all on the page; only the connecting lines are missing.
 const NS = 'http://www.w3.org/2000/svg';
 const r1 = (n) => Math.round(n * 10) / 10;
 
-/** Orthogonal polyline through points (px), corners rounded with radius r. Pure. */
 export function route(points, r = 12) {
   const p = points.reduce((acc, q) => {
     const last = acc[acc.length - 1];
@@ -28,12 +22,10 @@ export function route(points, r = 12) {
   return `${d}L${r1(z[0])} ${r1(z[1])}`;
 }
 
-/** Open chevron with its tip at `tip`, pointing along the unit vector `dir`. Pure. */
 export function chevron([x, y], [dx, dy], s = 6) {
   return `M${r1(x - dx * s - dy * s)} ${r1(y - dy * s + dx * s)}L${r1(x)} ${r1(y)}L${r1(x - dx * s + dy * s)} ${r1(y - dy * s - dx * s)}`;
 }
 
-/** Element box relative to an origin rect. */
 function box(el, o) {
   const b = el.getBoundingClientRect();
   return { l: b.left - o.left, r: b.right - o.left, t: b.top - o.top, b: b.bottom - o.top, cx: (b.left + b.right) / 2 - o.left, cy: (b.top + b.bottom) / 2 - o.top };
@@ -51,13 +43,10 @@ function shapes(svg, n, tag, cls) {
   });
 }
 
-/** SVG user units = CSS px of the host, so every line is drawn 1:1 at any width. */
 function fit(svg, host) {
   svg.setAttribute('viewBox', `0 0 ${host.clientWidth} ${host.clientHeight}`);
 }
 
-/** Wide: the hour sits left of the shares; streams leave its right edge level with the middle share and fan out at
- *  a shared spine. Narrow: a trunk drops from the hour block down the gutter and turns into each slot. */
 function drawStreams(split, lines, joints) {
   fit(split.querySelector('.ch04-streams'), split);
   const o = split.getBoundingClientRect();
@@ -77,8 +66,6 @@ function drawStreams(split, lines, joints) {
   });
 }
 
-/** Wide: three nodes on one line, arrows between them and a return path underneath. Narrow: a column with the
- *  return path up the left gutter. Dots are measured by their centre only (they may be scaled to 0.4 while armed). */
 function drawLoop(loop, lines, heads) {
   fit(loop.querySelector('.ch04-loop-lines'), loop);
   const o = loop.getBoundingClientRect();
@@ -129,7 +116,6 @@ export function init(el, { tier } = {}) {
   }
   document.fonts?.ready.then(layout);
 
-  // Each piece plays once when its top passes a line in the viewport (independent of its height).
   const still = tier === 'still' || !('IntersectionObserver' in window);
   for (const [target, cls, line] of [[split, 'is-drawn', '-40%'], [band, 'is-on', '-20%'], [loop, 'is-on', '-20%']]) {
     if (still || target.getBoundingClientRect().top < innerHeight) { target.classList.add(cls); continue; }

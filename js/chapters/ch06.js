@@ -1,19 +1,3 @@
-// ch06.js: "¿Su operación califica?". Four questions as segmented radio keys, a profile card that fills as answers
-// come in, and concept B's verdict. Without this module the four questions stay one plain form (CSS gates the
-// stepped states on .is-stepped, set here).
-//
-// Pointer: picking a key types the answer into the card (300 ms at most) and the next question enters 12 px from
-// the right in 240 ms. Keyboard: arrows move inside a group (native radios) without advancing; Enter, Next and Back
-// step at once, with no animation. Tier "still": same flow, no animation.
-//
-// "Join the waitlist" dispatches window "mirentor:prefill", then scrolls to #lista-de-espera, with
-//   detail { industry, workers, pay, city, country, cityId, countryCode, verdict }
-//   industry: warehouse | construction | workshop | other | office
-//   workers:  lt50 | 50-99 | 100-500 | 501-5000 | gt5000 (a range, never a made-up head count)
-//   pay:      yes | unsure | no
-//   city, country: display names in the page language ("another city": the visitor's own text)
-//   cityId:   panama | medellin | lima | cdmx | other;  countryCode: PA | CO | PE | MX ('' when typed)
-//   verdict:  strong | possible | notyet
 
 const STEPS = ['industry', 'workers', 'pay', 'city'];
 const COUNTRY_CODE = { panama: 'PA', medellin: 'CO', lima: 'PE', cdmx: 'MX' };
@@ -23,8 +7,6 @@ const ENTER_MS = 240;
 const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';
 const pad = (n) => String(n).padStart(2, '0');
 
-/** Pure: concept B's verdict rules (pending Scott's OK, see the review note on the page). "Not yet" wins over
- *  "possible"; among "not yet" reasons an unpaid team comes first, because the owner can change that answer. */
 export function verdict({ industry, workers, pay }) {
   if (pay === 'no') return { level: 'notyet', reason: 'pay', checks: [] };
   if (industry === 'office') return { level: 'notyet', reason: 'office', checks: [] };
@@ -68,7 +50,6 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
   const keyEl = (key, value) => $(`.fit-q[data-key="${key}"] input[value="${value}"]`)?.closest('.fit-seg-key');
   const text = (node) => (node ? node.textContent.trim() : '');
 
-  /** City and country as the visitor sees them. */
   function place() {
     if (answers.city === 'other') return { city: cityIn.value.trim(), country: countryIn.value.trim() };
     const k = keyEl('city', answers.city);
@@ -85,8 +66,6 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
     return text($('.fit-seg-txt', keyEl(key, value)));
   }
 
-  /** Mono value typed in: the full text is in the DOM at once (screen readers get it whole); a stepped clip
-   *  reveals it one character at a time, 300 ms at most. */
   function type(node, value, animate) {
     for (const a of node.getAnimations?.() || []) a.cancel();
     node.textContent = value;
@@ -174,7 +153,6 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
     go(0, { animate, dir: -1 });
   }
 
-  // Input modality: a pointer pick advances on its own; keyboard picks wait for Enter or Next.
   body.addEventListener('pointerdown', () => { viaPointer = true; }, true);
   body.addEventListener('keydown', (e) => {
     viaPointer = false;
@@ -200,7 +178,6 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
 
   for (const input of [cityIn, countryIn]) input.addEventListener('input', () => { setError(''); fillRow('city', false); });
 
-  // e.detail is 0 for keyboard activation: keyboard steps are instant.
   back.addEventListener('click', (e) => { if (step > 0) go(step - 1, { animate: e.detail > 0, dir: -1 }); });
   next.addEventListener('click', (e) => advance(e.detail > 0));
   change.addEventListener('click', (e) => go(STEPS.indexOf('pay'), { animate: e.detail > 0, dir: -1 }));
@@ -223,7 +200,6 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
     }
   });
 
-  // Start: keep answers the browser restored (back/forward), resume at the first open question.
   for (const input of $$('input[type="radio"]:checked')) { const k = keyOf(input); if (k) answers[k] = input.value; }
   other.hidden = answers.city !== 'other';
   STEPS.forEach((k) => fillRow(k, false));

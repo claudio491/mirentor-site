@@ -1,6 +1,3 @@
-// reveal.js: chapter boot (spec 7). Sections with class "boot" get "is-in" once their top is 15% into the viewport;
-// children marked [data-boot] (with --i for order) fade and rise in. The trigger is a margin, not a share of the
-// section's area: a pinned chapter is several screens tall and would never reach 15% of its own height on screen.
 export function initReveal() {
   const sections = [...document.querySelectorAll('.boot')];
   if (!sections.length) return;

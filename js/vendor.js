@@ -1,6 +1,3 @@
-// vendor.js: loads GSAP 3.13.0 with ScrollTrigger and CustomEase, the plugins a module asks for (SplitText,
-// DrawSVGPlugin, Flip, MotionPathPlugin) and Lenis 1.1.18, each once and only on demand. Self-hosted in /vendor.
-// The brand's motion curves (brand/mirentor/web-motion) are registered as GSAP eases: "lock", "track", "reveal".
 const SELF_HOSTED = true; // the claude.ai preview build sets this to false: its CSP takes scripts from cdnjs and jsDelivr
 const url = (file) => (SELF_HOSTED ? new URL(`../vendor/${file}`, import.meta.url).href
   : file.startsWith('lenis') ? `https://cdn.jsdelivr.net/npm/lenis@1.1.18/dist/${file}`
@@ -21,7 +18,6 @@ const load = (file) => {
 let core = null;
 const PLUGINS = ['SplitText', 'DrawSVGPlugin', 'Flip', 'MotionPathPlugin'];
 
-/** Resolves with { gsap, ScrollTrigger, CustomEase, ...requested plugins }, all registered. */
 export async function loadGsap(...plugins) {
   core ??= (async () => {
     await load('gsap.min.js');
@@ -40,7 +36,6 @@ export async function loadGsap(...plugins) {
   return { ...base, ...Object.fromEntries(wanted.map((p) => [p, window[p]])) };
 }
 
-/** Resolves with the Lenis constructor. */
 export async function loadLenis() {
   await load('lenis.min.js');
   return window.Lenis;

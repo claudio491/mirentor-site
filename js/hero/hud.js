@@ -1,5 +1,3 @@
-// hud.js: REC, the visitor's real timecode, the task card and the shift ruler with its two true counters. The counted
-// time is marked live (data-live) once written: until then hero.css shows 00:00:00 over the no-JS value.
 import { duration, timecode } from './clock.js';
 
 export function createHud(root, { shots, shotMs, strings }) {
@@ -19,7 +17,6 @@ export function createHud(root, { shots, shotMs, strings }) {
     if (index === lastShot) return;
     lastShot = index;
     const shot = shots[index];
-    // Each separator stays with the word before it (a wrapped chip never starts a line with the dot); same text
     const parts = String(strings[shot.key] ?? '').split(' · ');
     const line = document.createElement('span'); // one flex item: the chip's gap never opens between the words
     line.append(...parts.flatMap((p, i) => (i < parts.length - 1
@@ -44,7 +41,6 @@ export function createHud(root, { shots, shotMs, strings }) {
     head.style.setProperty('--head', `${((inCycle / cycleMs) * 100).toFixed(3)}%`);
   }
 
-  /** Final state for reduced motion: the full loop drawn, the totals of one loop. */
   function final() {
     setShot(0);
     tc.textContent = timecode(new Date());

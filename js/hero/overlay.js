@@ -1,10 +1,3 @@
-// overlay.js: draws one shot's tracking (21-point hands, object boxes, labels) in CSS-pixel space over the
-// viewfinder, mapped through the same "cover + zoom" transform as the plate, and runs the lock-on and release.
-// Animations use WAAPI with the exact brand curves; without WAAPI the overlay simply appears in its final state.
-// The lock-on is the camera wall's (js/chapters/wall.js), so the page has one vocabulary for it: joints lock from 0.4
-// (lock curve, 160 ms), ring by ring from the wrist out (60 ms a ring), both hands together; each bone then grows out of
-// the joint it starts from (track curve, 320 ms); the tags come after.
-// Hand tags are placed against the HUD chips as laid out on screen, measured and never assumed (placeTags).
 
 const NS = 'http://www.w3.org/2000/svg';
 const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';
@@ -23,13 +16,10 @@ const CLEAR = 8; // the HUD's own gap: the room a moved tag keeps from a chip, t
 const HUD = '.hud, .hud .chip'; // the HUD row and its chips (hero.css)
 const FLOOR = ['.ruler', '.hero-copy']; // what a tag stays above when it drops under its box: the ruler, the copy
 
-// MediaPipe hand topology: thumb, index, middle, ring, pinky, plus the palm edge.
 const BONES = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [5, 9], [9, 10], [10, 11], [11, 12],
   [9, 13], [13, 14], [14, 15], [15, 16], [13, 17], [17, 18], [18, 19], [19, 20], [0, 17]];
 const TIPS = new Set([4, 8, 12, 16, 20]);
 
-/** Cover mapping from image pixels to the viewfinder's CSS pixels: object-fit: cover with a vertical focus
- *  (object-position 50% fy), then the 3% zoom about the box center. Same math in depth.js. */
 export function coverMap(width, height, w, h, zoom = PLATE_ZOOM, fy = 0.5) {
   const s0 = Math.max(width / w, height / h);
   const ox0 = (width - w * s0) / 2;
@@ -37,7 +27,6 @@ export function coverMap(width, height, w, h, zoom = PLATE_ZOOM, fy = 0.5) {
   return { s: s0 * zoom, ox: width / 2 + (ox0 - width / 2) * zoom, oy: height / 2 + (oy0 - height / 2) * zoom };
 }
 
-/** Vertical focus of the plates, set in CSS (--fy) per viewport. */
 export function focusOf(el) {
   const v = parseFloat(getComputedStyle(el).getPropertyValue('--fy'));
   return Number.isFinite(v) ? v : 0.5;
@@ -68,7 +57,6 @@ function tag(g, text) {
   return t;
 }
 
-/** The tag's width for its text as rendered now (the mono face can swap in after the first draw). */
 function tagWidth(t) {
   const label = t.lastElementChild;
   const len = label.getComputedTextLength ? label.getComputedTextLength() : 0;
@@ -85,11 +73,6 @@ function moveTag(t, { x, y, width, side }) {
   t.dataset.side = side;
 }
 
-/** Picks each hand tag's spot in frame pixels, from its box and its width, in drawing order. A tag sits above its box,
- *  the spot it has always had, unless that comes within TOUCH px of a HUD chip or of the tag placed before it. Then it
- *  goes below its box, sliding along the other hand if that one is in the way, as long as it still hangs from its own
- *  box, inside the frame and above the floor. Failing that, it moves straight down to just under whatever it touched.
- *  A moved tag keeps CLEAR px from everything. Whatever the HUD's layout, a tag never overlaps a chip. */
 export function placeTags(items, { width, chips, floor }) {
   const near = (a, b, pad) => a.x < b.x + b.width + pad && b.x < a.x + a.width + pad && a.y < b.y + b.height + pad && b.y < a.y + a.height + pad;
   const spots = [];
@@ -112,7 +95,6 @@ export function placeTags(items, { width, chips, floor }) {
 
 const watchers = new WeakMap(); // svg: the observer that places its tags again when the HUD changes size
 
-/** Draws the shot and returns its lock() and release(). */
 export function drawShot(svg, shot, orient, strings) {
   const src = shot[orient];
   const { width, height } = svg.getBoundingClientRect();
@@ -130,7 +112,6 @@ export function drawShot(svg, shot, orient, strings) {
   const joints = [];
   const bones = [];
 
-  // Object boxes are kept in the data but not drawn: the hero measures hands only (critique 29 Oct).
 
   for (const hand of src.hands) {
     const pts = hand.points.map(map);
@@ -160,10 +141,6 @@ export function drawShot(svg, shot, orient, strings) {
   }
   const tags = labeled.map((l) => l.tag);
 
-  // Tags go where the HUD leaves room, measured as it is laid out now. On phones its chips wrap to two rows, and on
-  // tablets the rows change with each shot's task. At a cut the new shot is drawn before the HUD prints its task, and
-  // the mono face can swap in late: the observer places the tags again on any change in the HUD's size, in the same
-  // frame and before it paints, so a tag never shows over a chip.
   const frame = svg.parentElement;
   const scope = frame.closest('.hero') || frame;
   const shown = (n) => !!n && n.getClientRects().length > 0;
@@ -200,7 +177,6 @@ export function drawShot(svg, shot, orient, strings) {
       { duration: D_JOINT, delay: JOINTS_AT + j.dataset.ring * D_RING, easing: EASE_LOCK, fill: 'backwards' })));
     bones.forEach((b) => anims.push(b.animate([{ transform: 'scale(0.02)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }],
       { duration: D_BONE, delay: JOINTS_AT + b.dataset.ring * D_RING + D_JOINT, easing: EASE_TRACK, fill: 'backwards' })));
-    // Tags arrive as the last bones draw, with their final text: no decode on cuts.
     const tagsAt = JOINTS_AT + 4 * D_RING + D_JOINT + D_BONE / 2;
     tags.forEach((t, i) => anims.push(t.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'translateY(0)' }],
       { duration: 240, delay: tagsAt + i * D_RING, easing: EASE_OUT, fill: 'backwards' })));

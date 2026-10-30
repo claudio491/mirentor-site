@@ -1,6 +1,4 @@
-// tier.js: pick the motion tier. "full" on capable desktops, "lite" on constrained devices, "still" under reduced motion.
 
-/** Pure: decides from a description of the environment. */
 export function pickTier({ reducedMotion, saveData, effectiveType, deviceMemory, cores, width, webgl2 }) {
   if (reducedMotion) return 'still';
   if (saveData) return 'lite';
@@ -12,7 +10,6 @@ export function pickTier({ reducedMotion, saveData, effectiveType, deviceMemory,
   return 'full';
 }
 
-/** Reads the real environment. */
 export function readEnv() {
   const c = navigator.connection || {};
   let webgl2 = false;

@@ -1,18 +1,3 @@
-// ch09.js: chapter 09 "Lista de espera". The form is not wired to a backend yet: on submit it validates, never
-// sends, and turns the card's camera on ("Cámara encendida") with a review note saying nothing was sent.
-// Without this module the form still reads and validates natively (required fields, method post: nothing in a URL).
-//
-// Validation: on blur once a field has been touched, on every input while it shows an error, and on submit (focus
-// moves to the first field to fix, a live line counts them). Errors are an icon plus text, tied to the field with
-// aria-describedby and aria-invalid. A head count below 50 or above 5000 shows a calm note and still sends.
-//
-// Prefill: window "mirentor:prefill" (from 06 and 07; detail { industry, workers, pay, city, country, countryCode })
-// fills industry, city and country and tags them. A worker range ('100-500') becomes a hint, never a made-up head
-// count. The pay answer becomes a note: the pay box is always the owner's own click.
-//
-// Motion: the REC dot lights (240 ms) and beats three times at 1 Hz, then stays on; the corners let go 8 px and lock
-// back (120 + 240 ms, as in the hero). The form fades out in 160 ms, the result rises 12 px in 360 ms. Tier "still":
-// final states at once.
 
 const ORDER = ['business', 'workers', 'industry', 'city', 'country', 'contact', 'email', 'whatsapp', 'pay_ack'];
 const REQUIRED = ORDER.filter((n) => n !== 'whatsapp');
@@ -24,7 +9,6 @@ const CORNER = [[-8, -8], [8, -8], [8, 8], [-8, 8]];
 
 const norm = (s) => String(s ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-/** Pure: the whole number people type ("120", "1.200", "1,200", "1 200"); NaN when it is not one. */
 export function parseWorkers(raw) {
   const s = String(raw ?? '').trim();
   if (/^\d+$/.test(s)) return Number(s);
@@ -32,10 +16,8 @@ export function parseWorkers(raw) {
   return NaN;
 }
 
-/** Pure: true when a valid head count sits below 50 or above 5000 (a calm note, never a block). */
 export const outOfRange = (n) => Number.isInteger(n) && n > 0 && (n < 50 || n > 5000);
 
-/** Pure: the error key for one field, '' when valid. Keys map to strings "ch09_err_<key>". */
 export function check(name, value) {
   const v = typeof value === 'string' ? value.trim() : value;
   switch (name) {
@@ -75,7 +57,6 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
   const prefillMsg = $('[data-prefill-msg]');
   const dot = $('.ch09-dot');
 
-  /** Show or clear one field's error. Returns the error key ('' when valid). */
   function validate(name) {
     const key = check(name, valueOf(name));
     const box = $(`[data-err="${name}"]`);
@@ -96,7 +77,6 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
 
   const tag = (name, on) => $(`[data-field="${name}"]`)?.classList.toggle('is-prefilled', on);
 
-  /** After a first submit, the live line keeps counting the fields still marked (and clears at zero). */
   function recount() {
     if (!tried) return;
     const n = ORDER.filter((k) => input(k).getAttribute('aria-invalid') === 'true').length;
@@ -104,7 +84,6 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
     if (summary.textContent !== text) summary.textContent = text;
   }
 
-  /** A "yes" from the fit check asks for the owner's own tick; once ticked, that note has done its job. */
   const payHint = () => { if (payAnswer === 'yes') payNote.hidden = input('pay_ack').checked; };
 
   form.addEventListener('input', (e) => {
@@ -147,7 +126,6 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
       return;
     }
     summary.textContent = '';
-    turnOn();
   });
 
   function turnOn() {
@@ -176,7 +154,6 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
     });
   }
 
-  /** Back to the form with every value kept (the "Edit details" button, or a new prefill). */
   function reopen(focus) {
     card.classList.remove('is-rec');
     $('[data-status="idle"]').hidden = false;
@@ -187,7 +164,6 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
   }
   $('[data-edit]').addEventListener('click', () => reopen(true));
 
-  // Prefill from 06 (fit check) and 07 (cities). Overwrites: the visitor just asked for it.
   function countryCode(code, name) {
     const sel = input('country');
     const options = [...sel.options].map((o) => o.value);
@@ -221,7 +197,6 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
     recount();
   });
 
-  // Values the browser restored (back/forward) count from the start.
   meter();
   sizeNote();
   el.dataset.ready = 'true';

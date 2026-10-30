@@ -1,21 +1,13 @@
-// ch01.js: Chapter 01 "Qué compran los laboratorios". The "Espejo": the almacén plate, the plate dimmed, the hand
-// points alone, then the points glide onto a robot's two hands. The four figures are server-rendered with their final
-// points, so the chapter reads without JS. Full tier (wide and tall enough): one pinned stage scrubbed over 250% of a
-// viewport (GSAP ScrollTrigger; the camera wall above pins first and refreshes first). Lite: each figure locks on once
-// as it enters and the fourth glides from the worker's hands to the robot's. Still: final states, nothing moves.
 import { loadGsap } from '../vendor.js';
 
 const STAGE_MQ = '(min-width: 900px) and (min-height: 640px)';
 const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';
-// MediaPipe hand topology, as in the hero overlay.
 const BONES = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [5, 9], [9, 10], [10, 11], [11, 12],
   [9, 13], [13, 14], [14, 15], [15, 16], [13, 17], [17, 18], [18, 19], [19, 20], [0, 17]];
 const SPREAD = 0.3; // share of the glide over which the joints set off: wrist first, fingertips last
 
-/** The brand's --ease-move, cubic-bezier(0.65, 0, 0.35, 1). */
 const easeMove = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
-/** The hands drawn in one figure: joints, bone path and their baked coordinates. */
 function handsOf(beat) {
   return [...beat.querySelectorAll('.ch01-hand')].map((g) => {
     const joints = [...g.querySelectorAll('.ch01-j')];
@@ -23,7 +15,6 @@ function handsOf(beat) {
   });
 }
 
-/** Draws the hands at progress p (0 to 1) of the glide from one set of points to the other. */
 export function glideTo(hands, from, to, p) {
   hands.forEach((h, k) => {
     const pts = from[k].map(([x0, y0], i) => {
@@ -44,13 +35,11 @@ export function init(el, { tier }) {
   el.dataset.tier = tier;
   if (tier === 'still') { el.dataset.mode = 'still'; el.dataset.ready = 'true'; return; }
   if (tier === 'full' && matchMedia(STAGE_MQ).matches) {
-    // Returned so main.js waits for the pin: it adds 250% of a viewport and moves everything below it.
     return stage(el, beats, human, robot).catch(() => { el.classList.remove('is-stage'); lite(el, beats, human, robot); });
   }
   lite(el, beats, human, robot);
 }
 
-/* Lite: one lock-on per figure as it enters (joints, then bones); the robot figure then glides once. */
 function lite(el, beats, human, robot) {
   el.dataset.mode = 'lite';
   if (typeof el.animate !== 'function' || !('IntersectionObserver' in window)) { el.dataset.ready = 'true'; return; }
@@ -96,14 +85,8 @@ function glide(hands, from, to, ms) {
   });
 }
 
-/* Full: the pinned, scrubbed stage. Timeline units: beat 1 holds to 1.2; beat 2 (plate dims) 1.2 to 2.2; beat 3
-   (plate gone) 3.2 to 4.2; the glide 4.8 to 7.4; the robot plate comes up under the settled points 7.1 to 8.2;
-   hold to 10. */
 async function stage(el, beats, human, robot) {
   const { gsap, ScrollTrigger } = await loadGsap();
-  // A reader who has already scrolled to the chapter, or past it, before the scripts arrive keeps it as it is: a pin
-  // built now would move what they are reading by 250% of a viewport (as on the camera wall, js/chapters/wall.js).
-  // At the top nothing has moved yet, and a deep link (#hash) lands again once the page has settled (main.js).
   if (scrollY > 0 && location.hash.length <= 1 && el.getBoundingClientRect().top < innerHeight) {
     lite(el, beats, human, robot);
     return;
@@ -136,19 +119,16 @@ async function stage(el, beats, human, robot) {
       onUpdate: () => { const t = tl.time(); setStep(t < 1.7 ? 1 : t < 3.7 ? 2 : t < 5 ? 3 : 4); },
     });
     tl.to(fill, { scaleY: 1 / 3, duration: 1 }, 1.2)
-      // 2: the plate dims to 40% and loses its color; points and bones stay at full strength
       .to(caps[0], { opacity: 0, duration: 0.4 }, 1.2)
       .to(frames[1], { opacity: 1, duration: 1 }, 1.2)
       .to(caps[1], { opacity: 1, duration: 0.5 }, 1.7)
       .set(frames[0], { opacity: 0 }, 2.2) // a covered frame is hidden so its anti-aliased edge never shows
-      // 3: the plate is gone, the points remain on graphite
       .to(fill, { scaleY: 2 / 3, duration: 1 }, 3.2)
       .to([caps[1], chips[0], chips[1]], { opacity: 0, duration: 0.4 }, 3.2)
       .to(frames[2], { opacity: 1, duration: 1 }, 3.2)
       .fromTo(chips[2], { opacity: 0 }, { opacity: 1, duration: 0.5 }, 3.7)
       .to(caps[2], { opacity: 1, duration: 0.5 }, 3.7)
       .set(frames[1], { opacity: 0 }, 4.2)
-      // 4: the points glide and settle on the robot's hands, then the robot plate comes up under them
       .to(fill, { scaleY: 1, duration: 3.2 }, 4.8)
       .to(caps[2], { opacity: 0, duration: 0.4 }, 4.8)
       .to(caps[3], { opacity: 1, duration: 0.5 }, 5.3)

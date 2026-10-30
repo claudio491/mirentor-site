@@ -1,14 +1,8 @@
-// motion.js: the global motion layer (docs/superpowers/specs/2026-10-29-mirentor-motion-system.md). Smooth wheel
-// scrolling, Bodoni headlines rising out of line masks, kickers printing like a HUD readout, media drifting with the
-// scroll and a viewfinder that locks onto whatever the pointer is on. Chapters add their own moments on top of this.
-// Still tier (reduced motion) gets none of it; everything here starts from a readable page and only hides what it is
-// about to reveal itself.
 import { loadGsap, loadLenis } from './vendor.js';
 
 const finePointer = () => matchMedia('(hover: hover) and (pointer: fine)').matches;
 const headerH = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 64;
 
-/** Starts the layer. Resolves once every split and trigger exists, so main.js can measure the page after it. */
 export async function initMotion({ tier }) {
   if (tier === 'still') return;
   const { gsap, ScrollTrigger, SplitText } = await loadGsap('SplitText');
@@ -20,10 +14,6 @@ export async function initMotion({ tier }) {
   if (finePointer()) viewfinder(gsap);
 }
 
-/* Lenis on the wheel only (touch stays native), driven by GSAP's ticker so pins and scrubs never drift. In-page links
-   glide when clicked and jump when pressed from the keyboard (a key press never animates); the hash still changes and
-   hashchange still fires (chapter 08 opens the linked question on it). Either way focus lands on the target, as the
-   browser's own jump would do: the next Tab goes on from there and a screen reader moves with it. */
 async function smoothScroll(gsap, ScrollTrigger) {
   const Lenis = await loadLenis();
   const lenis = new Lenis({ duration: 1.1, smoothWheel: true, autoRaf: false });
@@ -52,8 +42,6 @@ async function smoothScroll(gsap, ScrollTrigger) {
   window.mirentorLenis = lenis;
 }
 
-/* Chapter headlines: each line rises out of its own mask (900 ms, reveal, 80 ms apart) when the headline is 12% into
-   the viewport. SplitText keeps the full text on the heading for screen readers and re-splits on resize. */
 function headlines(gsap, SplitText) {
   for (const el of document.querySelectorAll('.ch-title')) {
     el.classList.add('mo-split');
@@ -67,13 +55,9 @@ function headlines(gsap, SplitText) {
   }
 }
 
-/* Kickers print like the visor's HUD: one character every 14 ms behind a block cursor that blinks twice and goes.
-   The split letters are hidden from assistive tech; a plain copy of the text, visually hidden, speaks for them (as the
-   camera wall's kicker does: a name on the split span would sit on a generic element, where ARIA ignores it). */
 function kickers(gsap, SplitText) {
   for (const el of document.querySelectorAll('.ch-kicker')) {
     el.classList.add('mo-split');
-    // The kicker is a flex row (bar + text): the text goes in one span so its letters still wrap on a phone.
     const text = Object.assign(document.createElement('span'), { className: 'mo-kt' });
     [...el.childNodes].filter((n) => n.nodeType === 3 || !n.matches?.('i')).forEach((n) => text.appendChild(n));
     el.append(text, Object.assign(document.createElement('span'), { className: 'sr-only', textContent: text.textContent.trim() }));
@@ -89,7 +73,6 @@ function kickers(gsap, SplitText) {
   }
 }
 
-/* [data-parallax]: media drifts from -6% to 6% of its own height while its frame crosses the viewport. */
 function parallax(gsap) {
   for (const el of document.querySelectorAll('[data-parallax]')) {
     gsap.fromTo(el, { yPercent: -6 }, {
@@ -99,8 +82,6 @@ function parallax(gsap) {
   }
 }
 
-/* The viewfinder: four corner brackets lock onto the link, button or [data-vf] element under the pointer (from 12 px
-   out to 6 px, lock ease, 220 ms) and fade when the pointer leaves. It never replaces the system cursor. */
 function viewfinder(gsap) {
   const SEL = 'a[href], button, [data-vf], .fit-seg-key, .ch07-city';
   const vf = Object.assign(document.createElement('div'), { className: 'mo-vf' });
