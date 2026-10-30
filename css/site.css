@@ -319,9 +319,15 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 }
 @media (max-width: 767px) { .visor { --fy: 0.5; } }
 .visor-media, .plate, .plate img, .visor > canvas, .overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
-/* While the page lifts off the hero toward the camera wall, the picture and its tracking hold still (--lift, set from the
-   scroll by js/chapters/wall.js on a fine pointer) and the frame, HUD and copy slide off it */
-.visor-media, .visor > canvas, .overlay { transform: translateY(var(--lift, 0px)); }
+/* While the page lifts off the hero toward the camera wall, the picture, its tracking and its brackets hold still (--lift,
+   set from the scroll by js/chapters/wall.js on a fine pointer) and the HUD row, the scrim, the ruler and the copy slide
+   off it. Held, the frame's clip reaches down by the lift, so the picture stays whole where the visor sat: one picture,
+   no gutter, until the wall's clone (the same plate, brackets and hands) takes it over in the frame the stage sticks. */
+.visor-media, .visor > canvas, .overlay, .vf { transform: translateY(var(--lift, 0px)); }
+.visor[data-hold] {
+  overflow: visible;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% + var(--lift, 0px) - var(--chamfer)), calc(100% - var(--chamfer)) calc(100% + var(--lift, 0px)), var(--chamfer) calc(100% + var(--lift, 0px)), 0 calc(100% + var(--lift, 0px) - var(--chamfer)));
+}
 .plate img { object-fit: cover; object-position: 50% calc(var(--fy) * 100%); }
 .visor > canvas { z-index: 1; }
 .visor-media { z-index: 0; }
@@ -467,7 +473,10 @@ html.still .pause { display: none; }
 .plate { opacity: 0; }
 .plate.is-on, .no-js .plate:first-child, .plate:only-child { opacity: 1; }
 .plate img { transform: scale(1.03); }
-.visor > canvas.depth { position: absolute; inset: 0; width: 100%; height: 100%; }
+.visor > canvas.depth { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity var(--d-bone) var(--ease-track); }
+/* Held for the camera wall, the depth renderer rests (visor.js) and its canvas gives way to the plain plate: the picture
+   the clone carries on, so the handoff to it is exact */
+.visor[data-hold] > canvas.depth { opacity: 0; }
 
 /* Tracking overlay (drawn by overlay.js in CSS pixels) */
 .trk-corner { fill: none; stroke: var(--signal); stroke-width: 1.5; stroke-linecap: square; }
@@ -513,11 +522,12 @@ html.still .ruler { grid-template-columns: minmax(0, 1fr) auto; }
 .no-js .ruler { grid-template-columns: minmax(0, 1fr) auto; }
 
 /* Short laptop viewports (browser chrome included): the lead moves under the frame so the hands stay clear. */
-.lead-below { display: none; }
+.lead-below { display: none; position: relative; z-index: 6; } /* over the held picture (see --lift), on its own graphite */
 @media (min-width: 768px) and (max-height: 860px) {
   .hero-copy h1 { font-size: min(4.3vw, 7svh); max-width: 28ch; }
   .hero-side .lead { display: none; }
   .lead-below { display: block; grid-area: 2 / 1; padding: var(--space-3) 44px 0; max-width: 60ch; color: var(--glove); }
+  .visor[data-hold] ~ .lead-below { background: var(--graphite); max-width: none; padding-right: calc(100% - 60ch - 44px); }
 }
 
 /* chapters-base.css */
@@ -1853,7 +1863,7 @@ html.still .ch09 .ch09-corners i { transform: none; transition: none; }
 
 /* chapters/wall-cams.css */
 /* wall-cams.css: the camera wall between the hero and chapter 01. No JS, still, lite: the head, the wall (two columns
-   under 900 px with CAM 01 across; 3 x 3 from 900 px, CAM 01 in the middle, CAM 02 to 09 clockwise), then the meter.
+   under 900 px with CAM 01 across; 3 x 3 from 900 px, CAM 01 in the middle, CAM 02 to 09 clockwise; on the stage the camera the visor held takes the middle and CAM 01 its place), then the meter.
    Full tier: js/chapters/wall.js adds .is-stage (the stage sticks under the header, the head and the meter become the
    band under the wall) and .wall-fly, the visor's clone. Kept lean: it is render-blocking. */
 .wall {
@@ -1976,7 +1986,10 @@ html.no-js .wall-meter, html.still .wall-meter { display: none; } /* nothing run
 }
 .wall.is-stage .wall-grid { grid-column: 1 / -1; grid-row: 1; position: relative; z-index: 1; height: 100%; grid-template-rows: repeat(3, minmax(0, 1fr)); }
 .wall.is-stage .wall-frame { aspect-ratio: auto; height: 100%; }
-.wall.is-held .wall-grid { visibility: hidden; } /* while the clone holds under the rising hero (see wall.js) */
+/* While the hero lifts off (see wall.js): the section is see-through, so the visor's held picture reaches over it, and the
+   wall and the clone wait unseen until the stage sticks */
+.wall.is-held { background: transparent; }
+.wall.is-held .wall-grid, .wall.is-held .wall-fly { visibility: hidden; }
 /* Where the stage will be built (full tier, or the tier not picked yet), the static head never shows before it is: on a
    screen taller than the hero it would print under the hero, then vanish into the band. A late fallback shows it anyway
    if the scripts never arrive. */
@@ -2011,21 +2024,16 @@ html.no-js .wall-meter, html.still .wall-meter { display: none; } /* nothing run
   background: linear-gradient(var(--wall-line), var(--wall-line)) left top / 1.5px 7px no-repeat, linear-gradient(var(--wall-line), var(--wall-line)) right top / 1.5px 7px no-repeat;
 }
 
-/* The visor's clone: window, picture, tracked hands, scrims, brackets, HUD row and the CAM 01 chip, all moved by
-   transform. Like the held visor (hero.css), it carries no hand boxes or tags. */
+/* The visor's clone: window, picture, tracked hands, brackets and the centre camera's chip, all moved by transform.
+   Like the held visor (hero.css), it carries no hand boxes or tags, and no HUD row or scrim: those left with the hero. */
 .wall-fly { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
-.wall-fly-win, .wall-fly-plate, .wall-fly-bar, .wall-fly-hud, .wall-fly-cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+.wall-fly-win, .wall-fly-plate, .wall-fly-bar, .wall-fly-cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
 .wall-fly-win { overflow: hidden; background: var(--panel); }
 .wall-fly-plate picture, .wall-fly-plate img, .wall-fly-plate svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .wall-fly-plate img { object-fit: fill; }
-.wall-fly-scrim { position: absolute; inset: 0; background: linear-gradient(rgba(27, 29, 32, 0.6), rgba(27, 29, 32, 0) 20%), linear-gradient(to top, rgba(27, 29, 32, 0.72), rgba(27, 29, 32, 0) 18%); }
 .wall-fly-bar { background: var(--wall-line); }
 .wall-fly-bar.h { width: 22px; height: 1.5px; }
 .wall-fly-bar.v { width: 1.5px; height: 22px; }
-.wall-fly-row { display: flex; gap: 8px; }
-.wall-fly-row .chip { height: 26px; padding: 0 9px; }
-.wall-fly-sw { flex: none; width: 8px; height: 8px; background: var(--signal); }
-.wall-fly-counts { color: var(--glove); }
 .wall-fly-cam { height: 24px; padding: 0 8px; gap: 7px; }
 /* Tracking rides the whole pull-back: joints and bones keep their size on screen and land at the tile's (--k: 0 to 1).
    Strokes do not scale with the viewBox (non-scaling-stroke) but do with the clone's CSS scale (--sc, set by the module):

@@ -1,9 +1,12 @@
 // visor.js: the hero loop. Five plates cut every SHOT_MS; the tracking overlay releases just before each cut and
 // locks again after it; the HUD shows true time. Time is wall-clock based, so hidden tabs never make it drift.
 // The loop only starts once every plate is decoded: until then the first shot holds, so the frame is never empty.
-// Hold: while the page lifts off the hero, the camera wall (js/chapters/wall.js) keeps the visor on CAM 01, the camera
-// its clone carries down ("visor:hold" on the visor, or data-hold before the loop starts). The visor cuts there through
-// its own release and lock and keeps that shot (plate, depth, task chip, ruler segment); the counters keep running.
+// Hold: while the page lifts off the hero, the camera wall (js/chapters/wall.js) asks the visor to hold ("visor:hold" on
+// the visor, or data-hold before the loop starts). Asked for no shot, the visor keeps the one on screen (or the one its
+// cut already released to), never cuts, and answers which one it holds in the event's detail.index: that camera becomes
+// the wall's centre. Asked for a shot (the wall's stage already under way), it cuts there through its own release and
+// lock. Held, the shot clock runs on to the end of its segment (the ruler never goes back), the counters keep running and
+// the depth renderer rests (hero.css fades its canvas to the plain plate, the picture the wall's clone carries on).
 import { SHOTS, SHOT_MS } from './shots.js';
 import { counters } from './clock.js';
 import { drawShot } from './overlay.js';
@@ -119,16 +122,33 @@ export function createVisor(root, { tier, tracking, strings }) {
     if (onScreen && !document.hidden && (playing || !ready)) raf = requestAnimationFrame(frame);
   }
 
-  /** Keeps the visor on shot i: a cut through the release and the lock when another shot shows, nothing otherwise. */
+  /** Keeps the visor on shot i, or on the shot it shows when i is not given (the one its release already leads to, in
+   *  the last RELEASE_MS of a shot). Returns the held shot. A given shot that is not on screen comes through the release
+   *  and the lock; the shot on screen just stays, its ruler running on from where it stands. */
   function hold(i) {
-    if (tier === 'still' || held === i) return;
+    if (tier === 'still') return 0;
     const t = elapsed(performance.now());
     const s = shotClock(t);
+    if (i === undefined) {
+      if (held >= 0) return held;
+      if (!ready || index < 0) i = 0;
+      else if (cutting || !releasing) i = index;
+      else { // the release is out: the cut lands on the next shot, on its own beat
+        i = (index + 1) % SHOTS.length;
+        held = i;
+        holdBase = Math.floor(s / SHOT_MS) * SHOT_MS + SHOT_MS;
+        holdSince = t;
+        depth?.stop();
+        return i;
+      }
+    }
+    if (held === i) return i;
+    depth?.stop();
     const same = ready && index === i && !releasing;
-    holdBase = same ? s : Math.floor(s / cycleMs) * cycleMs + i * SHOT_MS;
+    holdBase = same || !ready ? s : Math.floor(s / cycleMs) * cycleMs + i * SHOT_MS;
     holdSince = t;
     held = i;
-    if (!ready || same) return;
+    if (!ready || same) return i;
     cutting = true;
     (overlay ? overlay.release() : Promise.resolve()).then(() => {
       cutting = false;
@@ -136,6 +156,7 @@ export function createVisor(root, { tier, tracking, strings }) {
       show(i, true);
       step(performance.now());
     });
+    return i;
   }
 
   /** Back to the loop, from where the held shot stands. */
@@ -144,6 +165,7 @@ export function createVisor(root, { tier, tracking, strings }) {
     const t = elapsed(performance.now());
     shift = shotClock(t) - t;
     held = -1;
+    if (playing && onScreen && !document.hidden) depth?.start();
     kick();
   }
 
@@ -151,7 +173,7 @@ export function createVisor(root, { tier, tracking, strings }) {
 
   function setPlaying(on) {
     const now = performance.now();
-    if (on && !playing) { pausedTotal += now - pausedAt; playing = true; if (onScreen && !document.hidden) depth?.start(); }
+    if (on && !playing) { pausedTotal += now - pausedAt; playing = true; if (onScreen && !document.hidden && held < 0) depth?.start(); }
     if (!on && playing) {
       pausedAt = now; playing = false; depth?.stop();
       if (releasing) { svg.querySelector('.trk')?.getAnimations().forEach((a) => a.cancel()); releasing = false; }
@@ -223,13 +245,17 @@ export function createVisor(root, { tier, tracking, strings }) {
 
   pauseBtn?.addEventListener('click', onPauseClick);
   document.addEventListener('visibilitychange', kick);
-  root.addEventListener('visor:hold', (e) => { if (e.detail?.on) hold(e.detail.index ?? 0); else unhold(); });
-  if (root.dataset.hold) hold(+root.dataset.hold || 0); // the wall asked before the loop existed
+  // The answer rides the event: detail.index, the shot held (dispatch is synchronous)
+  root.addEventListener('visor:hold', (e) => {
+    if (!e.detail?.on) { unhold(); return; }
+    e.detail.index = hold(Number.isInteger(e.detail.index) ? e.detail.index : undefined);
+  });
+  if ('hold' in root.dataset) hold(+root.dataset.hold || 0); // the wall asked before the loop existed
   // data-onscreen: the REC dot blinks only while the visor is on screen (hero.css)
   const io = new IntersectionObserver(([e]) => {
     onScreen = e.isIntersecting;
     root.dataset.onscreen = String(onScreen);
-    if (onScreen) { if (playing) depth?.start(); kick(); } else depth?.stop();
+    if (onScreen) { if (playing && held < 0) depth?.start(); kick(); } else depth?.stop();
   });
   io.observe(root);
   let resizeTimer = 0;
@@ -245,7 +271,7 @@ export function createVisor(root, { tier, tracking, strings }) {
           depth = null;
           setupDepth().then((r) => {
             depth = r;
-            if (r && index >= 0) { r.show(`${SHOTS[index].id}-${orient}`); if (playing && onScreen) r.start(); }
+            if (r && index >= 0) { r.show(`${SHOTS[index].id}-${orient}`); if (playing && onScreen && held < 0) r.start(); }
           }).catch(() => {});
         }
       }

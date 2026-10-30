@@ -3,29 +3,32 @@
 //
 // Full tier, viewport 900 x 640 and up: the stage sticks under the header for 210% of a viewport (position: sticky, so
 // no layout shifts and no jitter whatever moves the page; the scroll scrubs the pull-back, reversibly). From the first
-// pixel of scroll the visor stays on CAM 01 ("visor:hold", js/hero/visor.js), the camera its clone carries down. While
-// the hero scrolls away, the clone (same almacen plate, frame, bevel, HUD row and tracked hands) holds still where the
-// visor sat. Then it pulls back into CAM 01, the middle of a 3 x 3 wall, and never loses its tracking: joints and bones
-// keep their size on screen and land at the tile's, while only what the visor alone shows (the HUD row, the scrims) lets
-// go, and the CAM 01 chip prints once the row has gone. Hand boxes and tags let go when the hold starts: neither the held
-// visor (hero.css) nor the clone carries them, so no text ever crosses the hero's copy. The other cameras wait on standby (the
-// panel, dim brackets, a mist CAM chip) and light in two waves: the four corners together once the clone has cleared
-// them, then, after a rest, the four edges together once it has landed. Lighting: the CAM chip prints, the brackets
-// settle, the picture fades up, the other chips print. The band's head prints with the edges, as the setup (kicker,
-// headline, source). Then the hit, alone: a scan line crosses the wall, every camera's hands lock at once and "Tiempo
-// que cuenta" steps from x1 to x9 inside a viewfinder. Then the caption: the band's line prints at the lock's last bone,
-// and the meter's brackets let go once it has. The full wall holds before the stage lets go. On a screen taller than
-// the hero (the visor stops growing), the wall takes the whole stage and fades in under the clone as it pulls back. The
-// scroll arms each of these moments; each plays in time, in order (never before the one ahead of it allows), and goes
-// back to standby when the visitor scrolls above it, so nothing ever stops halfway.
+// pixel of scroll the visor holds the shot on screen, with no cut ("visor:hold", js/hero/visor.js answers which), and
+// that camera takes the middle of the 3 x 3 wall (CAM 01, the centre otherwise, takes its place). While the hero
+// scrolls away, its picture holds still where it sat and reaches over the gutter (hero.css): one picture, the hero's HUD
+// row, scrim, ruler and copy sliding off it, while the section is see-through and the wall and the visor's clone wait
+// unseen. In the frame the stage sticks, the clone (same plate and framing, brackets on the visor's, the same hands)
+// takes the picture over, then pulls back into the centre camera and never loses its tracking: joints and bones keep
+// their size on screen and land at the tile's, and the camera's chip prints on its corner. Hand boxes and tags let go
+// when the hold starts: neither the held visor (hero.css) nor the clone carries them, so no text ever crosses the
+// hero's copy. The other cameras wait on standby (the panel, dim brackets, a mist CAM chip) and light in two waves: the
+// four corners together once the clone has cleared them, then, after a rest, the four edges together once it has
+// landed. Lighting: the CAM chip prints, the brackets settle, the picture fades up, the other chips print. The band's
+// head prints with the edges, as the setup (kicker, headline, source). Then the hit, alone: a scan line crosses the
+// wall, every camera's hands lock at once and "Tiempo que cuenta" steps from x1 to x9 inside a viewfinder. Then the
+// caption: the band's line prints at the lock's last bone, and the meter's brackets let go once it has. The full wall
+// holds before the stage lets go. On a screen taller than the hero (the visor stops growing), the wall takes the whole
+// stage and fades in under the clone as it pulls back. The scroll arms each of these moments; each plays in time, in
+// order (never before the one ahead of it allows), and goes back to standby when the visitor scrolls above it, so
+// nothing ever stops halfway.
 // Lite tier (phones, short screens): no stage; each camera lights as it enters, hands still. When the meter under the
 // wall comes into view, any camera still waiting lights, then one beat locks every camera's hands at once with x9.
 // Still tier: the final wall, standing still.
 //
 // One loop (at most 10 updates a second, only while the wall is on screen, below the header, and not paused) runs the
 // cameras' clock (the visitor's time, HH:MM:SS, every camera on the same second) and "Tiempo que cuenta": the hero's
-// own count (CAM 01 is the visor's camera), continued without a jump, plus eight more cameras' time once their hands
-// lock. Only the wall's own pause holds it. Visitor time, never invented data. The clone's REC readout, the visor's own format with frames, is painted every frame.
+// own count (the centre camera is the visor's), continued without a jump, plus eight more cameras' time once their hands
+// lock. Only the wall's own pause holds it. Visitor time, never invented data.
 import { loadGsap } from '../vendor.js';
 import { timecode, duration } from '../hero/clock.js';
 import { PLATE_ZOOM, coverMap } from '../hero/overlay.js';
@@ -34,13 +37,12 @@ import { SHOTS } from '../hero/shots.js';
 const STAGE_MQ = '(min-width: 900px) and (min-height: 640px)';
 const PLATE = { w: 1536, h: 864 };
 const VISOR = { inset: 14, arm: 22, bevel: 12, hud: 24 }; // the visor's brackets, chamfer and HUD row (hero.css)
-const FY0 = SHOTS.find((s) => s.id === 'almacen')?.fy ?? 0.5; // the visor's framing of CAM 01's plate
 // How long the stage stays, in % of a viewport. The moments after the landing are chained in time (about 1.9 s from the
 // corners to the last bone), so the pin must outlast them at a brisk wheel: at 600 px/s from the stage start the last
 // bone lands at 79% of a 210% pin (it landed after the stage let go at 150%), and the lit wall still holds after it.
 const PIN = 210;
 // The stage's scroll timeline, in units of the stage (a unit is a third of a viewport: 210% is 6.3 units). The zoom
-// starts 0.1 in (30 px at 900 px tall) and runs with the scroll. Where the scroll arms each moment: the CAM 01 chip once
+// starts 0.1 in (30 px at 900 px tall) and runs with the scroll. Where the scroll arms each moment: the camera chip once
 // the HUD row has gone, the corners once the clone has cleared them (measured), the edges (and the band's head) a rest
 // later and after the landing, the beat once the wall has stood lit a while.
 const T = { zoom: 0.1, zoomFor: 1.6, camChip: 0.5, rest: 0.25, toBeat: 0.8, end: PIN * 3 / 100 };
@@ -76,9 +78,8 @@ function bonesOf(hand) {
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const node = (tag, className) => Object.assign(document.createElement(tag), { className });
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-export function init(el, { tier, strings }) {
+export function init(el, { tier }) {
   const tiles = [...el.querySelectorAll('.wall-tile')];
   if (tiles.length !== 9) return;
   el.dataset.tier = tier;
@@ -112,7 +113,7 @@ export function init(el, { tier, strings }) {
   // GSAP waits for the page's load and an idle moment, like the global motion layer: on a slow phone, fetching it any
   // earlier pushes the hero's largest paint back. Until then the wall simply shows its final state.
   // Returned so main.js waits for the stage before it measures the page: the stage adds 210% of a viewport.
-  return afterLoad().then(() => run(el, tiles, clock, tier, strings)).catch((err) => {
+  return afterLoad().then(() => run(el, tiles, clock, tier)).catch((err) => {
     el.dataset.moduleError = String(err?.message || err);
     el.classList.remove('is-motion');
     tiles.forEach((t) => t.classList.add('is-on'));
@@ -165,11 +166,10 @@ function createClock(el, tiles) {
   const count = el.querySelector('[data-wall-count]');
   const x = el.querySelector('[data-wall-x]');
   const hero = heroCount();
-  let rate = 1; // cameras counting: CAM 01 (the hero's count), then nine once their hands lock
+  let rate = 1; // cameras counting: the centre (the hero's count), then nine once their hands lock
   let extra = 0; // ms the other cameras added: (rate - 1) times the time the wall ran at that rate
   let held = 0; // ms of the hero's count that went by while the wall was paused: the meter holds, then goes on
   let pausedH = 0;
-  let extras = []; // [node, live]: the clone's REC timecode, painted every frame while live() says its row shows
   let lastTc = '';
   let last = 0;
   let raf = 0;
@@ -187,15 +187,9 @@ function createClock(el, tiles) {
     const s = `×${rate}`;
     if (x && x.textContent !== s) x.textContent = s;
   }
-  function paintRec() {
-    if (!extras.length) return;
-    const tc = timecode(new Date());
-    for (const [n, live] of extras) if (live() && n.textContent !== tc) n.textContent = tc;
-  }
   function frame(t) {
     raf = 0;
     if (!running()) { last = 0; return; }
-    paintRec();
     if (!last) { last = t; paint(); } else if (t - last >= 100) { extra += (t - last) * (rate - 1); last = t; paint(); }
     raf = requestAnimationFrame(frame);
   }
@@ -239,8 +233,6 @@ function createClock(el, tiles) {
       paint();
     },
     sync,
-    attach(n, live = () => true) { extras.push([n, live]); n.textContent = timecode(new Date()); },
-    detach(n) { extras = extras.filter(([e]) => e !== n); },
   };
 }
 
@@ -319,7 +311,7 @@ function meterLock(gsap, el, hold = 0.76) {
   return { play: () => { gsap.set(x, { clipPath: 'inset(0% 100% 0% 0%)' }); tl.play(0); }, settle: () => tl.progress(1).pause() };
 }
 
-async function run(el, tiles, clock, tier, strings) {
+async function run(el, tiles, clock, tier) {
   const g = await loadGsap('SplitText');
   const lateStage = readerReached(el);
   const mm = g.gsap.matchMedia();
@@ -327,7 +319,7 @@ async function run(el, tiles, clock, tier, strings) {
     mm.add({ stage: tier === 'full' ? STAGE_MQ : 'not all', flat: tier === 'full' ? `not all and ${STAGE_MQ}` : 'all' }, (ctx) => {
       let undo = null;
       if (ctx.conditions.stage && !lateStage) {
-        try { undo = stage(g, el, tiles, clock, strings); } catch (err) {
+        try { undo = stage(g, el, tiles, clock); } catch (err) {
           el.dataset.stageError = String(err?.message || err);
           el.classList.remove('is-stage', 'is-held');
           el.style.removeProperty('--wall-pin');
@@ -459,14 +451,12 @@ function headSequence(gsap, SplitText, el, tl, at, k, withLine = true) {
 }
 
 /* ---------- full tier: the stage ---------- */
-function stage(g, el, tiles, clock, strings) {
+function stage(g, el, tiles, clock) {
   const { gsap, ScrollTrigger, SplitText } = g;
   const stageEl = el.querySelector('.wall-stage');
   const grid = el.querySelector('.wall-grid');
   const visor = document.getElementById('visor');
   const header = document.querySelector('.site-header');
-  const cam1 = tiles[0];
-  const cam1Frame = cam1.querySelector('.wall-frame');
   const headerH = () => header?.offsetHeight || 64;
   const pinPx = () => Math.round((innerHeight * PIN) / 100);
 
@@ -477,15 +467,20 @@ function stage(g, el, tiles, clock, strings) {
   ScrollTrigger.addEventListener('refreshInit', setPin);
   el.classList.add('is-stage');
   el.dataset.mode = 'stage';
-  const fly = buildFlyer(cam1, strings);
+  const fly = buildFlyer();
   stageEl.appendChild(fly.root);
   const sweep = node('i', 'wall-sweep');
   sweep.setAttribute('aria-hidden', 'true');
   stageEl.appendChild(sweep);
-  let rowShows = true; // the clone's HUD row, with its REC readout
-  clock.attach(fly.tc, () => rowShows);
   requestAnimationFrame(clock.sync);
-  cam1.classList.add('is-on'); // CAM 01 is the visor's camera: its hands are tracked from the first pixel
+
+  // The slots: each camera's place in the 3 x 3 (--area, from the page). The centre is CAM 01's; the camera the visor
+  // holds takes it, and CAM 01 takes that camera's place (data-center, data-slot: corner or edge).
+  const area0 = new Map(tiles.map((t) => [t, t.style.getPropertyValue('--area').trim()]));
+  const CENTER = area0.get(tiles[0]);
+  const slotOf = (a) => (a === CENTER ? 'center' : a.split('/').every((n) => +n !== 2) ? 'corner' : 'edge');
+  let center = null; // the camera in the middle: the visor's held shot
+  let c = null; // what hangs on it: its frame, the waves, the beat (rebuilt when the centre changes)
 
   const geo = { V: null, C: null, end: null };
   const cells = new Map();
@@ -503,7 +498,7 @@ function stage(g, el, tiles, clock, strings) {
     const rel = (n) => { const b = n.getBoundingClientRect(); return { x: b.left - s.left, y: b.top - s.top, w: b.width, h: b.height }; };
     const cs = getComputedStyle(el);
     geo.V = { x: (v ? v.left : 24) - s.left, y: 0, w: vw, h: vh };
-    geo.C = rel(cam1Frame);
+    geo.C = rel(c.frame);
     tiles.forEach((t) => cells.set(t, rel(t.querySelector('.wall-frame'))));
     const num = (name, fallback) => parseFloat(cs.getPropertyValue(name)) || fallback;
     geo.end = { inset: num('--wall-inset', 6), arm: num('--wall-arm', 14), bevel: num('--wall-ch', 8), pad: num('--wall-pad', 12) };
@@ -514,103 +509,124 @@ function stage(g, el, tiles, clock, strings) {
   }
 
   const proxy = { u: 0 };
-  // CAM 01's own frame waits under the clone by opacity, so its picture and alt stay in the accessibility tree. On a
+  // The centre's own frame waits under the clone by opacity, so its picture and alt stay in the accessibility tree. On a
   // tall screen the wall reaches below the clone's first frame: it fades in as the clone pulls back.
   const draw = () => {
     const landed = fly.draw(proxy.u, geo);
-    cam1Frame.style.opacity = landed ? '' : '0';
+    c.frame.style.opacity = landed ? '' : '0';
     grid.style.opacity = tall && proxy.u < 0.15 ? (proxy.u / 0.15).toFixed(3) : '';
   };
-  measure();
-  draw();
 
-  // Where the scroll arms each moment, from the measured wall. CAM 01 sits in the middle, so the clone clears the four
-  // corners within a few hundredths of the zoom: they light as one wave once it has cleared the last of them.
-  const zoomAt = (u) => T.zoom + u * T.zoomFor; // ease none: the zoom runs with the scroll, the scrub smooths it
-  const land = zoomAt(1);
-  const cam = (n) => tiles[n - 1];
-  const CORNERS = [2, 4, 6, 8].map(cam); // clockwise from the top left
-  const EDGES = [3, 5, 7, 9].map(cam);
-  const cornersAt = Math.max(...CORNERS.map((t) => zoomAt(Math.min(1, clearAt(geo.V, geo.C, cells.get(t)) + 0.01))));
-  const edgesAt = Math.max(land + 0.06, cornersAt + T.rest);
-  const beatAt = edgesAt + T.toBeat;
-
-  // The scrubbed pull-back: the clone zooms into CAM 01 while what only the visor shows lets go (the HUD row, the scrims)
+  // The scrubbed pull-back: the clone zooms into the centre camera
   const tl = gsap.timeline({ paused: true, defaults: { ease: 'none' } });
   tl.to(proxy, { u: 1, duration: T.zoomFor, ease: 'none', onUpdate: draw }, T.zoom)
-    .to(fly.row, { opacity: 0, y: -6, duration: 0.3 }, T.zoom)
-    .to(fly.scrim, { opacity: 0, duration: 1.2 }, T.zoom)
     .to({}, { duration: 0.01 }, T.end - 0.01);
-
-  // The moments, each in time. The CAM 01 chip prints once the row has gone (never text over text).
-  const camPrint = gsap.timeline({ paused: true });
-  printChip(camPrint, fly.cam, 0, 1);
-  const corners = gsap.timeline({ paused: true });
-  CORNERS.forEach((t, i) => lightSequence(corners, t, i * WAVE.stagger, 1));
-  // CAM 01 lands lit and tracked (the clone carried it down): only its task and clock print, with the edges
-  gsap.set(cam1.querySelector('.wall-sb'), { opacity: 0 });
-  const edges = gsap.timeline({ paused: true });
-  lightSequence(edges, cam1, 0, 1, { brackets: false, plate: false, cam: false });
-  EDGES.forEach((t, i) => lightSequence(edges, t, i * WAVE.stagger, 1));
-
-  // The beat: one scan line crosses the wall at full strength, then every camera's hands lock at once (CAM 01's
-  // already are) and the meter steps to x9 inside its viewfinder; the band's line prints as its caption at the last
-  // bone, and the meter's brackets hold until it has. Back above it, the hands and the line let go (120 ms, the visor's
-  // release) and the meter counts at x1 again.
-  const beat = gsap.timeline({ paused: true });
-  const L = SWEEP ? 0.5 : 0;
-  if (SWEEP) {
-    beat.fromTo(sweep, { yPercent: 0 }, { yPercent: 100, duration: 0.5, ease: 'none' }, 0)
-      .fromTo(sweep, { opacity: 0 }, { opacity: 1, duration: 0.06, ease: 'none' }, 0)
-      .to(sweep, { opacity: 0, duration: 0.06, ease: 'none' }, 0.5);
-  }
-  const others = tiles.slice(1);
-  const lastBone = Math.max(L, ...others.map((t) => lockSequence(beat, t, L)));
+  const zoomAt = (u) => T.zoom + u * T.zoomFor; // ease none: the zoom runs with the scroll, the scrub smooths it
+  const land = zoomAt(1);
   const line = el.querySelector('.wall-line');
-  if (line) beat.fromTo(line, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: CAPTION, ease: 'reveal', immediateRender: true }, lastBone);
-  const meterIn = meterLock(gsap, el, lastBone - L + CAPTION);
-  el.dataset.schedule = JSON.stringify({ camChip: T.camChip, corners: +cornersAt.toFixed(3), land, edges: +edgesAt.toFixed(3), beat: +beatAt.toFixed(3), hitFor: +lastBone.toFixed(3), caption: CAPTION, end: T.end, wave: WAVE });
-  const hands = others.flatMap((t) => [...t.querySelectorAll('.wall-hand')]);
-  const fading = line ? [...hands, line] : hands;
-  const release = gsap.to(fading, { opacity: 0, duration: 0.12, ease: 'none', paused: true, onComplete: () => { beat.pause(0); gsap.set(hands, { opacity: 1 }); } });
+  const L = SWEEP ? 0.5 : 0;
   const kicker = printer(gsap, SplitText, el.querySelector('.wall-kicker'));
   const head = gsap.timeline({ paused: true });
   headSequence(gsap, SplitText, el, head, 0.1, 1, false);
 
+  /** Puts camera `tile` in the middle and builds what hangs on it: the clone's picture and hands, the waves (the
+   *  corners once the clone has cleared them, the edges a rest later and after the landing), the beat. Only while the
+   *  stage stands at its start (nothing armed), so no moment is ever rebuilt halfway. */
+  function cast(tile) {
+    if (c?.center === tile) return;
+    if (c) { c.ctx.revert(); c.center.classList.remove('is-on'); c.frame.style.opacity = ''; }
+    center = tile;
+    tiles.forEach((t) => {
+      const a = t === tile ? CENTER : t === tiles[0] ? area0.get(tile) : area0.get(t);
+      t.style.setProperty('--area', a);
+      t.dataset.slot = slotOf(a);
+      if (t === tile) t.dataset.center = ''; else delete t.dataset.center;
+    });
+    const shot = SHOTS.find((s) => s.id === tile.dataset.scene);
+    fly.load(tile, shot);
+    const at = (n) => tiles.find((t) => t.style.getPropertyValue('--area').trim() === area0.get(tiles[n - 1]));
+    const CORNERS = [2, 4, 6, 8].map(at); // clockwise from the top left, by slot
+    const EDGES = [3, 5, 7, 9].map(at);
+    const others = tiles.filter((t) => t !== tile);
+    c = { center: tile, frame: tile.querySelector('.wall-frame'), others };
+    measure();
+    draw();
+    c.cornersAt = Math.max(...CORNERS.map((t) => zoomAt(Math.min(1, clearAt(geo.V, geo.C, cells.get(t)) + 0.01))));
+    c.edgesAt = Math.max(land + 0.06, c.cornersAt + T.rest);
+    c.beatAt = c.edgesAt + T.toBeat;
+    c.ctx = gsap.context(() => {
+      // The camera chip prints once the hero's HUD row has gone (never text over text)
+      c.camPrint = gsap.timeline({ paused: true });
+      printChip(c.camPrint, fly.cam, 0, 1);
+      c.corners = gsap.timeline({ paused: true });
+      CORNERS.forEach((t, i) => lightSequence(c.corners, t, i * WAVE.stagger, 1));
+      // The centre lands lit and tracked (the clone carried it down): only its task and clock print, with the edges
+      gsap.set(tile.querySelector('.wall-sb'), { opacity: 0 });
+      c.edges = gsap.timeline({ paused: true });
+      lightSequence(c.edges, tile, 0, 1, { brackets: false, plate: false, cam: false });
+      EDGES.forEach((t, i) => lightSequence(c.edges, t, i * WAVE.stagger, 1));
+      // The beat: one scan line crosses the wall at full strength, then every camera's hands lock at once (the
+      // centre's already are) and the meter steps to x9 inside its viewfinder; the band's line prints as its caption
+      // at the last bone, and the meter's brackets hold until it has. Back above it, the hands and the line let go
+      // (120 ms, the visor's release) and the meter counts at x1 again.
+      c.beat = gsap.timeline({ paused: true });
+      if (SWEEP) {
+        c.beat.fromTo(sweep, { yPercent: 0 }, { yPercent: 100, duration: 0.5, ease: 'none' }, 0)
+          .fromTo(sweep, { opacity: 0 }, { opacity: 1, duration: 0.06, ease: 'none' }, 0)
+          .to(sweep, { opacity: 0, duration: 0.06, ease: 'none' }, 0.5);
+      }
+      const lastBone = Math.max(L, ...others.map((t) => lockSequence(c.beat, t, L)));
+      if (line) c.beat.fromTo(line, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: CAPTION, ease: 'reveal', immediateRender: true }, lastBone);
+      c.meterIn = meterLock(gsap, el, lastBone - L + CAPTION);
+      c.beat.call(() => {
+        if (!state[BEAT].armed) return;
+        c.meterIn.play(); // the rate is clipped before it changes
+        clock.setRate(9);
+        others.forEach((t) => t.classList.add('is-on'));
+      }, null, L);
+      c.hands = others.flatMap((t) => [...t.querySelectorAll('.wall-hand')]);
+      const hands = c.hands;
+      const beat = c.beat;
+      c.release = gsap.to(line ? [...hands, line] : hands, { opacity: 0, duration: 0.12, ease: 'none', paused: true, onComplete: () => { beat.pause(0); gsap.set(hands, { opacity: 1 }); } });
+      el.dataset.schedule = JSON.stringify({ camChip: T.camChip, corners: +c.cornersAt.toFixed(3), land, edges: +c.edgesAt.toFixed(3), beat: +c.beatAt.toFixed(3), hitFor: +lastBone.toFixed(3), caption: CAPTION, end: T.end, wave: WAVE, center: +tile.dataset.cam });
+    });
+    tile.classList.add('is-on'); // the centre is the visor's camera: its hands are tracked from the first pixel
+    cues[1].at = c.cornersAt;
+    cues[2].at = c.edgesAt;
+    cues[3].at = c.beatAt;
+  }
+
   const play = (t) => { t.timeScale(1).play(); };
   const back = (t) => { t.timeScale(WAVE.back).reverse(); }; // back to standby, three times faster than it came
   const cues = [
-    { at: T.camChip, play: () => play(camPrint), back: () => back(camPrint) },
-    { at: cornersAt, play: () => play(corners), back: () => back(corners) },
+    { at: T.camChip, play: () => play(c.camPrint), back: () => back(c.camPrint) },
+    { at: 0, play: () => play(c.corners), back: () => back(c.corners) },
     // the setup: the band's head prints with the edges' wave, so the beat lands alone
-    { at: edgesAt, gap: WAVE.edges, play: () => { play(edges); kicker.play(); play(head); }, back: () => { back(edges); kicker.out(); back(head); } },
+    { at: 0, gap: WAVE.edges, play: () => { play(c.edges); kicker.play(); play(head); }, back: () => { back(c.edges); kicker.out(); back(head); } },
     {
-      at: beatAt, gap: WAVE.beat,
-      play: () => { release.pause(0); gsap.set(hands, { opacity: 1 }); if (line) gsap.set(line, { opacity: 0, y: 12 }); beat.play(0); },
-      back: () => { clock.setRate(1); meterIn.settle(); others.forEach((t) => t.classList.remove('is-on')); beat.pause(); gsap.set(sweep, { opacity: 0 }); release.invalidate().restart(); },
+      at: 0, gap: WAVE.beat,
+      play: () => { c.release.pause(0); gsap.set(c.hands, { opacity: 1 }); if (line) gsap.set(line, { opacity: 0, y: 12 }); c.beat.play(0); },
+      back: () => { clock.setRate(1); c.meterIn.settle(); c.others.forEach((t) => t.classList.remove('is-on')); c.beat.pause(); gsap.set(sweep, { opacity: 0 }); c.release.invalidate().restart(); },
     },
   ];
   const BEAT = 3;
-  beat.call(() => {
-    if (!state[BEAT].armed) return;
-    meterIn.play(); // the rate is clipped before it changes
-    clock.setRate(9);
-    others.forEach((t) => t.classList.add('is-on'));
-  }, null, L);
   // Each cue: armed (the scroll is past it), t0 (when it started, ticker seconds) and its pending start
   const state = cues.map(() => ({ armed: false, t0: null, call: null }));
+  const atStart = () => tl.time() === 0 && state.every((s) => !s.armed && s.t0 === null && !s.call);
+  cast(tiles[0]);
+
   const now = () => gsap.ticker.time;
   function start(i) {
-    const c = cues[i];
+    const cue = cues[i];
     const s = state[i];
-    if (!c || !s.armed || s.t0 !== null || s.call) return;
+    if (!cue || !s.armed || s.t0 !== null || s.call) return;
     let at = now();
-    if (c.gap) {
+    if (cue.gap) {
       const prev = state[i - 1].t0;
       if (prev === null) return; // the one ahead has not started: it starts this one when it does
-      at = Math.max(at, prev + c.gap);
+      at = Math.max(at, prev + cue.gap);
     }
-    const go = () => { s.call = null; s.t0 = now(); c.play(); start(i + 1); };
+    const go = () => { s.call = null; s.t0 = now(); cue.play(); start(i + 1); };
     if (at - now() > 0.008) s.call = gsap.delayedCall(at - now(), go); else go();
   }
   function arm(i, on) {
@@ -625,8 +641,7 @@ function stage(g, el, tiles, clock, strings) {
   }
   tl.eventCallback('onUpdate', () => {
     const t = tl.time();
-    rowShows = t < T.zoom + 0.3;
-    cues.forEach((c, i) => arm(i, t >= c.at));
+    cues.forEach((cue, i) => arm(i, t >= cue.at));
   });
 
   const st = ScrollTrigger.create({
@@ -638,27 +653,37 @@ function stage(g, el, tiles, clock, strings) {
     animation: tl, // never invalidated on refresh: the clone is placed by draw(), which reads fresh geometry
     onRefresh: () => { measure(); draw(); },
   });
-  // From the first pixel of scroll the visor stays on CAM 01, the clone's camera, until the page is back at the top: the
-  // hero lifts off the camera that pulls back. On every pointer (touch scrolls the clone up under the visor instead).
+  // From the first pixel of scroll the visor holds the shot on screen until the page is back at the top, and that camera
+  // takes the middle of the wall: the hero lifts off the camera that pulls back, with no cut. If the stage is already
+  // under way (back up from the page's end), the visor goes to the centre's shot instead, off screen. Every pointer.
   const visorHold = (on) => {
     if (!visor) return;
-    if (on) visor.dataset.hold = '0'; else delete visor.dataset.hold;
-    visor.dispatchEvent(new CustomEvent('visor:hold', { detail: { on, index: 0 } }));
+    if (!on) {
+      delete visor.dataset.hold;
+      visor.dispatchEvent(new CustomEvent('visor:hold', { detail: { on: false } }));
+      return;
+    }
+    const free = atStart();
+    const detail = { on: true, index: free ? null : SHOTS.findIndex((s) => s.id === center.dataset.scene) };
+    visor.dataset.hold = '';
+    visor.dispatchEvent(new CustomEvent('visor:hold', { detail }));
+    const k = Number.isInteger(detail.index) && detail.index >= 0 ? detail.index : 0; // no visor yet: it starts on shot 0
+    visor.dataset.hold = String(k);
+    if (free) cast(tiles.find((t) => t.dataset.scene === SHOTS[k]?.id) || tiles[0]);
   };
   const page = document.documentElement; // every trigger names an element (chapter tests look triggers up by theirs)
   const lift = ScrollTrigger.create({ trigger: page, start: 'top top-=1', end: 'bottom bottom', onToggle: (self) => visorHold(self.isActive) });
-  // Before the stage sticks, while the hero scrolls away, the clone holds still where the visor sat: the page lifts off
-  // a camera that stays, instead of a second visor sliding up under the first. The stage clips it to its own box. Wheel
-  // only, where Lenis moves the page from script in step with this; under native touch scrolling a counter-moved layer
-  // shakes. Meanwhile the wall itself stays out of sight (.is-held): below the held clone, the rising stage would show
-  // slices of the standby cameras. When the stage sticks, the clone covers the whole wall, so the wall appears unseen.
+  // Before the stage sticks, while the hero scrolls away, the visor's own picture holds still where it sat and reaches
+  // down over the gutter and the rising stage (--lift, and its clip, hero.css): one picture, the hero's HUD row, scrim,
+  // ruler and copy sliding off it. Meanwhile the section is see-through and the clone and the wall wait unseen (.is-held);
+  // the clone holds at the visor's place, so in the frame the stage sticks it takes the picture over exactly (same
+  // plate and framing, brackets on the visor's, the same hands). Wheel only, where Lenis moves the page from script in
+  // step with this; under native touch scrolling a counter-moved layer shakes, and the clone rises under the visor.
   const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
   const hold = fine && gsap.fromTo(fly.root, { y: () => headerH() - innerHeight }, {
     y: 0, ease: 'none',
     scrollTrigger: { trigger: el, start: 'top bottom', end: () => `top ${headerH()}px`, scrub: true, invalidateOnRefresh: true, toggleClass: { targets: el, className: 'is-held' } },
   });
-  // The visor's own picture (plate, depth, tracking) holds still the same way (--lift, hero.css): the hero's frame, its
-  // copy and the gutter slide off one continuous picture, the gutter passing over it like a scan line.
   const liftEnd = () => Math.max(1, Math.round(el.getBoundingClientRect().top + scrollY - headerH()));
   const still = fine && visor && gsap.fromTo(visor, { '--lift': '0px' }, {
     '--lift': () => `${liftEnd()}px`, ease: 'none',
@@ -673,18 +698,18 @@ function stage(g, el, tiles, clock, strings) {
     st.kill();
     ScrollTrigger.removeEventListener('refreshInit', setPin);
     state.forEach((s) => s.call?.kill());
-    [tl, beat, camPrint, corners, edges, head, release].forEach((t) => t.kill());
-    clock.detach(fly.tc);
+    c.ctx.revert();
+    [tl, head].forEach((t) => t.kill());
     clock.setRate(1);
     fly.root.remove();
     sweep.remove();
-    cam1Frame.style.opacity = '';
+    c.frame.style.opacity = '';
     grid.style.opacity = '';
     el.classList.remove('is-stage', 'is-held');
     el.style.removeProperty('--wall-pb');
     el.style.removeProperty('--wall-pin');
     delete el.dataset.schedule;
-    tiles.forEach((t) => t.classList.remove('is-on'));
+    tiles.forEach((t) => { t.classList.remove('is-on'); t.style.setProperty('--area', area0.get(t)); delete t.dataset.slot; delete t.dataset.center; });
   };
 }
 
@@ -692,7 +717,7 @@ function stage(g, el, tiles, clock, strings) {
    (the hero first), every tile switches to eager loading and decodes. */
 function warmImages(el, flyImg) {
   const go = () => {
-    const imgs = [flyImg, ...el.querySelectorAll('.wall-plate img')];
+    const imgs = [flyImg(), ...el.querySelectorAll('.wall-plate img')];
     imgs.forEach((img) => { img.loading = 'eager'; });
     Promise.all(imgs.map((img) => img.decode().catch(() => {}))).then(() => { el.dataset.decoded = 'true'; });
   };
@@ -701,59 +726,74 @@ function warmImages(el, flyImg) {
 }
 
 /* ---------- the visor's clone ---------- */
-function buildFlyer(cam1, strings) {
+const heroAsset = (name) => new URL(`../../assets/hero/${name}`, import.meta.url).href;
+/** The visor's own landscape picture of a shot (same files, same sizes as js/hero/visor.js: already in the cache). */
+function heroPicture(id) {
+  const pic = document.createElement('picture');
+  const set = (ext) => `${heroAsset(`${id}-land.${ext}`)} 1536w, ${heroAsset(`${id}-land@2x.${ext}`)} 2560w`;
+  const src = Object.assign(document.createElement('source'), { type: 'image/avif', srcset: set('avif'), sizes: 'calc(100vw - 48px)' });
+  const img = Object.assign(document.createElement('img'), { alt: '', width: 1536, height: 864, decoding: 'async', loading: 'eager', srcset: set('webp'), sizes: 'calc(100vw - 48px)', src: heroAsset(`${id}-land.webp`) });
+  pic.append(src, img);
+  return pic;
+}
+
+/** The visor's picture, carried down: its plate (the visor's framing), the centre camera's hands, its brackets and
+ *  the camera chip that prints on its corner. No HUD row and no scrim: those slid off with the hero. load() puts a
+ *  camera in it. */
+function buildFlyer() {
   const root = node('div', 'wall-fly');
   root.setAttribute('aria-hidden', 'true');
   const win = node('div', 'wall-fly-win');
   const plate = node('div', 'wall-fly-plate');
-  const pic = cam1.querySelector('.wall-plate').cloneNode(true);
-  pic.className = '';
-  pic.removeAttribute('style');
-  pic.querySelectorAll('source, img').forEach((n) => n.setAttribute('sizes', 'calc(100vw - 48px)')); // the visor's own sizes
-  const img = pic.querySelector('img');
-  img.alt = '';
-  img.loading = 'eager';
-  const pts = cam1.querySelector('.wall-pts').cloneNode(true);
-  pts.setAttribute('preserveAspectRatio', 'none');
-  pts.classList.add('wall-fly-pts');
-  pts.removeAttribute('style');
-  pts.querySelectorAll('[style], [transform]').forEach((n) => { n.removeAttribute('style'); n.removeAttribute('transform'); });
-  plate.append(pic, pts);
-  const scrim = node('i', 'wall-fly-scrim');
-  win.append(plate, scrim);
+  win.append(plate);
   const bars = Array.from({ length: 8 }, (_, i) => node('i', `wall-fly-bar ${i % 2 ? 'v' : 'h'}`));
-  const hud = node('div', 'wall-fly-hud');
-  const row = node('div', 'wall-fly-row mono');
-  row.innerHTML = `<span class="chip"><b class="dot"></b>${esc(strings.hud_rec || 'REC')} <span class="num"></span></span>`
-    + `<span class="chip">${esc(strings.shot1)}</span>`
-    + `<span class="chip wall-fly-counts"><b class="wall-fly-sw"></b>${esc(strings.chip_counts)}</span>`;
-  hud.appendChild(row);
-  // The camera chip that rides the frame's corner down to the wall, where CAM 01's own chip takes over
+  // The camera chip that rides the frame's corner down to the wall, where the centre camera's own chip takes over
   const cam = node('span', 'chip mono wall-fly-cam');
-  cam.innerHTML = cam1.querySelector('.wall-cam')?.innerHTML || 'CAM 01';
-  root.append(win, ...bars, hud, cam);
+  root.append(win, ...bars, cam);
   let base = 1;
+  let fy = 0.5;
+  let pts = null;
+  let img = null;
+  let V = null;
 
-  function layout(V) {
+  function load(tile, shot) {
+    fy = shot?.fy ?? 0.5;
+    const pic = shot ? heroPicture(shot.id) : tile.querySelector('.wall-plate').cloneNode(true);
+    pic.className = '';
+    img = pic.querySelector('img');
+    img.alt = '';
+    img.decode?.().catch(() => {});
+    pts = tile.querySelector('.wall-pts').cloneNode(true);
+    pts.setAttribute('preserveAspectRatio', 'none');
+    pts.classList.add('wall-fly-pts');
+    pts.removeAttribute('style');
+    pts.querySelectorAll('[style], [transform]').forEach((n) => { n.removeAttribute('style'); n.removeAttribute('transform'); });
+    plate.replaceChildren(pic, pts);
+    cam.innerHTML = tile.querySelector('.wall-cam')?.innerHTML || '';
+    if (V) layout(V);
+  }
+
+  function layout(rect) {
+    V = rect;
     win.style.width = `${V.w}px`;
     win.style.height = `${V.h}px`;
-    base = coverMap(V.w, V.h, PLATE.w, PLATE.h, PLATE_ZOOM, FY0).s;
+    base = coverMap(V.w, V.h, PLATE.w, PLATE.h, PLATE_ZOOM, fy).s;
     plate.style.width = `${PLATE.w * base}px`;
     plate.style.height = `${PLATE.h * base}px`;
   }
 
-  /** Places the clone at zoom progress u (0: the visor, 1: CAM 01's cell). Returns true once it has landed. */
+  /** Places the clone at zoom progress u (0: the visor, 1: the centre camera's cell). Returns true once it has landed. */
   function draw(u, { V, C, end }) {
     const R = rectAt(u, V, C);
     const ax = R.w / V.w;
     const ay = R.h / V.h;
     win.style.transform = `translate(${R.x.toFixed(2)}px, ${R.y.toFixed(2)}px) scale(${ax.toFixed(5)}, ${ay.toFixed(5)})`;
-    const c = lerp(VISOR.bevel, end.bevel, u);
-    const cx = (c / ax).toFixed(2);
-    const cy = (c / ay).toFixed(2);
+    const ch = lerp(VISOR.bevel, end.bevel, u);
+    const cx = (ch / ax).toFixed(2);
+    const cy = (ch / ay).toFixed(2);
     win.style.clipPath = `polygon(0 0, 100% 0, 100% calc(100% - ${cy}px), calc(100% - ${cx}px) 100%, ${cx}px 100%, 0 calc(100% - ${cy}px))`;
     // the picture keeps the visor's cover framing (focus and 3% zoom) and eases into the tile's plain cover
-    const { s, ox, oy } = coverMap(R.w, R.h, PLATE.w, PLATE.h, lerp(PLATE_ZOOM, 1, u), lerp(FY0, 0.5, u));
+    const { s, ox, oy } = coverMap(R.w, R.h, PLATE.w, PLATE.h, lerp(PLATE_ZOOM, 1, u), lerp(fy, 0.5, u));
     plate.style.transform = `translate(${(ox / ax).toFixed(2)}px, ${(oy / ay).toFixed(2)}px) scale(${(s / base / ax).toFixed(5)}, ${(s / base / ay).toFixed(5)})`;
     // the hands stay tracked: joints and bones keep their size on screen (1 / s plate px a CSS px) and reach the tile's
     pts.style.setProperty('--u', (1 / s).toFixed(4));
@@ -769,7 +809,6 @@ function buildFlyer(cam1, strings) {
     const B = R.y + R.h - i;
     const at = [[L, Tp], [L, Tp], [Rt - a, Tp], [Rt - 1.5, Tp], [L, B - 1.5], [L, B - a], [Rt - a, B - 1.5], [Rt - 1.5, B - a]];
     bars.forEach((b, n) => { b.style.transform = `translate(${at[n][0].toFixed(2)}px, ${at[n][1].toFixed(2)}px) ${n % 2 ? 'scaleY' : 'scaleX'}(${k})`; });
-    hud.style.transform = `translate(${(R.x + VISOR.hud).toFixed(2)}px, ${(R.y + VISOR.hud).toFixed(2)}px)`;
     const p = lerp(VISOR.hud, end.pad, u);
     cam.style.transform = `translate(${(R.x + p).toFixed(2)}px, ${(R.y + p).toFixed(2)}px)`;
     const landed = u >= 0.999;
@@ -777,7 +816,7 @@ function buildFlyer(cam1, strings) {
     return landed;
   }
 
-  return { root, img, pts, row, cam, scrim, tc: row.querySelector('.num'), layout, draw };
+  return { root, img: () => img, cam, load, layout, draw };
 }
 
 /** Log-linear zoom from rect V to rect C (per axis, about the point that stays put), so the pull-back reads at an
