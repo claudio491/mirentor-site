@@ -3,7 +3,7 @@ import { loadGsap } from '../vendor.js';
 export const SHIFT_MIN = 540; // 07:00 to 16:00
 const START_MIN = 7 * 60;
 const PLAY_MS = 4800; // lite: the whole shift in 4.8 s, linear (it is a clock)
-const ROW_MS = 480; // narrow: one row's fill and count (matches the CSS transition)
+const ROW_RATE = 0.3;
 const pad = (n) => String(n).padStart(2, '0');
 
 export function countedAt(t, segs) {
@@ -31,12 +31,13 @@ export function init(el, { tier } = {}) {
     fig,
     t: SHIFT_MIN,
     w: 0,
+    rows: false,
     ruler: fig.querySelector('.shift-ruler'),
     head: fig.querySelector('.shift-head'),
     clock: fig.querySelector('[data-clock]'),
     count: fig.querySelector('[data-count]'),
     segs: [...fig.querySelectorAll('.seg')].map((li) => ({
-      li, a: Number(li.dataset.a), d: Number(li.dataset.d), counts: li.classList.contains('is-count'), fill: li.querySelector('.seg-fill'),
+      li, a: Number(li.dataset.a), d: Number(li.dataset.d), counts: li.classList.contains('is-count'), mark: li.querySelector('.seg-fill, .seg-hatch'), f: null,
     })),
   };
   const wide = matchMedia('(min-width: 900px)');
@@ -54,11 +55,14 @@ export function init(el, { tier } = {}) {
 
 function reset(c) {
   delete c.fig.dataset.mode;
-  c.fig.classList.remove('is-scan');
+  c.rows = false;
+  c.fig.classList.remove('is-hold', 'is-end');
   for (const s of c.segs) {
-    s.li.classList.remove('is-on', 'is-live');
-    s.fill?.style.removeProperty('--f');
+    s.li.classList.remove('is-on', 'is-live', 'is-done');
+    s.mark?.style.removeProperty('--f');
+    s.f = null;
   }
+  c.head?.style.removeProperty('transform');
   c.t = SHIFT_MIN;
   setText(c.clock, clockAt(SHIFT_MIN));
   setText(c.count, hm(countedAt(SHIFT_MIN, c.segs)));
@@ -68,17 +72,23 @@ function render(c, t) {
   t = Math.min(SHIFT_MIN, Math.max(0, t));
   if (SHIFT_MIN - t < 0.01) t = SHIFT_MIN;
   c.t = t;
-  let scanning = false;
+  let hold = false;
   for (const s of c.segs) {
     const f = Math.min(1, Math.max(0, (t - s.a) / s.d));
-    if (s.fill) s.fill.style.setProperty('--f', f.toFixed(4));
+    if (s.mark && f !== s.f) s.mark.style.setProperty('--f', f.toFixed(4));
+    s.f = f;
     const live = t > s.a && t < s.a + s.d;
-    s.li.classList.toggle('is-on', t > s.a);
+    if (!c.rows) s.li.classList.toggle('is-on', t > s.a);
     s.li.classList.toggle('is-live', live);
-    if (live && s.counts) scanning = true;
+    s.li.classList.toggle('is-done', t >= s.a + s.d);
+    if (live && !s.counts) hold = true;
   }
-  c.fig.classList.toggle('is-scan', scanning);
-  if (c.head) c.head.style.transform = `translateX(${((t / SHIFT_MIN) * c.w).toFixed(2)}px)`;
+  c.fig.classList.toggle('is-hold', hold);
+  c.fig.classList.toggle('is-end', t >= SHIFT_MIN);
+  if (c.head && !c.rows) {
+    const dpr = devicePixelRatio || 1;
+    c.head.style.transform = `translateX(${Math.round((t / SHIFT_MIN) * c.w * dpr) / dpr}px)`;
+  }
   setText(c.clock, clockAt(t));
   setText(c.count, hm(countedAt(t, c.segs)));
 }
@@ -142,41 +152,46 @@ function play(c) {
   const io = new IntersectionObserver(([e]) => {
     if (!e.isIntersecting) return;
     io.disconnect();
-    raf = requestAnimationFrame(step);
-  }, { threshold: 0.5 });
+    if (e.boundingClientRect.bottom <= 0) render(c, SHIFT_MIN);
+    else raf = requestAnimationFrame(step);
+  }, { threshold: 0.5, rootMargin: '100000px 0px 0px 0px' });
   io.observe(c.fig);
   return () => { io.disconnect(); cancelAnimationFrame(raf); ro.disconnect(); };
 }
 
 function rows(c) {
+  const line = innerHeight * 0.88; // a row enters when its top passes 88% of the viewport
+  const seen = c.segs.filter((s) => s.li.getBoundingClientRect().top < line);
   c.fig.dataset.mode = 'rows';
+  c.rows = true;
   let target = 0;
-  let shown = 0;
-  let from = 0;
-  let t0 = 0;
   let raf = 0;
-  setText(c.count, hm(0));
-  const tick = (now) => {
-    t0 ||= now;
-    const k = Math.min(1, (now - t0) / ROW_MS);
-    shown = from + (target - from) * k;
-    setText(c.count, hm(shown));
-    raf = k < 1 ? requestAnimationFrame(tick) : 0;
+  let last = 0;
+  const step = (now) => {
+    const dt = last ? Math.min(64, now - last) : 16; // a frame, at most four after a stall: never a jump
+    last = now;
+    render(c, Math.min(target, c.t + dt * ROW_RATE));
+    if (c.t < target) raf = requestAnimationFrame(step);
+    else { raf = 0; last = 0; }
   };
-  const io = new IntersectionObserver((entries) => {
-    for (const e of entries) {
-      if (!e.isIntersecting) continue;
-      io.unobserve(e.target);
-      const s = c.segs.find((x) => x.li === e.target);
+  const enter = (list) => {
+    let done = c.t;
+    for (const [s, now] of list) {
       s.li.classList.add('is-on');
-      if (!s.counts) continue;
-      target += s.d;
-      from = shown;
-      t0 = 0;
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(tick);
+      target = Math.max(target, s.a + s.d);
+      if (now) done = Math.max(done, s.a + s.d);
     }
-  }, { rootMargin: '0px 0px -12% 0px' });
-  for (const s of c.segs) io.observe(s.li);
+    if (done > c.t) render(c, done);
+    if (!raf && c.t < target) raf = requestAnimationFrame(step);
+  };
+  render(c, 0);
+  enter(seen.map((s) => [s, true]));
+  const io = new IntersectionObserver((entries) => {
+    enter(entries.filter((e) => e.isIntersecting).map((e) => {
+      io.unobserve(e.target);
+      return [c.segs.find((x) => x.li === e.target), e.boundingClientRect.bottom <= 0];
+    }));
+  }, { rootMargin: '100000px 0px -12% 0px' });
+  for (const s of c.segs) if (!seen.includes(s)) io.observe(s.li);
   return () => { io.disconnect(); cancelAnimationFrame(raf); };
 }

@@ -5,7 +5,15 @@ const VERDICT = STEPS.length;
 const ADVANCE_MS = 280;
 const ENTER_MS = 240;
 const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';
+const LOCK = 'cubic-bezier(0.34, 1.56, 0.64, 1)';
+const TRACK = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+const JOINT_MS = 160;
+const BONE_MS = 320;
+const SWEEP_MS = 700;
+const LET_GO_MS = 120; // the card's corners step out before they lock back, as the hero's viewfinder does
+const CORNER_OUT = [[-12, -12], [12, -12], [12, 12], [-12, 12]]; // top left, top right, bottom right, bottom left
 const pad = (n) => String(n).padStart(2, '0');
+const typeMs = (value) => Math.min(300, 40 + [...value].length * 14);
 
 export function verdict({ industry, workers, pay }) {
   if (pay === 'no') return { level: 'notyet', reason: 'pay', checks: [] };
@@ -30,7 +38,11 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
   const panes = $$('.fit-q');
   const verdictEl = $('[data-verdict]');
   const rows = Object.fromEntries($$('[data-row]').map((r) => [r.dataset.row, r]));
-  const rail = $$('.fit-rail i');
+  const joints = $$('.fit-rail i');
+  const bone = $('.fit-bone');
+  const card = $('.fit-card');
+  const corners = $$('.fit-corners i');
+  const scan = $('.fit-scan');
   const count = $('[data-count]');
   const back = $('[data-back]');
   const next = $('[data-next]');
@@ -45,6 +57,7 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
   let step = 0;
   let viaPointer = false;
   let timer = 0;
+  let ring = null; // the next joint's lock, waiting for the bone to land
 
   const keyOf = (input) => input.closest('.fit-q')?.dataset.key;
   const keyEl = (key, value) => $(`.fit-q[data-key="${key}"] input[value="${value}"]`)?.closest('.fit-seg-key');
@@ -71,10 +84,55 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
     node.textContent = value;
     if (!animate || !value || !node.animate) return;
     const n = [...value].length;
-    node.animate([{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0 0 0)' }], { duration: Math.min(300, 40 + n * 14), easing: `steps(${n}, end)` });
+    node.animate([{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0 0 0)' }], { duration: typeMs(value), easing: `steps(${n}, end)` });
   }
 
   const fillRow = (key, animate) => rows[key] && type($('.fit-v', rows[key]), answerText(key), animate);
+
+  const reach = (at) => Math.min(at, STEPS.length - 1) / (STEPS.length - 1);
+
+  function lock(node, delay = 0) {
+    if (!node?.animate) return null;
+    for (const a of node.getAnimations()) a.cancel();
+    return node.animate([{ transform: 'scale(0.4)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: JOINT_MS, delay, easing: LOCK, fill: 'backwards' });
+  }
+
+  function marks() {
+    STEPS.forEach((k, i) => {
+      joints[i]?.classList.toggle('is-set', !!answers[k]);
+      rows[k]?.classList.toggle('is-set', !!answers[k]);
+    });
+  }
+
+  function travel(from, to) {
+    const moving = bone.getAnimations();
+    const a = moving.length ? new DOMMatrixReadOnly(getComputedStyle(bone).transform).a : reach(from);
+    for (const x of moving) x.cancel();
+    const b = reach(to);
+    if (Math.abs(a - b) > 0.001) bone.animate([{ transform: `scaleX(${a})` }, { transform: `scaleX(${b})` }], { duration: BONE_MS, easing: TRACK });
+    ring?.cancel();
+    ring = joints[to] && !joints[to].classList.contains('is-set') ? lock(joints[to], Math.abs(a - b) > 0.001 ? BONE_MS - 80 : 0) : null;
+  }
+
+  function sweep() {
+    const h = verdictEl.offsetHeight;
+    verdictEl.animate([{ clipPath: 'inset(0 0 100% 0)' }, { clipPath: 'inset(0 0 0% 0)' }], { duration: SWEEP_MS, easing: TRACK });
+    scan.animate([{ transform: 'translateY(0)' }, { transform: `translateY(${h}px)` }], { duration: SWEEP_MS, easing: TRACK });
+    scan.animate([{ opacity: 1 }, { opacity: 1, offset: (SWEEP_MS - 100) / (SWEEP_MS + 60) }, { opacity: 0 }], { duration: SWEEP_MS + 60 });
+  }
+
+  function frame(delay) {
+    corners.forEach((c, i) => {
+      const out = `translate(${CORNER_OUT[i][0]}px, ${CORNER_OUT[i][1]}px)`;
+      const measured = i % 2 === 0; // top left and bottom right measure the card while it fills
+      for (const a of c.getAnimations()) a.cancel();
+      c.animate([
+        { transform: measured ? 'none' : out, opacity: measured ? 1 : 0, easing: EASE_OUT },
+        { transform: out, opacity: 1, offset: LET_GO_MS / (LET_GO_MS + JOINT_MS), easing: LOCK },
+        { transform: 'none', opacity: 1 },
+      ], { duration: LET_GO_MS + JOINT_MS, delay, fill: 'backwards' });
+    });
+  }
 
   function setError(kind) {
     error.textContent = kind ? strings[kind === 'city' ? 'ch06_err_city' : 'ch06_err_choose'] || '' : '';
@@ -84,7 +142,11 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
     body.dataset.step = String(step);
     panes.forEach((p, i) => p.classList.toggle('is-on', i === step));
     verdictEl.hidden = step !== VERDICT;
-    rail.forEach((s, i) => { s.classList.toggle('is-done', i < step); s.classList.toggle('is-now', i === step); });
+    marks();
+    joints.forEach((j, i) => j.classList.toggle('is-now', i === step));
+    bone.style.transform = `scaleX(${reach(step)})`;
+    card.classList.toggle('is-complete', step === VERDICT);
+    if (step !== VERDICT) for (const c of corners) for (const a of c.getAnimations()) a.cancel();
     count.textContent = `${pad(Math.min(step + 1, STEPS.length))} / ${pad(STEPS.length)}`;
     STEPS.forEach((k, i) => rows[k]?.classList.toggle('is-now', i === step));
     back.hidden = step === 0;
@@ -93,12 +155,18 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
 
   function go(to, { animate = false, dir = 1, focus = true } = {}) {
     clearTimeout(timer);
+    const from = step;
     step = to;
     setError('');
     render();
     const pane = to === VERDICT ? verdictEl : panes[to];
     if (animate && motion) {
-      pane.animate([{ opacity: 0, transform: `translateX(${12 * dir}px)` }, { opacity: 1, transform: 'none' }], { duration: ENTER_MS, easing: EASE_OUT });
+      if (to === VERDICT) sweep();
+      else pane.animate([{ opacity: 0, transform: `translateX(${12 * dir}px)` }, { opacity: 1, transform: 'none' }], { duration: ENTER_MS, easing: EASE_OUT });
+      travel(from, to);
+    } else {
+      for (const a of bone.getAnimations()) a.cancel(); // a keyboard step lands at once, even mid-draw
+      ring?.cancel();
     }
     if (!focus) return;
     (to === VERDICT ? verdictEl : $('input:checked', pane) || $('input', pane))?.focus({ preventScroll: true });
@@ -122,8 +190,10 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
     cityLine.replaceChildren(before, b, after);
     cityLine.hidden = !city || !before && !after;
     rows.result.dataset.level = v.level;
-    type($('.fit-v', rows.result), text($(`[data-v="${v.level}"]`, verdictEl)), animate && motion);
+    const result = text($(`[data-v="${v.level}"]`, verdictEl));
+    type($('.fit-v', rows.result), result, animate && motion);
     go(VERDICT, { animate, dir: 1 });
+    if (animate && motion) frame(typeMs(result)); // the corners lock once the result is typed in
   }
 
   function advance(animate) {
@@ -169,6 +239,8 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
     setError('');
     if (key === 'city') other.hidden = input.value !== 'other';
     fillRow(key, viaPointer && motion);
+    marks();
+    if (viaPointer && motion) { lock(joints[STEPS.indexOf(key)]); lock($('.fit-row-j', rows[key])); }
     clearTimeout(timer);
     if (!viaPointer) return;
     if (key === 'city' && input.value === 'other') { cityIn.focus({ preventScroll: true }); return; }

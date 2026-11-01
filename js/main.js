@@ -54,7 +54,12 @@ const idle = () => new Promise((r) => (window.requestIdleCallback ? requestIdleC
 const loaded = document.readyState === 'complete' ? Promise.resolve() : new Promise((r) => addEventListener('load', r, { once: true }));
 const motion = loaded.then(idle).then(() => import('./motion.js')).then((m) => m.initMotion({ tier }))
   .catch((err) => { document.documentElement.dataset.motionError = String(err.message || err); });
-Promise.allSettled([...chapters, motion, document.fonts.ready]).then(() => {
+for (const el of document.querySelectorAll('main [data-hairline]')) {
+  import('./hairline.js').then((m) => m.mountNear(el)).catch((err) => { el.dataset.error = String(err.message || err); });
+}
+const rail = motion.then(() => import('./rail.js')).then((m) => m.initRail({ tier }))
+  .catch((err) => { document.documentElement.dataset.railError = String(err.message || err); });
+Promise.allSettled([...chapters, motion, rail, document.fonts.ready]).then(() => {
   const st = window.ScrollTrigger;
   if (st) { st.sort(); st.refresh(); }
   let target = null;

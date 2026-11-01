@@ -6,6 +6,11 @@ const ALIASES = { PA: ['panama'], CO: ['colombia'], PE: ['peru'], MX: ['mexico']
 const EMAIL = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';
 const CORNER = [[-8, -8], [8, -8], [8, 8], [-8, 8]];
+const LOCK = 'cubic-bezier(0.34, 1.56, 0.64, 1)';
+const TRACK = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+const JOINT_MS = 160;
+const BONE_MS = 320;
+const STAGGER_MS = 60;
 
 const norm = (s) => String(s ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
@@ -31,6 +36,19 @@ export function check(name, value) {
     case 'pay_ack': return v ? '' : 'pay';
     default: return v ? '' : name;
   }
+}
+
+export function drawCheck(svg, delay = 0) {
+  const bones = [...svg.querySelectorAll('.ch09-tick-bone')];
+  const anims = [];
+  let at = delay;
+  svg.querySelectorAll('.ch09-tick-j').forEach((joint, i) => {
+    anims.push(joint.animate([{ transform: 'scale(0.4)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: JOINT_MS, delay: at, easing: LOCK, fill: 'backwards' }));
+    if (!bones[i]) return;
+    anims.push(bones[i].animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], { duration: BONE_MS, delay: at + STAGGER_MS, easing: TRACK, fill: 'backwards' }));
+    at += STAGGER_MS + BONE_MS - 80;
+  });
+  return anims;
 }
 
 export function init(el, { tier = 'full', strings = {} } = {}) {
@@ -151,6 +169,8 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
     form.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: EASE_OUT }).finished.then(() => {
       show();
       done.animate([{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }], { duration: 360, easing: EASE_OUT });
+      const tick = done.querySelector('.ch09-tick');
+      if (tick) drawCheck(tick, 120); // the first joint locks while the result is still rising
     });
   }
 
