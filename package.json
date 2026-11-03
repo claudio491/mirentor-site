@@ -1,0 +1,11 @@
+{
+  "name": "mirentor-waitlist",
+  "private": true,
+  "type": "module",
+  "description": "Mirentor waitlist backend: stores each sign-up on disk and writes it to the lead log",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test --test-concurrency=1 \"tests/*.test.mjs\""
+  }
+}
