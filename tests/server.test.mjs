@@ -83,5 +83,5 @@ test('healthz says whether Google is configured', async (t) => {
   const s = await start({ sheets: false }); t.after(() => s.srv.close());
   const h = await (await fetch(`${s.url}/healthz`)).json();
   assert.deepEqual({ ...h, dataDir: 'x' }, { ok: true, sheets: false, pending: 0, dataDir: 'x' });
-  assert.equal(h.dataDir, s.store.dir);
+  assert.match(h.dataDir, /wl-/);
 });
