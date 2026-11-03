@@ -64,3 +64,9 @@ test('an English entry from another country maps its names', () => {
   assert.equal(aToP[12], 'Site form, 2026-11-03, English page');
   assert.equal(aToP[13], 'English');
 });
+
+test('the server accepts exactly what the page accepts', () => {
+  assert.equal(parseEntry(body({ whatsapp: '00507 6000-0000' }), NOW).ok, true);
+  assert.deepEqual(parseEntry(body({ workers: '0' }), NOW).errors, ['workers']);
+  assert.deepEqual(parseEntry(body({ workers: '12.5' }), NOW).errors, ['workers']);
+});
