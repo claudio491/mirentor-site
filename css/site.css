@@ -2128,6 +2128,9 @@ html.still .ch09 .ch09-corners i { transform: none; transition: none; }
 
 
 
+.ch09-hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+
+
 
 
 .ch10 { position: relative; background: var(--graphite); color: var(--glove); padding: var(--space-6) var(--edge) var(--space-4); }
@@ -2165,7 +2168,8 @@ html.still .ch09 .ch09-corners i { transform: none; transition: none; }
 .ch10-base { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--line); }
 .ch10 .ch10-mark { color: var(--mist); }
 .ch10 .ch10-legal { display: flex; flex-wrap: wrap; gap: var(--space-3); font-size: 14px; line-height: 1.4; }
-.ch10-pending { color: var(--mist); text-decoration: underline dotted; text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: default; }
+.ch10 .ch10-legal a { color: var(--mist); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) { .ch10 .ch10-legal a:hover { color: var(--porcelain); } }
 .ch10 .review-note { margin: 0; }
 
 

@@ -144,7 +144,42 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
       return;
     }
     summary.textContent = '';
+    if (form.dataset.api) send();
   });
+
+  const ID_KEY = 'mirentor:wl-id';
+  const submit = $('.ch09-submit');
+  let sending = false;
+  function entryId() {
+    let id = '';
+    try { id = sessionStorage.getItem(ID_KEY) || ''; } catch { /* storage blocked: a fresh id per try */ }
+    if (!id) {
+      id = crypto.randomUUID();
+      try { sessionStorage.setItem(ID_KEY, id); } catch { /* storage blocked */ }
+    }
+    return id;
+  }
+  async function send() {
+    if (sending) return;
+    sending = true;
+    const label = submit.textContent;
+    submit.disabled = true;
+    submit.textContent = t('ch09_submit_sending');
+    const body = { id: entryId(), lang: document.documentElement.lang === 'en' ? 'en' : 'es' };
+    for (const name of ORDER) body[name] = name === 'pay_ack' ? (input(name).checked ? 'yes' : '') : input(name).value.trim();
+    body.website = input('website')?.value || '';
+    let ok = false;
+    try {
+      const r = await fetch(form.dataset.api, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      ok = r.ok;
+    } catch { /* offline or blocked: same message as a server error */ }
+    sending = false;
+    submit.disabled = false;
+    submit.textContent = label;
+    if (!ok) { summary.textContent = t('ch09_err_send'); return; }
+    try { sessionStorage.removeItem(ID_KEY); } catch { /* storage blocked */ }
+    turnOn();
+  }
 
   function turnOn() {
     const city = input('city').value.trim();
