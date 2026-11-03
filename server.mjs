@@ -42,7 +42,7 @@ export function createServer({ store, sheets, origins, limit = 10 }) {
     };
     const { pathname } = new URL(req.url, 'http://x');
 
-    if (req.method === 'GET' && pathname === '/healthz') return send(200, { ok: true, sheets: !!sheets, pending: store.pending().length });
+    if (req.method === 'GET' && pathname === '/healthz') return send(200, { ok: true, sheets: !!sheets, pending: store.pending().length, dataDir: store.dir });
     if (pathname !== '/api/waitlist') return send(404, { ok: false });
     if (!allowed) return send(403, { ok: false });
     if (req.method === 'OPTIONS') {
