@@ -28,6 +28,8 @@ A view-only copy of the Prentis Team Desk (the claude.ai artifact) for the team,
 - `GET /desk/data.json`: the latest snapshot; the page polls it every minute.
 - `PUT /desk/snapshot`: `Authorization: Bearer $DESK_PUSH_TOKEN`, body `{ snapshot, page }`. The desk sync runs
   `PRENTIS_2026-10-28/desk/public-copy/push.mjs` after every run; it pushes, then reads the copy back through the password.
+  The snapshot holds the desk's collections (`docs` and `workflows` are optional) and the documents `meta/desk`
+  (required) and `meta/flow` (the Agents tab's flow chart numbers).
 
 The page runs unchanged; a shim stands in for the claude.ai runtime with view-only access. Every `/desk` answer is
 `no-store` and `noindex`. Changing `DESK_PASSWORD` signs everyone out.

@@ -203,3 +203,25 @@ test('the Documents collection is optional, and an unknown collection is still r
   const bad = await s.push({ snapshot: snapshot({ collections: { ...snapshot().collections, secrets: {} } }), page: PAGE });
   assert.deepEqual((await bad.json()).errors, ['collections.secrets']);
 });
+
+test('the Agents workflows collection is optional, and meta/flow travels as a document beside meta/desk', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const flow = { subject: 'Lead scan', versions: [{ v: 'v1', by: 'dot', rows: 1525 }], openFixes: 3 };
+  const agents = snapshot({
+    collections: { ...snapshot().collections, docs: {}, workflows: { 'lead-scan': { title: 'Weekly lead scan', stage: 'testing', order: 9 } } },
+    docs: { 'meta/desk': snapshot().docs['meta/desk'], 'meta/flow': flow },
+  });
+  const ok = await s.push({ snapshot: agents, page: PAGE });
+  assert.equal(ok.status, 200);
+  assert.deepEqual((await ok.json()).counts, { cards: 1, decisions: 1, signals: 0, routines: 0, tools: 0, docs: 0, workflows: 1 });
+  const cookie = s.cookieOf(await s.login(PASSWORD));
+  const data = await (await fetch(`${s.url}/desk/data.json`, { headers: { cookie } })).json();
+  assert.deepEqual(data.collections.workflows['lead-scan'].title, 'Weekly lead scan');
+  assert.deepEqual(data.docs['meta/flow'], flow);
+  const page = await (await fetch(`${s.url}/desk`, { headers: { cookie } })).text();
+  assert.match(page, /"meta\/flow":\{"subject":"Lead scan"/);
+  const bad = await s.push({ snapshot: snapshot({ collections: { ...snapshot().collections, workflows: { 'lead-scan': 'not an object' } } }), page: PAGE });
+  assert.deepEqual((await bad.json()).errors, ['collections.workflows']);
+  const noMeta = await s.push({ snapshot: snapshot({ docs: { 'meta/flow': flow } }), page: PAGE });
+  assert.deepEqual((await noMeta.json()).errors, ['docs'], 'meta/flow alone never stands in for meta/desk');
+});
