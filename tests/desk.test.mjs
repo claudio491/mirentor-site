@@ -193,3 +193,13 @@ test('on its own host the desk sits at the root, with a root cookie, and nothing
   assert.match(old.headers.get('set-cookie'), /Path=\/desk;/);
   assert.equal(old.headers.get('location'), '/desk');
 });
+
+test('the Documents collection is optional, and an unknown collection is still refused', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const withDocs = snapshot({ collections: { ...snapshot().collections, docs: { 'lead-log': { title: 'Lead log', url: 'https://docs.google.com/x' } } } });
+  const ok = await s.push({ snapshot: withDocs, page: PAGE });
+  assert.equal(ok.status, 200);
+  assert.deepEqual((await ok.json()).counts, { cards: 1, decisions: 1, signals: 0, routines: 0, tools: 0, docs: 1 });
+  const bad = await s.push({ snapshot: snapshot({ collections: { ...snapshot().collections, secrets: {} } }), page: PAGE });
+  assert.deepEqual((await bad.json()).errors, ['collections.secrets']);
+});
