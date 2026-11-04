@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://mirentor.onrender.com/sitemap.xml
+Sitemap: https://www.mirentor.com/sitemap.xml

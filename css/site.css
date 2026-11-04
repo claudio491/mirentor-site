@@ -2131,6 +2131,10 @@ html.still .ch09 .ch09-corners i { transform: none; transition: none; }
 .ch09-hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 
 
+.ch09-consent { flex-basis: 100%; margin: 0; max-width: 60ch; font: 400 13px/1.45 var(--sans); color: var(--ink-2); }
+.ch09-consent a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+
 
 
 .ch10 { position: relative; background: var(--graphite); color: var(--glove); padding: var(--space-6) var(--edge) var(--space-4); }
