@@ -113,6 +113,19 @@ test('only the push token can replace the copy, and a bad snapshot is refused wh
   assert.match(r.sha256, /^[0-9a-f]{64}$/);
 });
 
+test('a snapshot from an older desk sync never replaces a newer one', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const at = (updatedAt) => snapshot({ docs: { 'meta/desk': { updatedAt, updatedVia: 'prentis-desk-sync' } } });
+  assert.equal((await s.push({ snapshot: at('2026-11-04T16:33:26Z'), page: PAGE })).status, 200);
+  const old = await s.push({ snapshot: at('2026-11-04T16:12:33Z'), page: PAGE });
+  assert.equal(old.status, 409);
+  assert.deepEqual((await old.json()).errors, ['stale']);
+  assert.equal((await s.push({ snapshot: at('2026-11-04T16:33:26Z'), page: PAGE })).status, 200, 'the same sync can push again');
+  const cookie = s.cookieOf(await s.login(PASSWORD));
+  const data = await (await fetch(`${s.url}/desk/data.json`, { headers: { cookie } })).json();
+  assert.equal(data.docs['meta/desk'].updatedAt, '2026-11-04T16:33:26Z');
+});
+
 test('the copy survives a restart', async (t) => {
   const s = await start(); t.after(() => s.srv.close());
   await s.push({ snapshot: snapshot(), page: PAGE });
