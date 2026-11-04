@@ -57,6 +57,10 @@ const motion = loaded.then(idle).then(() => import('./motion.js')).then((m) => m
 for (const el of document.querySelectorAll('main [data-hairline]')) {
   import('./hairline.js').then((m) => m.mountNear(el)).catch((err) => { el.dataset.error = String(err.message || err); });
 }
+const icons = [...document.querySelectorAll('.ji-host')];
+if (icons.length && tier !== 'still') {
+  import('./icons.js').then((m) => m.initIcons(icons)).catch((err) => { document.documentElement.dataset.iconsError = String(err.message || err); });
+}
 const rail = motion.then(() => import('./rail.js')).then((m) => m.initRail({ tier }))
   .catch((err) => { document.documentElement.dataset.railError = String(err.message || err); });
 Promise.allSettled([...chapters, motion, rail, document.fonts.ready]).then(() => {
