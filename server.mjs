@@ -6,6 +6,7 @@ import { parseEntry } from './lib/entry.mjs';
 import { openStore } from './lib/store.mjs';
 import { sheetsClient } from './lib/sheets.mjs';
 import { syncOne, syncPending } from './lib/sync.mjs';
+import { createDesk } from './lib/desk.mjs';
 
 const MAX_BODY = 16 * 1024;
 const WINDOW_MS = 10 * 60 * 1000;
@@ -13,7 +14,7 @@ const SYNC_TIMEOUT_MS = 8000;
 
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('timeout')), ms).unref())]);
 
-export function createServer({ store, sheets, origins, limit = 10 }) {
+export function createServer({ store, sheets, origins, limit = 10, desk = null }) {
   const hits = new Map();
 
   function limited(ip) {
@@ -42,7 +43,8 @@ export function createServer({ store, sheets, origins, limit = 10 }) {
     };
     const { pathname } = new URL(req.url, 'http://x');
 
-    if (req.method === 'GET' && pathname === '/healthz') return send(200, { ok: true, sheets: !!sheets, pending: store.pending().length, dataDir: store.dir });
+    if (req.method === 'GET' && pathname === '/healthz') return send(200, { ok: true, sheets: !!sheets, pending: store.pending().length, dataDir: store.dir, desk: !!desk });
+    if (desk && (await desk(req, res, pathname))) return;
     if (pathname !== '/api/waitlist') return send(404, { ok: false });
     if (!allowed) return send(403, { ok: false });
     if (req.method === 'OPTIONS') {
@@ -77,6 +79,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const sheets = sa && process.env.SHEET_ID ? sheetsClient({ sa, sheetId: process.env.SHEET_ID }) : null;
   const origins = (process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
   const port = Number(process.env.PORT || 10000);
-  createServer({ store, sheets, origins }).listen(port, () => console.log(`waitlist on ${port}, sheets ${sheets ? 'on' : 'off'}, ${store.pending().length} pending`));
+  const desk = createDesk({ dir: store.dir, password: process.env.DESK_PASSWORD, pushToken: process.env.DESK_PUSH_TOKEN });
+  createServer({ store, sheets, origins, desk }).listen(port, () => console.log(`waitlist on ${port}, sheets ${sheets ? 'on' : 'off'}, desk ${desk ? 'on' : 'off'}, ${store.pending().length} pending`));
   if (sheets) { syncPending(store, sheets); setInterval(() => syncPending(store, sheets), 60_000); }
 }

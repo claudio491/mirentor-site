@@ -82,6 +82,6 @@ test('more than the limit from one address gets 429', async (t) => {
 test('healthz says whether Google is configured', async (t) => {
   const s = await start({ sheets: false }); t.after(() => s.srv.close());
   const h = await (await fetch(`${s.url}/healthz`)).json();
-  assert.deepEqual({ ...h, dataDir: 'x' }, { ok: true, sheets: false, pending: 0, dataDir: 'x' });
+  assert.deepEqual({ ...h, dataDir: 'x' }, { ok: true, sheets: false, pending: 0, dataDir: 'x', desk: false });
   assert.match(h.dataDir, /wl-/);
 });
