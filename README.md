@@ -16,6 +16,7 @@ Takes the waitlist form from the Mirentor site, keeps every sign-up on disk, and
 | `DATA_DIR` | `/var/data` once the disk is mounted; `./data` otherwise (lost on redeploy) |
 | `DESK_PASSWORD` | the shared password for `/desk`; unset turns `/desk` off |
 | `DESK_PUSH_TOKEN` | bearer token the desk sync uses to push the copy; unset turns `/desk` off |
+| `DESK_HOST` | `desk.mirentor.com`: on that host the desk sits at the root (`/`, `/login`, `/data.json`) |
 | `GOOGLE_SA_JSON` | the service account key, pasted whole. Share the sheet with its `client_email` as Editor. |
 
 ## Team Desk copy (`/desk`)

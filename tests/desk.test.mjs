@@ -6,6 +6,19 @@ import path from 'node:path';
 import { createServer } from '../server.mjs';
 import { openStore } from '../lib/store.mjs';
 import { createDesk } from '../lib/desk.mjs';
+import http from 'node:http';
+
+// fetch cannot set Host, so these go through node:http.
+function asHost(url, host, { method = 'GET', path: p = '/', headers = {}, body } = {}) {
+  const u = new URL(url);
+  return new Promise((resolve, reject) => {
+    const req = http.request({ hostname: u.hostname, port: u.port, method, path: p, headers: { host, ...headers } }, (res) => {
+      let text = ''; res.setEncoding('utf8'); res.on('data', (c) => { text += c; }); res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, text }));
+    });
+    req.on('error', reject);
+    req.end(body);
+  });
+}
 
 const PASSWORD = 'orange-lens-glove-42';
 const TOKEN = 'push-token-0123456789abcdef';
@@ -18,10 +31,10 @@ const snapshot = (over = {}) => ({
   ...over,
 });
 
-async function start({ desk = true, clock } = {}) {
+async function start({ desk = true, clock, host } = {}) {
   const store = openStore(mkdtempSync(path.join(tmpdir(), 'desk-')));
   const now = clock ? () => clock.t : undefined;
-  const d = desk ? createDesk({ dir: store.dir, password: PASSWORD, pushToken: TOKEN, limit: 3, now }) : null;
+  const d = desk ? createDesk({ dir: store.dir, password: PASSWORD, pushToken: TOKEN, limit: 3, now, host }) : null;
   const srv = createServer({ store, sheets: null, origins: [], desk: d });
   await new Promise((r) => srv.listen(0, r));
   const url = `http://127.0.0.1:${srv.address().port}`;
@@ -152,4 +165,31 @@ test('the waitlist endpoint still answers next to the desk', async (t) => {
   const s = await start(); t.after(() => s.srv.close());
   assert.equal((await fetch(`${s.url}/healthz`)).status, 200);
   assert.equal((await fetch(`${s.url}/api/waitlist`, { method: 'POST', headers: { origin: 'https://evil.example' } })).status, 403);
+});
+
+test('on its own host the desk sits at the root, with a root cookie, and nothing else is served there', async (t) => {
+  const s = await start({ host: 'desk.mirentor.com' }); t.after(() => s.srv.close());
+  await s.push({ snapshot: snapshot(), page: PAGE });
+  const H = 'desk.mirentor.com';
+  const form = await asHost(s.url, H);
+  assert.equal(form.status, 200);
+  assert.match(form.text, /action="\/login"/);
+  const bad = await asHost(s.url, H, { method: 'POST', path: '/login', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'password=nope' });
+  assert.equal(bad.status, 401);
+  const ok = await asHost(s.url, H, { method: 'POST', path: '/login', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `password=${encodeURIComponent(PASSWORD)}` });
+  assert.equal(ok.status, 303);
+  assert.equal(ok.headers.location, '/');
+  assert.match(ok.headers['set-cookie'][0], /Path=\/;/);
+  const cookie = ok.headers['set-cookie'][0].split(';')[0];
+  const page = await asHost(s.url, H, { headers: { cookie } });
+  assert.match(page.text, /const BASE = "\/", DATA = \(BASE === "\/" \? "" : BASE\) \+ "\/data\.json"/);
+  const data = await asHost(s.url, H, { path: '/data.json', headers: { cookie } });
+  assert.equal(data.status, 200);
+  assert.deepEqual(JSON.parse(data.text), snapshot());
+  assert.equal((await asHost(s.url, H, { path: '/api/waitlist', method: 'POST' })).status, 404);
+  assert.equal((await asHost(s.url, H, { path: '/healthz' })).status, 200);
+  // The onrender address keeps working under /desk with its own cookie path.
+  const old = await s.login(PASSWORD);
+  assert.match(old.headers.get('set-cookie'), /Path=\/desk;/);
+  assert.equal(old.headers.get('location'), '/desk');
 });

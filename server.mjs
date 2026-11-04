@@ -79,7 +79,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const sheets = sa && process.env.SHEET_ID ? sheetsClient({ sa, sheetId: process.env.SHEET_ID }) : null;
   const origins = (process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
   const port = Number(process.env.PORT || 10000);
-  const desk = createDesk({ dir: store.dir, password: process.env.DESK_PASSWORD, pushToken: process.env.DESK_PUSH_TOKEN });
+  const desk = createDesk({ dir: store.dir, password: process.env.DESK_PASSWORD, pushToken: process.env.DESK_PUSH_TOKEN, host: process.env.DESK_HOST });
   createServer({ store, sheets, origins, desk }).listen(port, () => console.log(`waitlist on ${port}, sheets ${sheets ? 'on' : 'off'}, desk ${desk ? 'on' : 'off'}, ${store.pending().length} pending`));
   if (sheets) { syncPending(store, sheets); setInterval(() => syncPending(store, sheets), 60_000); }
 }
