@@ -23,6 +23,8 @@
 <link rel="preload" href="../../fonts/martian-grotesk.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="../../fonts/mona-sans.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../../css/site.css">
+<script>/* ES/EN in the header or footer: remember the pick, so the Spanish home's language default (lang-auto) keeps it. */
+document.addEventListener("click", function (e) { var a = e.target.closest && e.target.closest(".lang a[hreflang]"); if (a) try { localStorage.setItem("mirentor:lang", a.getAttribute("hreflang")); } catch (x) {} });</script>
 </head>
 <body>
 <a class="skip" href="#contenido">Saltar al contenido</a>

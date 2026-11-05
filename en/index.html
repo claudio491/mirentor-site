@@ -32,6 +32,9 @@
     if (n && (n.type === "reload" || n.type === "back_forward") && at && at.id) { d.classList.add("landing"); setTimeout(function () { d.classList.remove("landing"); }, 2000); } } catch (e) {}
 })(document.documentElement);</script>
 
+<script>/* ES/EN in the header or footer: remember the pick, so the Spanish home's language default (lang-auto) keeps it. */
+document.addEventListener("click", function (e) { var a = e.target.closest && e.target.closest(".lang a[hreflang]"); if (a) try { localStorage.setItem("mirentor:lang", a.getAttribute("hreflang")); } catch (x) {} });</script>
+
 </head>
 <body>
 <a class="skip" href="#contenido">Skip to content</a>

@@ -31,6 +31,41 @@
   try { var n = performance.getEntriesByType("navigation")[0], at = JSON.parse(sessionStorage.getItem("mirentor:at:" + location.pathname) || "null");
     if (n && (n.type === "reload" || n.type === "back_forward") && at && at.id) { d.classList.add("landing"); setTimeout(function () { d.classList.remove("landing"); }, 2000); } } catch (e) {}
 })(document.documentElement);</script>
+<script>(function (d) {
+  /* Default language: on the Spanish home, a visitor from outside the Spanish-speaking countries goes
+     to the English home. The country comes from the waitlist backend's GET /api/geo (Cloudflare's header, nothing is
+     stored), asked once per session. A visit from another page of the site stays put, a pick made with ES/EN wins,
+     crawlers stay put, and with no answer within 1 s the browser language decides. Live builds only (build.mjs). */
+  var EN = "en/", ES = /^(AR|BO|CL|CO|CR|CU|DO|EC|ES|GQ|GT|HN|MX|NI|PA|PE|PR|PY|SV|UY|VE)$/;
+  try {
+    if (/bot|crawl|spider|slurp|lighthouse|headless|preview/i.test(navigator.userAgent)) return;
+    if (document.referrer.indexOf(location.origin + "/") === 0) return;
+    var pick = localStorage.getItem("mirentor:lang");
+    if (pick === "es") return;
+    var go = function () {
+      d.classList.add("lang-go");
+      try { if (d.classList.contains("rig-intro")) sessionStorage.removeItem("mirentor:intro"); } catch (x) {} /* the entrance plays on /en/ */
+      location.replace(EN + location.search + location.hash);
+    };
+    if (pick === "en") return go();
+    var decide = function (cc) { if (cc ? !ES.test(cc) : !/^es\b/i.test(navigator.language || "")) go(); else d.classList.remove("lang-wait"); };
+    var cc = sessionStorage.getItem("mirentor:cc");
+    if (cc !== null) return decide(cc);
+    d.classList.add("lang-wait");
+    var done = false, end = function (cc, keep) {
+      if (keep) try { sessionStorage.setItem("mirentor:cc", cc || ""); } catch (x) {}
+      if (done) return;
+      done = true;
+      decide(cc);
+    };
+    setTimeout(function () { end(null); }, 1000);
+    fetch("https://mirentor-waitlist.onrender.com/api/geo", { credentials: "omit", cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { end(j && j.country, true); }, function () { end(null); });
+  } catch (e) { d.classList.remove("lang-wait"); }
+})(document.documentElement);</script>
+<script>/* ES/EN in the header or footer: remember the pick, so the Spanish home's language default (lang-auto) keeps it. */
+document.addEventListener("click", function (e) { var a = e.target.closest && e.target.closest(".lang a[hreflang]"); if (a) try { localStorage.setItem("mirentor:lang", a.getAttribute("hreflang")); } catch (x) {} });</script>
 
 </head>
 <body>

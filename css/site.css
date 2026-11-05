@@ -748,6 +748,9 @@ html.js .mo-wave.is-in > :nth-child(n+8) { transition-delay: calc(var(--d-stagge
 
 html.landing main { visibility: hidden; }
 
+
+html.lang-wait body > :not(.intro-rig), html.lang-go body { visibility: hidden; }
+
 @media (prefers-reduced-motion: reduce) {
   html.intro .hero-copy .kicker, html.intro .hero-copy h1, html.intro .hero-copy .lead, html.intro .hero-copy .ctas > * { animation: none; }
 }
