@@ -5,6 +5,9 @@ Takes the waitlist form from the Mirentor site, keeps every sign-up on disk, and
 
 - `POST /api/waitlist`: 200 when the row is in the sheet, 202 when it waits on disk (Google off or down), 400 with the fields to fix.
 - `GET /healthz`: `{ ok, sheets, pending, dataDir, desk }`.
+- `GET /api/geo`: `{ ok, country }`, the visitor's ISO country code from Cloudflare's `cf-ipcountry` header (Render
+  forwards it; `null` when unknown or Tor). Allowed origins only, nothing stored. The site's Spanish home uses it to send
+  visitors outside the Spanish-speaking countries to `/en/` (site `src/partials/lang-auto.html`).
 - The same entry id twice never makes a second row.
 
 ## Environment
