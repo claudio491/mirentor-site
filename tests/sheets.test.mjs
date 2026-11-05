@@ -9,7 +9,7 @@ const entry = { id: 'x', leadId: 'WL-AAAA1111', submittedAt: '2026-11-03T17:00:0
   industry: 'warehouse', city: 'Panama City', country: 'PA', contact: 'Ana', email: 'a@b.co', whatsapp: '', payAck: true };
 const memStore = () => { const m = {}; return { markSynced: (id, row) => { m[id] = row; }, m }; };
 
-test('a new entry writes A:P and Y on the next empty row and reads it back', async () => {
+test('a new entry writes A:P and Y:Z on the next empty row and reads it back', async () => {
   const g = fakeGoogle();
   const store = memStore();
   const row = await syncOne(store, sheetsClient({ sa: SA, sheetId: 'S', fetch: g.fetch }), entry);
@@ -21,7 +21,15 @@ test('a new entry writes A:P and Y on the next empty row and reads it back', asy
   assert.equal(store.m.x, 3);
   const write = JSON.parse(g.calls.find((c) => c.path.endsWith('batchUpdate')).body);
   assert.equal(write.valueInputOption, 'RAW');
-  assert.deepEqual(write.data.map((d) => d.range), ['Leads!A3:P3', 'Leads!Y3']);
+  assert.deepEqual(write.data.map((d) => d.range), ['Leads!A3:P3', 'Leads!Y3:Z3']);
+  assert.equal(g.rows[2][25], '', 'Z stays blank when the page did not ask');
+});
+
+test('the site criteria land in column Z', async () => {
+  const g = fakeGoogle();
+  await syncOne(memStore(), sheetsClient({ sa: SA, sheetId: 'S', fetch: g.fetch }), { ...entry, siteWifi: 'yes', siteLead: 'yes' });
+  assert.equal(g.rows[2][25], 'Meets');
+  assert.equal(g.rows[2][24], 'Pay rule acknowledged on the form. Site: Wi-Fi yes, program lead yes.');
 });
 
 test('an entry already in the sheet is found and not written again', async () => {

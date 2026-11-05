@@ -70,3 +70,35 @@ test('the server accepts exactly what the page accepts', () => {
   assert.deepEqual(parseEntry(body({ workers: '0' }), NOW).errors, ['workers']);
   assert.deepEqual(parseEntry(body({ workers: '12.5' }), NOW).errors, ['workers']);
 });
+
+test('the two site answers are kept as yes or no', () => {
+  const e = parseEntry(body({ site_wifi: 'yes', site_lead: 'no' }), NOW).entry;
+  assert.equal(e.siteWifi, 'yes');
+  assert.equal(e.siteLead, 'no');
+});
+
+test('a page from before the site questions still signs up, with both answers blank', () => {
+  const r = parseEntry(body(), NOW);
+  assert.equal(r.ok, true);
+  assert.equal(r.entry.siteWifi, '');
+  assert.equal(r.entry.siteLead, '');
+});
+
+test('a site answer other than yes or no is rejected', () => {
+  assert.deepEqual(parseEntry(body({ site_wifi: 'maybe', site_lead: 'si' }), NOW).errors, ['site_wifi', 'site_lead']);
+});
+
+test('toCells names the site criteria in plain words and notes both answers', () => {
+  const cells = (w, l) => toCells(parseEntry(body({ site_wifi: w, site_lead: l }), NOW).entry);
+  assert.equal(cells('yes', 'yes').site, 'Meets');
+  assert.equal(cells('no', 'yes').site, 'Missing Wi-Fi');
+  assert.equal(cells('yes', 'no').site, 'Missing program lead');
+  assert.equal(cells('no', 'no').site, 'Missing Wi-Fi and program lead');
+  assert.equal(cells('yes', 'no').notes, 'Pay rule acknowledged on the form. Site: Wi-Fi yes, program lead no.');
+});
+
+test('toCells leaves the site criteria blank when the page did not ask', () => {
+  const { site, notes } = toCells(parseEntry(body(), NOW).entry);
+  assert.equal(site, '');
+  assert.equal(notes, 'Pay rule acknowledged on the form.');
+});
