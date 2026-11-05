@@ -1,5 +1,5 @@
 
-const ORDER = ['business', 'workers', 'industry', 'city', 'country', 'contact', 'email', 'whatsapp', 'pay_ack'];
+const ORDER = ['business', 'workers', 'industry', 'city', 'country', 'site_wifi', 'site_lead', 'contact', 'email', 'whatsapp', 'pay_ack'];
 const REQUIRED = ORDER.filter((n) => n !== 'whatsapp');
 const RANGES = { lt50: 'ch09_range_lt50', '50-99': 'ch09_range_50_99', '100-500': 'ch09_range_100_500', '501-5000': 'ch09_range_501_5000', gt5000: 'ch09_range_gt5000' };
 const ALIASES = { PA: ['panama'], CO: ['colombia'], PE: ['peru'], MX: ['mexico'], US: ['united states', 'estados unidos', 'usa', 'us', 'eeuu', 'ee uu', 'ee. uu.', 'ee.uu.'] };
@@ -60,7 +60,14 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
   const t = (key, vars = {}) => (strings[key] || '').replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
   const motion = () => tier !== 'still' && !matchMedia('(prefers-reduced-motion: reduce)').matches;
   const input = (name) => form.elements.namedItem(name);
-  const valueOf = (name) => (input(name).type === 'checkbox' ? input(name).checked : input(name).value);
+  const group = (name) => el.querySelector(`[data-field="${name}"] [role="radiogroup"]`);
+  const mark = (name) => group(name) || input(name);
+  const focusOf = (name) => (group(name) ? group(name).querySelector('input') : input(name));
+  const invalid = (name) => mark(name).getAttribute('aria-invalid') === 'true';
+  const valueOf = (name) => {
+    if (group(name)) return group(name).querySelector('input:checked')?.value || '';
+    return input(name).type === 'checkbox' ? input(name).checked : input(name).value;
+  };
   const touched = new Set();
   let tried = false;
   let payAnswer = '';
@@ -78,7 +85,7 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
   function validate(name) {
     const key = check(name, valueOf(name));
     const box = $(`[data-err="${name}"]`);
-    input(name).setAttribute('aria-invalid', key ? 'true' : 'false');
+    mark(name).setAttribute('aria-invalid', key ? 'true' : 'false');
     if (box) { box.textContent = key ? t(`ch09_err_${key}`) : ''; box.hidden = !key; }
     return key;
   }
@@ -97,7 +104,7 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
 
   function recount() {
     if (!tried) return;
-    const n = ORDER.filter((k) => input(k).getAttribute('aria-invalid') === 'true').length;
+    const n = ORDER.filter(invalid).length;
     const text = !n ? '' : n === 1 ? t('ch09_err_summary_one') : t('ch09_err_summary_many', { n });
     if (summary.textContent !== text) summary.textContent = text;
   }
@@ -110,7 +117,7 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
     touched.add(name);
     tag(name, false);
     if (name === 'workers') { hint.hidden = true; if (!outOfRange(parseWorkers(e.target.value))) note.hidden = true; }
-    if (e.target.getAttribute('aria-invalid') === 'true') validate(name);
+    if (invalid(name)) validate(name);
     meter();
     recount();
   });
@@ -119,7 +126,7 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
     if (!ORDER.includes(name)) return;
     touched.add(name);
     if (e.target.tagName === 'SELECT') tag(name, false);
-    if (e.target.getAttribute('aria-invalid') === 'true' || (e.target.type === 'checkbox' && tried)) validate(name);
+    if (invalid(name) || ((e.target.type === 'checkbox' || e.target.type === 'radio') && tried)) validate(name);
     if (name === 'pay_ack') payHint();
     meter();
     recount();
@@ -140,7 +147,7 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
     meter();
     if (bad.length) {
       summary.textContent = bad.length === 1 ? t('ch09_err_summary_one') : t('ch09_err_summary_many', { n: bad.length });
-      input(bad[0]).focus();
+      focusOf(bad[0]).focus();
       return;
     }
     summary.textContent = '';
@@ -166,7 +173,7 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
     submit.disabled = true;
     submit.textContent = t('ch09_submit_sending');
     const body = { id: entryId(), lang: document.documentElement.lang === 'en' ? 'en' : 'es' };
-    for (const name of ORDER) body[name] = name === 'pay_ack' ? (input(name).checked ? 'yes' : '') : input(name).value.trim();
+    for (const name of ORDER) body[name] = name === 'pay_ack' ? (input(name).checked ? 'yes' : '') : String(valueOf(name)).trim();
     body.website = input('website')?.value || '';
     let ok = false;
     try {

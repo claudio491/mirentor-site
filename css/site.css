@@ -2106,13 +2106,13 @@ html.still .ch09 .ch09-corners i { transform: none; transition: none; }
 .ch09-card.is-rec .ch09-dot { background: var(--signal); border-color: var(--signal); }
 .ch09 .ch09-card.is-rec .ch09-status { color: var(--porcelain); }
 .ch09-meter { display: inline-flex; align-items: center; gap: var(--space-2); }
-.ch09-ticks { display: grid; grid-template-columns: repeat(8, 12px); gap: 4px; }
+.ch09-ticks { display: grid; grid-template-columns: repeat(10, 12px); gap: 4px; }
 .ch09-ticks s { display: block; height: 8px; background: var(--line); transition: background-color var(--dur-hover) var(--ease-out); }
 .ch09-ticks s.is-on { background: var(--glove); }
 .no-js .ch09-meter { display: none; }
 @container (max-width: 479px) {
   .ch09-meter-word { display: none; }
-  .ch09-ticks { grid-template-columns: repeat(8, 8px); gap: 2px; }
+  .ch09-ticks { grid-template-columns: repeat(10, 8px); gap: 2px; }
 }
 
 
@@ -2182,6 +2182,27 @@ html.still .ch09 .ch09-corners i { transform: none; transition: none; }
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='none' stroke='red' stroke-width='1.5'/%3E%3Cpath d='M8 4v5' stroke='red' stroke-width='1.6'/%3E%3Ccircle cx='8' cy='11.75' r='1' fill='red'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 .ch09 .ch09-msg--note .label { flex: none; padding-top: 3px; color: var(--graphite); }
+
+
+.ch09 .ch09-site-hint { clear: both; margin: 0 0 var(--space-3); }
+.ch09 .ch09-field > .ch09-yn-q { align-self: end; margin: 0 0 var(--space-1); font: 500 15px/1.35 var(--sans); color: var(--graphite); }
+.ch09-yn {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-height: 48px;
+  background: var(--card); border: 1px solid var(--edge-light); border-radius: 2px;
+  transition: border-color var(--dur-hover) var(--ease-out), box-shadow var(--dur-hover) var(--ease-out);
+}
+.ch09-yn-opt {
+  position: relative; display: grid; place-items: center; min-height: 46px;
+  font: 500 17px/1.3 var(--sans); color: var(--graphite); cursor: pointer;
+  transition: background-color var(--dur-hover) var(--ease-out), color var(--dur-hover) var(--ease-out);
+}
+.ch09-yn-opt + .ch09-yn-opt { border-left: 1px solid var(--edge-light); }
+.ch09-yn-opt input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.ch09-yn-opt:has(input:checked) { background: var(--graphite); color: var(--porcelain); }
+.ch09-yn-opt:has(input:focus-visible) { outline: 2px solid var(--graphite); outline-offset: 2px; z-index: 1; }
+@media (hover: hover) and (pointer: fine) { .ch09-yn:hover { border-color: var(--graphite); } }
+.ch09-yn[aria-invalid="true"] { border-color: var(--alert); box-shadow: inset 0 0 0 1px var(--alert); }
+.ch09-yn[aria-invalid="true"] .ch09-yn-opt:has(input:focus-visible) { outline-color: var(--alert); }
 
 
 .ch09-pay { margin: var(--space-1) 0 var(--space-4); }
