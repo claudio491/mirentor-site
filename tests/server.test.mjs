@@ -85,3 +85,19 @@ test('healthz says whether Google is configured', async (t) => {
   assert.deepEqual({ ...h, dataDir: 'x' }, { ok: true, sheets: false, pending: 0, dataDir: 'x', desk: false });
   assert.match(h.dataDir, /wl-/);
 });
+
+test('geo answers the visitor country from the CDN header, for our origin only', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const geo = (h) => fetch(`${s.url}/api/geo`, { headers: { origin: ORIGIN, ...h } });
+  const r = await geo({ 'cf-ipcountry': 'us' });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { ok: true, country: 'US' });
+  assert.equal(r.headers.get('access-control-allow-origin'), ORIGIN);
+  assert.equal(r.headers.get('cache-control'), 'no-store');
+  for (const v of [undefined, 'XX', 'T1', 'usa', '<b>']) {
+    assert.deepEqual(await (await geo(v === undefined ? {} : { 'cf-ipcountry': v })).json(), { ok: true, country: null }, String(v));
+  }
+  const other = await fetch(`${s.url}/api/geo`, { headers: { origin: 'https://evil.example', 'cf-ipcountry': 'US' } });
+  assert.equal(other.status, 403);
+  assert.equal((await fetch(`${s.url}/api/geo`, { method: 'POST', headers: { origin: ORIGIN } })).status, 405);
+});

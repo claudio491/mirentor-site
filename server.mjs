@@ -45,6 +45,14 @@ export function createServer({ store, sheets, origins, limit = 10, desk = null }
 
     if (req.method === 'GET' && pathname === '/healthz') return send(200, { ok: true, sheets: !!sheets, pending: store.pending().length, dataDir: store.dir, desk: !!desk });
     if (desk && (await desk(req, res, pathname))) return;
+    // The site's home asks where the visitor is to pick its default language. Cloudflare, in front of Render, sets
+    // the country; XX (unknown) and T1 (Tor) count as no answer. Nothing is stored.
+    if (pathname === '/api/geo') {
+      if (!allowed) return send(403, { ok: false });
+      if (req.method !== 'GET') return send(405, { ok: false });
+      const cc = String(req.headers['cf-ipcountry'] || '').toUpperCase();
+      return send(200, { ok: true, country: /^[A-Z]{2}$/.test(cc) && cc !== 'XX' && cc !== 'T1' ? cc : null });
+    }
     if (pathname !== '/api/waitlist') return send(404, { ok: false });
     if (!allowed) return send(403, { ok: false });
     if (req.method === 'OPTIONS') {
