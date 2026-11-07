@@ -31,3 +31,9 @@ test('a visit from outside Panama that only waited is marked as a likely link sc
     { c: '5uf2cl', at: '2026-11-10T15:30:00.000Z', country: 'PA', page: '/', how: 'timer', ua: IPHONE }], parseLinks(CSV));
   assert.deepEqual(rows.map((r) => [r.company, r.likelyScanner]), [['Cochez', false], ['ESCO, S.A.', true]]);
 });
+
+test('our own test visits (codes starting with "test") stay out of the report', () => {
+  const rows = report([{ c: 'test01', at: '2026-11-07T18:33:00.000Z', country: 'MX', page: '/', how: 'interact', ua: WIN },
+    { c: '5uf2cl', at: '2026-11-10T15:30:00.000Z', country: 'PA', page: '/', how: 'interact', ua: IPHONE }], parseLinks(CSV));
+  assert.deepEqual(rows.map((r) => r.company), ['Cochez']);
+});

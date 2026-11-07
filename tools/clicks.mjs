@@ -44,9 +44,9 @@ const device = (ua = '') => (/iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'i
 
 const panamaTime = (iso) => new Date(Date.parse(iso) + PANAMA_OFFSET_H * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
 
-/** One row per visit, oldest first. */
+/** One row per visit, oldest first. Codes starting with "test" are our own checks of the live site and stay out. */
 export function report(visits, links) {
-  return [...visits].sort((a, b) => a.at.localeCompare(b.at)).map((v) => {
+  return [...visits].filter((v) => !v.c.startsWith('test')).sort((a, b) => a.at.localeCompare(b.at)).map((v) => {
     const l = links.get(v.c);
     const home = l && /^([A-Z]{2})-/.test(l.lead) ? l.lead.slice(0, 2) : null;
     return {
