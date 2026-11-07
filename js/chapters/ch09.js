@@ -175,6 +175,7 @@ export function init(el, { tier = 'full', strings = {} } = {}) {
     const body = { id: entryId(), lang: document.documentElement.lang === 'en' ? 'en' : 'es' };
     for (const name of ORDER) body[name] = name === 'pay_ack' ? (input(name).checked ? 'yes' : '') : String(valueOf(name)).trim();
     body.website = input('website')?.value || '';
+    try { const ref = sessionStorage.getItem('mirentor:ref') || ''; if (/^[a-z0-9]{6}$/.test(ref)) body.ref = ref; } catch { /* storage blocked */ }
     let ok = false;
     try {
       const r = await fetch(form.dataset.api, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });

@@ -31,6 +31,39 @@
   try { var n = performance.getEntriesByType("navigation")[0], at = JSON.parse(sessionStorage.getItem("mirentor:at:" + location.pathname) || "null");
     if (n && (n.type === "reload" || n.type === "back_forward") && at && at.id) { d.classList.add("landing"); setTimeout(function () { d.classList.remove("landing"); }, 2000); } } catch (e) {}
 })(document.documentElement);</script>
+<script>(function () {
+  /* Email code: a link we email carries the lead's code (?c=k7m2qx, tools/ref.mjs in the waitlist backend). The home
+     keeps it for this session (sessionStorage "mirentor:ref", the waitlist form sends it), takes it out of the address
+     bar and sends one beacon per session to the backend's POST /api/visit once the visitor scrolls with the wheel,
+     taps or types ("interact") or stays 5 s on a visible page ("timer"). Runs before lang-auto, so a visitor sent to
+     /en/ is counted there. Links without a code send nothing. Live builds only (build.mjs). */
+  try {
+    var K = "mirentor:ref-visit", m = /[?&]c=([a-z0-9]{6})(?=&|$)/.exec(location.search);
+    if (m) {
+      sessionStorage.setItem("mirentor:ref", m[1]);
+      if (sessionStorage.getItem(K) !== "sent:" + m[1]) sessionStorage.setItem(K, m[1]);
+      var q = location.search.replace(/([?&])c=[a-z0-9]{6}(&|$)/, function (_, a, b) { return b ? a : ""; });
+      history.replaceState(history.state, "", location.pathname + q + location.hash);
+    }
+    if (/bot|crawl|spider|slurp|lighthouse|headless|preview/i.test(navigator.userAgent) || !navigator.sendBeacon) return;
+    var c = sessionStorage.getItem(K);
+    if (!c || c.indexOf("sent:") === 0) return;
+    var ev = ["wheel", "touchstart", "pointerdown", "keydown"], t, opt = { capture: true, passive: true };
+    var fire = function (how) {
+      if (sessionStorage.getItem(K) !== c) return;
+      sessionStorage.setItem(K, "sent:" + c);
+      clearTimeout(t);
+      ev.forEach(function (e) { removeEventListener(e, act, opt); });
+      document.removeEventListener("visibilitychange", arm);
+      navigator.sendBeacon("https://mirentor-waitlist.onrender.com/api/visit", JSON.stringify({ c: c, page: location.pathname, how: how }));
+    };
+    var act = function () { fire("interact"); };
+    var arm = function () { clearTimeout(t); if (document.visibilityState === "visible") t = setTimeout(function () { fire("timer"); }, 5000); };
+    ev.forEach(function (e) { addEventListener(e, act, opt); });
+    document.addEventListener("visibilitychange", arm);
+    arm();
+  } catch (e) {}
+})();</script>
 
 <script>/* ES/EN in the header or footer: remember the pick, so the Spanish home's language default (lang-auto) keeps it. */
 document.addEventListener("click", function (e) { var a = e.target.closest && e.target.closest(".lang a[hreflang]"); if (a) try { localStorage.setItem("mirentor:lang", a.getAttribute("hreflang")); } catch (x) {} });</script>
