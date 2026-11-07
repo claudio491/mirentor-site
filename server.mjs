@@ -1,8 +1,9 @@
 // server.mjs: the waitlist endpoint. POST /api/waitlist checks the entry, keeps it on disk, then writes it to the
 // lead log and reads it back. Google missing or down: the entry waits on disk (202) and the retry loop syncs it.
 import http from 'node:http';
+import { timingSafeEqual } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { parseEntry } from './lib/entry.mjs';
+import { parseEntry, REF } from './lib/entry.mjs';
 import { openStore } from './lib/store.mjs';
 import { sheetsClient } from './lib/sheets.mjs';
 import { syncOne, syncPending } from './lib/sync.mjs';
@@ -11,19 +12,34 @@ import { createDesk } from './lib/desk.mjs';
 const MAX_BODY = 16 * 1024;
 const WINDOW_MS = 10 * 60 * 1000;
 const SYNC_TIMEOUT_MS = 8000;
+const MAX_VISIT = 1024;
+const PAGE = /^\/[a-z0-9/-]{0,60}$/;
+const HOW = new Set(['interact', 'timer']);
 
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('timeout')), ms).unref())]);
 
-export function createServer({ store, sheets, origins, limit = 10, desk = null }) {
-  const hits = new Map();
+// Cloudflare, in front of Render, sets the visitor country; XX (unknown) and T1 (Tor) count as no answer.
+const countryOf = (req) => {
+  const cc = String(req.headers['cf-ipcountry'] || '').toUpperCase();
+  return /^[A-Z]{2}$/.test(cc) && cc !== 'XX' && cc !== 'T1' ? cc : null;
+};
+const sameToken = (given, want) => {
+  const a = Buffer.from(String(given)), b = Buffer.from(String(want));
+  return a.length === b.length && timingSafeEqual(a, b);
+};
 
-  function limited(ip) {
+export function createServer({ store, sheets, origins, limit = 10, visitLimit = 30, desk = null, adminToken = '' }) {
+  const hits = new Map();
+  const visitHits = new Map();
+
+  function limited(ip, map = hits, max = limit) {
     const now = Date.now();
-    const recent = (hits.get(ip) || []).filter((t) => now - t < WINDOW_MS);
+    const recent = (map.get(ip) || []).filter((t) => now - t < WINDOW_MS);
     recent.push(now);
-    hits.set(ip, recent);
-    return recent.length > limit;
+    map.set(ip, recent);
+    return recent.length > max;
   }
+  const ipOf = (req) => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress).split(',')[0].trim();
 
   async function sync(entry) {
     if (!sheets) return false;
@@ -45,13 +61,38 @@ export function createServer({ store, sheets, origins, limit = 10, desk = null }
 
     if (req.method === 'GET' && pathname === '/healthz') return send(200, { ok: true, sheets: !!sheets, pending: store.pending().length, dataDir: store.dir, desk: !!desk });
     if (desk && (await desk(req, res, pathname))) return;
-    // The site's home asks where the visitor is to pick its default language. Cloudflare, in front of Render, sets
-    // the country; XX (unknown) and T1 (Tor) count as no answer. Nothing is stored.
+    // The site's home asks where the visitor is to pick its default language. Nothing is stored.
     if (pathname === '/api/geo') {
       if (!allowed) return send(403, { ok: false });
       if (req.method !== 'GET') return send(405, { ok: false });
-      const cc = String(req.headers['cf-ipcountry'] || '').toUpperCase();
-      return send(200, { ok: true, country: /^[A-Z]{2}$/.test(cc) && cc !== 'XX' && cc !== 'T1' ? cc : null });
+      return send(200, { ok: true, country: countryOf(req) });
+    }
+    // A visit from a link we emailed (?c=<code>): the home sends a beacon once the visitor scrolls, taps or types
+    // (how "interact") or stays 5 s on a visible page (how "timer"). Kept: the code, time, country, page, how and
+    // browser. Not kept: the address. Only links that carry a code are counted; other visitors send nothing.
+    if (pathname === '/api/visit') {
+      if (!allowed) return send(403, { ok: false });
+      if (req.method !== 'POST') return send(405, { ok: false });
+      if (limited(ipOf(req), visitHits, visitLimit)) return send(429, { ok: false });
+      let raw = '';
+      for await (const chunk of req) {
+        raw += chunk;
+        if (raw.length > MAX_VISIT) return send(413, { ok: false });
+      }
+      let b;
+      try { b = JSON.parse(raw); } catch { return send(400, { ok: false }); }
+      if (!b || !REF.test(b.c) || !PAGE.test(b.page) || !HOW.has(b.how)) return send(400, { ok: false });
+      const rec = { c: b.c, at: new Date().toISOString(), country: countryOf(req), page: b.page, how: b.how, ua: String(req.headers['user-agent'] || '').slice(0, 300) };
+      store.visit(rec);
+      console.log(`visit c=${rec.c} country=${rec.country} page=${rec.page} how=${rec.how}`);
+      return send(204);
+    }
+    // The visit list for our own report (tools/clicks.mjs), behind a bearer token. No token configured: off.
+    if (pathname === '/api/visits' && adminToken) {
+      const auth = String(req.headers.authorization || '');
+      if (!auth.startsWith('Bearer ') || !sameToken(auth.slice(7), adminToken)) return send(401, { ok: false });
+      if (req.method !== 'GET') return send(405, { ok: false });
+      return send(200, { ok: true, visits: store.visits() });
     }
     if (pathname !== '/api/waitlist') return send(404, { ok: false });
     if (!allowed) return send(403, { ok: false });
@@ -60,8 +101,7 @@ export function createServer({ store, sheets, origins, limit = 10, desk = null }
       return;
     }
     if (req.method !== 'POST') return send(405, { ok: false });
-    const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress).split(',')[0].trim();
-    if (limited(ip)) return send(429, { ok: false });
+    if (limited(ipOf(req))) return send(429, { ok: false });
 
     let raw = '';
     for await (const chunk of req) {
@@ -88,6 +128,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const origins = (process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
   const port = Number(process.env.PORT || 10000);
   const desk = createDesk({ dir: store.dir, password: process.env.DESK_PASSWORD, pushToken: process.env.DESK_PUSH_TOKEN, host: process.env.DESK_HOST });
-  createServer({ store, sheets, origins, desk }).listen(port, () => console.log(`waitlist on ${port}, sheets ${sheets ? 'on' : 'off'}, desk ${desk ? 'on' : 'off'}, ${store.pending().length} pending`));
+  const adminToken = process.env.VISITS_TOKEN || process.env.DESK_PUSH_TOKEN || '';
+  createServer({ store, sheets, origins, desk, adminToken }).listen(port, () => console.log(`waitlist on ${port}, sheets ${sheets ? 'on' : 'off'}, desk ${desk ? 'on' : 'off'}, ${store.pending().length} pending`));
   if (sheets) { syncPending(store, sheets); setInterval(() => syncPending(store, sheets), 60_000); }
 }

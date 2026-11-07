@@ -10,6 +10,21 @@ const body = (over = {}) => ({
   whatsapp: '+507 6000 0000', pay_ack: 'yes', website: '', ...over,
 });
 
+test('an email code from the page is kept and named in Source detail', () => {
+  const r = parseEntry(body({ ref: 'k7m2qx' }), NOW);
+  assert.equal(r.entry.ref, 'k7m2qx');
+  assert.equal(toCells(r.entry).aToP[12], 'Site form, 2026-11-03, Spanish page, email code k7m2qx');
+});
+
+test('a bad email code is dropped and never blocks the sign-up', () => {
+  for (const ref of ['PA-0023', 'k7m2q', '<b>xx</b>', 42]) {
+    const r = parseEntry(body({ ref }), NOW);
+    assert.equal(r.ok, true, String(ref));
+    assert.equal(r.entry.ref, '');
+    assert.equal(toCells(r.entry).aToP[12], 'Site form, 2026-11-03, Spanish page');
+  }
+});
+
 test('a valid body becomes an entry with a lead ID from the client id', () => {
   const r = parseEntry(body(), NOW);
   assert.equal(r.ok, true);

@@ -9,6 +9,14 @@ Takes the waitlist form from the Mirentor site, keeps every sign-up on disk, and
   forwards it; `null` when unknown or Tor). Allowed origins only, nothing stored. The site's Spanish home uses it to send
   visitors outside the Spanish-speaking countries to `/en/` (site `src/partials/lang-auto.html`).
 - The same entry id twice never makes a second row.
+- `POST /api/visit`: a visit from a link we emailed. The link carries the lead's code (`?c=k7m2qx`, from
+  `tools/ref.mjs`: the same lead ID always gives the same six characters). The site home (`src/partials/email-code.html`)
+  sends one beacon per session, `text/plain` JSON `{ c, page, how }`, once the visitor scrolls, taps or types
+  (`interact`) or stays 5 s (`timer`). Kept in `visits.jsonl`: code, time, country (Cloudflare), page, how and browser;
+  never the address. Allowed origins only, 30 per address per 10 minutes. Answers 204.
+- `GET /api/visits`: the visit list, `Authorization: Bearer $VISITS_TOKEN` (falls back to `DESK_PUSH_TOKEN`). Off when
+  neither is set. `node tools/clicks.mjs` prints it by company, joined with the `outreach/*-links-*.csv` files.
+- A sign-up that arrived through a coded link carries the code: Leads column M says `email code k7m2qx`.
 
 ## Environment
 
@@ -17,6 +25,7 @@ Takes the waitlist form from the Mirentor site, keeps every sign-up on disk, and
 | `ALLOWED_ORIGINS` | `https://mirentor.onrender.com` (comma list) |
 | `SHEET_ID` | the lead log's spreadsheet ID |
 | `DATA_DIR` | `/var/data` once the disk is mounted; `./data` otherwise (lost on redeploy) |
+| `VISITS_TOKEN` | optional bearer token for `GET /api/visits`; unset, `DESK_PUSH_TOKEN` is used |
 | `DESK_PASSWORD` | the shared password for `/desk`; unset turns `/desk` off |
 | `DESK_PUSH_TOKEN` | bearer token the desk sync uses to push the copy; unset turns `/desk` off |
 | `DESK_HOST` | `desk.mirentor.com`: on that host the desk sits at the root (`/`, `/login`, `/data.json`) |
