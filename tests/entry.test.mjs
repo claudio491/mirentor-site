@@ -6,7 +6,7 @@ const NOW = new Date('2026-11-03T17:00:00Z');
 const ID = '3f2b8c1e-9a4d-4e2b-8f6a-1c2d3e4f5a6b';
 const body = (over = {}) => ({
   id: ID, lang: 'es', business: '  Almacenes Rivera ', workers: '1.200', industry: 'warehouse',
-  city: 'Ciudad de Panamá', country: 'PA', contact: 'Ana Rivera', email: 'ana@rivera.com.pa',
+  city: 'Panama City', country: 'PA', contact: 'Ana Rivera', email: 'ana@rivera.com.pa',
   whatsapp: '+507 6000 0000', pay_ack: 'yes', website: '', ...over,
 });
 
@@ -62,13 +62,39 @@ test('text is capped at 200 characters', () => {
 });
 
 test('toCells fills Leads A to P and the notes', () => {
-  const { aToP, notes } = toCells(parseEntry(body(), NOW).entry);
+  const { aToP, notes } = toCells(parseEntry(body({ city: 'Ciudad de Panamá' }), NOW).entry);
   assert.equal(aToP.length, 16);
   assert.deepEqual(aToP, [
     'WL-3F2B8C1E', 'Almacenes Rivera', 'Ana Rivera', '', 'ana@rivera.com.pa', '+507 6000 0000', '',
-    'Ciudad de Panamá', 'Panama', 'Warehouse or logistics', 1200, 'Waitlist form',
+    'Panama City', 'Panama', 'Warehouse or logistics', 1200, 'Waitlist form',
     'Site form, 2026-11-03, Spanish page', 'Spanish', '', 'Waitlist',
   ]);
+  assert.equal(notes, 'Pay rule acknowledged on the form. City typed: "Ciudad de Panamá".');
+});
+
+test('a typed city lands as the Cities tab name, so the city counts the sign-up', () => {
+  const cases = [
+    ['Panama', 'PA', 'Panama City'], ['Panamá', 'PA', 'Panama City'], ['panama city', 'PA', 'Panama City'],
+    ['Ciudad de Panamá.', 'PA', 'Panama City'], ['Arraiján', 'PA', 'Panama City'], ['Colón', 'PA', 'Colón'],
+    ['colon', 'PA', 'Colón'], ['Medellin', 'CO', 'Medellín'], ['Bogotá D.C.', 'CO', 'Bogotá'],
+    ['Santiago de Cali', 'CO', 'Cali'], ['CDMX', 'MX', 'Mexico City'], ['lima', 'PE', 'Lima'],
+  ];
+  for (const [typed, country, want] of cases) {
+    const { aToP } = toCells(parseEntry(body({ city: typed, country }), NOW).entry);
+    assert.equal(aToP[7], want, `${typed} (${country})`);
+  }
+});
+
+test('a city we do not list, or one in another country, is kept as typed with no note', () => {
+  for (const [typed, country] of [['David', 'PA'], ['Panama', 'CO'], ['Barranquilla', 'CO'], ['Panama City', 'US']]) {
+    const { aToP, notes } = toCells(parseEntry(body({ city: typed, country }), NOW).entry);
+    assert.equal(aToP[7], typed);
+    assert.ok(!notes.includes('City typed'), `${typed} (${country})`);
+  }
+});
+
+test('the exact Cities tab name adds no note', () => {
+  const { notes } = toCells(parseEntry(body({ city: 'Panama City' }), NOW).entry);
   assert.equal(notes, 'Pay rule acknowledged on the form.');
 });
 
