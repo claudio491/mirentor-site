@@ -18,8 +18,9 @@ export async function start({ clock = MON_10, sample = false, dev = false, previ
   writeFileSync(path.join(staticDir, 'app.js'), 'export const ok = 1;');
   mkdirSync(path.join(staticDir, 'fonts'), { recursive: true }); writeFileSync(path.join(staticDir, 'fonts', 'geist-v1.woff2'), Buffer.from([0x77, 0x4f, 0x46, 0x32, 1, 2, 3]));
   const time = { now: clock };
-  const team = createTeam({ dir, secret: 'test-secret', pushToken: 'push-token', now: () => new Date(time.now), staticDir, origins: [ORIGIN], dev, previewOffsetMs, bootstrapOpen });
-  const srv = createServer({ store: openStore(dir), sheets: null, origins: [ORIGIN], team, desk: desk ? desk(dir) : null });
+  const said = [];   // what the service wrote to its error log: a test can check that nothing unexpected happened
+  const team = createTeam({ dir, secret: 'test-secret', pushToken: 'push-token', now: () => new Date(time.now), staticDir, origins: [ORIGIN], dev, previewOffsetMs, bootstrapOpen, log: (m) => said.push(String(m)) });
+  const srv = createServer({ store: openStore(dir), sheets: null, origins: [ORIGIN], team, desk: desk ? desk(dir) : null, log: (m) => said.push(String(m)) });
   await new Promise((r) => srv.listen(0, r));
   const url = `http://127.0.0.1:${srv.address().port}`;
   const call = async (method, p, body, { cookie, bearer, origin, raw } = {}) => {
@@ -44,7 +45,7 @@ export async function start({ clock = MON_10, sample = false, dev = false, previ
     return { id: r.json.id, cookie: s.cookie, setupUrl: r.json.setupUrl };
   };
   const lines = () => readFileSync(path.join(dir, 'team', 'events.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
-  return { srv, url, call, admin, addRep, tokenOf, lines, dir, time };
+  return { srv, url, call, admin, addRep, tokenOf, lines, dir, time, said };
 }
 export const logBody = (id, over = {}) => ({ id, lead: { name: 'Ferretería El Roble', zone: 'Vía España' }, kind: 'talk', clientAt: new Date(MON_10).toISOString(), ...over });
 

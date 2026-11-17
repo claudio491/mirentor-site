@@ -23,11 +23,15 @@ test('a visit where the rep speaks with whoever decides is a visit and a convers
   assert.equal(earned(ledger(s, 'a', ctx())), 8);
 });
 
-test('a business the CRM says was contacted on an earlier day makes the visit a follow-up: 10 points', () => {
-  const s = build([rep('a'), log('a', MON, '10:00', 'talk')]);
-  const c = ctx(MON, '20:00', new Map([['L1', { lastContact: '2026-11-10' }]]));
-  assert.equal(dayStats(s, 'a', MON, c).followups, 1);
-  assert.equal(earned(ledger(s, 'a', c)), 10);
+test('a business the CRM said was contacted on an earlier day makes the visit a follow-up: 10 points, fixed when the log is made', () => {
+  // The earlier contact is stamped on the log itself (`prior`): what the lead list says later cannot move these points.
+  const s = build([rep('a'), log('a', MON, '10:00', 'talk', 'L1', { prior: '2026-11-10' })]);
+  assert.equal(dayStats(s, 'a', MON, ctx()).followups, 1);
+  assert.equal(earned(ledger(s, 'a', ctx())), 10);
+  const later = ctx(MON, '20:00', new Map([['L1', { lastContact: MON }]]));
+  assert.equal(earned(ledger(s, 'a', later)), 10);
+  const plain = build([rep('a'), log('a', MON, '10:00', 'talk', 'L1')]);
+  assert.equal(earned(ledger(plain, 'a', ctx(MON, '20:00', new Map([['L1', { lastContact: '2026-11-10' }]])))), 8);
 });
 
 test('a teammate\'s earlier log on the same business also makes it a follow-up', () => {
@@ -55,9 +59,9 @@ test('absent in the morning and a talk in the afternoon at one business is one v
 });
 
 test('messages score up to 10 a day and never count as a follow-up', () => {
-  const logs = Array.from({ length: 12 }, (_, i) => log('a', MON, '10:00', 'message', `M${i}`));
+  const logs = Array.from({ length: 12 }, (_, i) => log('a', MON, '10:00', 'message', `M${i}`, i === 0 ? { prior: '2026-11-01' } : {}));
   const s = build([rep('a'), ...logs]);
-  const c = ctx(MON, '20:00', new Map([['M0', { lastContact: '2026-11-01' }]]));
+  const c = ctx(MON, '20:00');
   const d = dayStats(s, 'a', MON, c);
   assert.equal(d.messages, 12);
   assert.equal(d.followups, 0);
@@ -164,8 +168,8 @@ test('a day off turns a working day into a rest finger', () => {
 test('a full day of work on Saturday completes one finger missed that week', () => {
   const sat = '2026-11-21';
   const s = build([rep('a'),
-    log('a', sat, '09:00', 'talk', 'S1', {}), log('a', sat, '10:00', 'call', 'S2'), log('a', sat, '11:00', 'call', 'L9'), close('a', sat, '17:00')]);
-  const c = ctx('2026-11-22', '10:00', new Map([['L9', { lastContact: '2026-11-01' }]]));
+    log('a', sat, '09:00', 'talk', 'S1', {}), log('a', sat, '10:00', 'call', 'S2'), log('a', sat, '11:00', 'call', 'L9', { prior: '2026-11-01' }), close('a', sat, '17:00')]);
+  const c = ctx('2026-11-22', '10:00');
   const w = weekOf(s, 'a', MON, c);
   assert.equal(w.fullFingers, 1);
   assert.equal(w.days.filter((d) => d.repaired).length, 1);
@@ -208,9 +212,9 @@ test('a clean week gives one spare back, never above two', () => {
 
 test('the weekly goal offers three sizes built from the rep\'s working days', () => {
   const prev = ['2026-11-09', '2026-11-10', '2026-11-11'].flatMap((d) => [
-    log('a', d, '09:00', 'talk', `A${d}`), log('a', d, '10:00', 'call', `B${d}`), log('a', d, '11:00', 'call', 'OLD'), close('a', d, '18:00')]);
+    log('a', d, '09:00', 'talk', `A${d}`), log('a', d, '10:00', 'call', `B${d}`), log('a', d, '11:00', 'call', 'OLD', { prior: '2026-10-01' }), close('a', d, '18:00')]);
   const s = build([rep('a'), ...prev]);
-  const c = ctx(MON, '09:00', new Map([['OLD', { lastContact: '2026-10-01' }]]));
+  const c = ctx(MON, '09:00');
   assert.equal(weekOf(s, 'a', '2026-11-09', c).fullFingers, 3);
   assert.deepEqual(goalOf(s, 'a', MON, c), { options: [3, 4, 5], picked: 4, isDefault: true, fullFingers: 0, reached: false });
   applyEvent(s, { type: 'goal.pick', t: at(MON, '09:30'), rep: 'a', week: MON, k: 5 });
@@ -233,4 +237,24 @@ test('the days before a rep started are rest days: a first week is not a week of
   assert.deepEqual(w.days.map((d) => d.kind), ['rest', 'rest', 'rest', 'work', 'future']);
   assert.deepEqual([w.workFingers, w.marksMax, w.marks], [2, 9, 2]);
   assert.deepEqual(goalOf(s, 'a', MON, ctx('2026-11-19')).options, [1, 2]);
+});
+
+test("a meeting's wait for confirmation runs from the day of the meeting, not from the day it was booked", () => {
+  const s = build([rep('a'), log('a', MON, '10:00', 'meeting', 'L1', { channel: 'visit', when: '2026-12-04' })]);
+  const held = (day) => ledger(s, 'a', ctx(day, '12:00')).find((e) => e.code === 'meeting_held');
+  assert.deepEqual([held('2026-12-02').status, held('2026-12-17').status, held('2026-12-19').status], ['pending', 'pending', 'expired']);
+  assert.equal(held('2026-12-02').at, at(MON, '10:00'));   // it is still listed at the moment it was booked
+  const undated = build([rep('a'), log('a', MON, '10:00', 'meeting', 'L1', { channel: 'visit' })]);
+  assert.equal(ledger(undated, 'a', ctx('2026-12-02', '12:00')).find((e) => e.code === 'meeting_held').status, 'expired');
+});
+
+test('a voided site pays nothing, and an undone confirmation waits again', () => {
+  const m = log('a', MON, '10:00', 'meeting', 'L1', { channel: 'visit' });
+  const s = build([rep('a'), m, { type: 'confirm', t: at(MON, '12:00'), logId: m.id, what: 'meeting_held', by: 'boss' },
+    { type: 'site', t: at(MON, '13:00'), id: 's_1', rep: 'a', lead: { id: null, name: 'Sitio' }, by: 'boss' }]);
+  assert.equal(earned(ledger(s, 'a', ctx())), 13 + 10 + 40);
+  applyEvent(s, { type: 'confirm.undo', t: at(MON, '14:00'), logId: m.id, what: 'meeting_held', by: 'boss' });
+  applyEvent(s, { type: 'site.void', t: at(MON, '14:05'), siteId: 's_1', by: 'boss' });
+  const after = ledger(s, 'a', ctx());
+  assert.deepEqual([earned(after), pending(after), after.some((e) => e.code.startsWith('site_')), s.feed.map((f) => f.type)], [13, 10, false, ['log']]);
 });

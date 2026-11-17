@@ -8,7 +8,7 @@ import { openStore } from './lib/store.mjs';
 import { sheetsClient } from './lib/sheets.mjs';
 import { syncOne, syncPending } from './lib/sync.mjs';
 import { createDesk } from './lib/desk.mjs';
-import { createTeam, teamConfig } from './lib/team/api.mjs';
+import { startTeam } from './lib/team/api.mjs';
 
 const MAX_BODY = 16 * 1024;
 const WINDOW_MS = 10 * 60 * 1000;
@@ -29,7 +29,7 @@ const sameToken = (given, want) => {
   return a.length === b.length && timingSafeEqual(a, b);
 };
 
-export function createServer({ store, sheets, origins, limit = 10, visitLimit = 30, desk = null, adminToken = '', team = null }) {
+export function createServer({ store, sheets, origins, limit = 10, visitLimit = 30, desk = null, adminToken = '', team = null, log = console.error }) {
   const hits = new Map();
   const visitHits = new Map();
 
@@ -50,7 +50,7 @@ export function createServer({ store, sheets, origins, limit = 10, visitLimit = 
     }
   }
 
-  return http.createServer(async (req, res) => {
+  const answer = async (req, res) => {
     const origin = req.headers.origin || '';
     const allowed = origins.includes(origin);
     const send = (status, body) => {
@@ -121,6 +121,15 @@ export function createServer({ store, sheets, origins, limit = 10, visitLimit = 
     const kept = store.put(r.entry);
     const synced = kept.row != null || (await sync(kept));
     return send(synced ? 200 : 202, { ok: true, leadId: kept.leadId, synced });
+  };
+
+  // Nothing a request does may end the process: an error in any route is answered with a 500 and the service goes on.
+  return http.createServer((req, res) => {
+    answer(req, res).catch((err) => {
+      log(`waitlist: ${req.method} ${String(req.url).split('?')[0]} failed: ${(err && err.stack) || err}`);
+      if (!res.headersSent) res.writeHead(500, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end('{"ok":false}');
+      else res.end();
+    });
   });
 }
 
@@ -132,9 +141,9 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const port = Number(process.env.PORT || 10000);
   const desk = createDesk({ dir: store.dir, password: process.env.DESK_PASSWORD, pushToken: process.env.DESK_PUSH_TOKEN, host: process.env.DESK_HOST });
   const adminToken = process.env.VISITS_TOKEN || process.env.DESK_PUSH_TOKEN || '';
-  // The sales team platform is off until TEAM_ENABLED=1. It signs sessions with TEAM_SECRET, or with the two desk secrets when that is not set.
-  const teamEnv = teamConfig(process.env);
-  const team = teamEnv ? createTeam({ dir: store.dir, ...teamEnv }) : null;
+  // The sales team platform is off until TEAM_ENABLED=1. It signs sessions with TEAM_SECRET, or with the two desk secrets when
+  // that is not set. If it cannot start, the waitlist and the desk start without it.
+  const team = startTeam(process.env, store.dir);
   createServer({ store, sheets, origins, desk, adminToken, team }).listen(port, () => console.log(`waitlist on ${port}, sheets ${sheets ? 'on' : 'off'}, desk ${desk ? 'on' : 'off'}, team ${team ? 'on' : 'off'}, ${store.pending().length} pending`));
   if (sheets) { syncPending(store, sheets); setInterval(() => syncPending(store, sheets), 60_000); }
 }

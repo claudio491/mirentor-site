@@ -34,6 +34,7 @@ Takes the waitlist form from the Mirentor site, keeps every sign-up on disk, and
 | `TEAM_SECRET` | optional: signs the `/equipo` sessions. Unset, `DESK_PASSWORD` and `DESK_PUSH_TOKEN` together are used; with none of them `/equipo` stays off |
 | `TEAM_PUSH_TOKEN` | optional bearer token for the nightly CRM routine and the first manager; unset, `DESK_PUSH_TOKEN` is used |
 | `TEAM_PUBLIC_BASE` | optional: the address reps open (for example `https://www.mirentor.com`), used to build the setup links |
+| `TEAM_BOOTSTRAP` | `1` opens `POST bootstrap` again after an admin already has a PIN. Set it only for the minutes it takes to get back in after a lost PIN, then remove it |
 
 ## Team Desk copy (`/desk`)
 
@@ -68,25 +69,45 @@ Where the field sales reps log each contact and see their own numbers, and where
 |---|---|
 | Anyone | `POST login {handle, pin}`, `GET setup?t=`, `POST setup {token, pin}`, `POST logout` |
 | A rep | `GET me`, `GET leads?q=`, `POST log`, `POST close {tomorrow, blocker, preview?}`, `POST goal {k}`, `POST kudos {target, on}`, `POST play {logId, text}`, `POST held {logId}`, `POST lang {lang}` |
-| A manager | `GET me?as=<rep id>` (read only), `GET team`, `POST confirm {logId, what}`, `POST void {logId, reason}`, `POST reps`, `POST reps/<id> {patch}`, `POST reps/<id>/link`, `POST dayoff {scope, date}`, `POST site`, `POST site/<id> {what}`, `POST badge {rep, text}` |
-| The bearer token | `POST bootstrap {handle, name}`, `PUT leads [...]`, `GET export?since=<iso>`, `POST leadmap {pairs}` |
+| A manager | `GET me?as=<rep id>` (read only), `GET team`, `POST confirm {logId, what, undo?}`, `POST void {logId, reason}`, `POST reopen {rep, day}`, `POST reps`, `POST reps/<id> {patch}`, `POST reps/<id>/link`, `POST dayoff {scope, date}`, `POST site {id?, rep, lead}`, `POST site/<id> {what}`, `POST badge {rep, text}` |
+| The bearer token | `POST bootstrap {handle, name}`, `PUT leads [...]` (`?force=1`), `GET export?since=<iso>`, `POST leadmap {pairs}` |
 
 - `POST log {id, lead: {id} or {name, zone}, kind, channel?, tag?, note?, contact?, when?, voicemail?, clientAt}` answers
-  `{repeat, gained, pending, tookLead, streakUp, me}`. The `id` is made on the phone, so a retry never counts twice; the
-  same result on the same business the same day is a repeat too. The time kept is the server's; a phone clock more than
-  10 minutes off marks the log `late` for the manager. After the day is closed it answers `409 day_closed`.
+  `{repeat, updated, gained, pending, tookLead, streakUp, me}`. The `id` is made on the phone, so a retry never counts
+  twice; the same result on the same business the same day is a repeat too, and its new details (note, tag, contact,
+  date) update the first log (`updated: true`). A business typed as new that has the same name and zone as one already
+  in that city is that business. Whether a log is a follow-up is decided when it is made and kept on the log (`prior`),
+  so pushing the lead list again never moves points already earned. The time kept is the server's; a phone clock more
+  than 10 minutes off marks the log `late` for the manager. After the day is closed it answers `409 day_closed`.
 - `POST close` writes the day's report in the agreed Spanish template and locks the day. `preview: true` returns the
-  report without closing.
-- `POST bootstrap` creates the first manager (role `admin`) and answers their setup link. Called again with the same
-  handle it answers a new link, which is the way back in after a lost PIN. `node tools/team-admin.mjs` wraps it.
+  report without closing, with `empty: true` when nothing is logged yet: such a day answers `409 nothing_to_close`.
+  A manager opens a closed day again with `POST reopen {rep, day}`; the points for closing go with it.
+- `POST confirm` takes `what` as `meeting_held`, `contract_sent` or `contract_signed`; `undo: true` takes one back. A
+  meeting waits for its confirmation from the day of the meeting, not from the day it was booked. Once the wait is
+  over the part earns nothing and a late confirmation answers `409 expired`.
+- `POST site` records a signed site. The form makes the `id` (`s_...`), so sending it twice is one site.
+  `POST site/<id>` takes `what` as `installed`, `first_hour` or `void`; a voided site pays nothing.
+- Working days are Monday to Friday: the hand has five fingers, and other days sent to `POST reps` are dropped.
+- `POST bootstrap` creates the first manager (role `admin`) and answers their setup link. Once an admin has a PIN it
+  answers `409 bootstrap_closed`. With `TEAM_BOOTSTRAP=1` it answers a new link for the same handle again, which is
+  the way back in after a lost PIN. `node tools/team-admin.mjs` wraps it.
 - The nightly CRM routine pushes the lead list with `PUT leads` (`{id, company, city, zone, stage, lastContact, doNotCall}`),
   reads the day with `GET export` (`logs` with the CRM's channel and outcome, `stages`, `newLeads`, `doNotCall`) and
   answers each business added in the app with its CRM id through `POST leadmap`. `stages` holds the highest stage the
-  day's logs justify: the routine raises a CRM stage, never lowers it.
+  day's logs justify: the routine raises a CRM stage, never lowers it. An empty list answers `400 empty`, and a list
+  under half the size of the one in place answers `409 shrink` unless the address carries `?force=1`.
+- A rep picks from the leads whose `city` is their own city (accents and capitals do not count), so `PUT leads` and
+  the rep must name the city the same way. The manager's form offers the cities the list has, and each rep's line
+  says how many businesses match. A business added in the app is a line in the event log (`lead.added`).
+- A line of `events.jsonl` that cannot be applied is skipped on start and named in the service log. If the module
+  cannot start at all, the waitlist and the desk start without it.
 - The client is plain files in `team/`, with no build step: `index.html`, `app.css`, `app.js` (the rep's screens and the
-  shell), `manager.js`, `hand.js` (the hand, the lenses, the level), `ui.js` and `i18n.js`. Elements are built node by
-  node, never from a string of markup; `tests/team-client.test.mjs` checks that, and that both languages carry the same keys.
-- A log that cannot be sent waits on the phone (the top bar says how many) and goes out again with the same `id`.
+  shell), `manager.js`, `hand.js` (the hand, the lenses, the level), `ui.js`, `queue.js` and `i18n.js`. Elements are
+  built node by node, never from a string of markup; `tests/team-client.test.mjs` checks that, and that both languages
+  carry the same keys.
+- A log that cannot be sent (no signal, a service that is restarting, a session that ended) waits on the phone (the
+  top bar says how many) and goes out again with the same `id`. Only a refusal the server explains drops it, with the
+  reason on screen; `team/queue.js` holds that rule. The day cannot be closed while logs wait.
 - To look at it on this machine: `node tools/team-dev.mjs 8772`, then open `http://localhost:8772/equipo`. Each start
   writes fictional people and businesses to a temp folder, prints the PIN for that run (and leaves it in
   `data-sample/sample-pin.txt`, which git ignores), and sets the clock to Thursday

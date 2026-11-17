@@ -89,7 +89,9 @@ test('the feed shows who did what without the business, and marks what the viewe
   const s = build([rep('ana'), rep('beto'), l1, log('ana', MON, '09:10', 'message', 'M1'), { type: 'kudos', t: at(MON, '09:20'), by: 'beto', target: l1.id, on: true }, { type: 'play', t: at(MON, '09:30'), logId: l1.id, text: 'Pregunté por el encargado.' }]);
   const f = feedOf(s, 'beto', ctx());
   assert.equal(f.length, 1);
-  assert.deepEqual([f[0].code, f[0].name, f[0].pts, f[0].kudos, f[0].clapped, f[0].mine, f[0].play], ['talk', 'ANA', 8, 1, true, false, 'Pregunté por el encargado.']);
+  // Points travel only with the viewer's own moves: a rep cannot add up what a teammate outside the podium has.
+  assert.deepEqual([f[0].code, f[0].name, f[0].pts, f[0].kudos, f[0].clapped, f[0].mine, f[0].play], ['talk', 'ANA', null, 1, true, false, 'Pregunté por el encargado.']);
+  assert.equal(feedOf(s, 'ana', ctx())[0].pts, 8);
   assert.equal(JSON.stringify(f).includes('SECRETO'), false);
   assert.equal(feedOf(s, 'ana', ctx())[0].mine, true);
 });

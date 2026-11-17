@@ -1,6 +1,6 @@
 // manager.js: what a manager sees. Every rep in one view, the things that wait for a decision, and the people who have access.
 // The headline of the team view is a live number (days closed today), and the rows that need attention are framed.
-import { $, h, put, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, dayOf, clock, stamp, ago, cityName, countTo, flipList, toast, src, once, copyText, formSheet, quiet } from './ui.js';
+import { $, h, put, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, dayOf, clock, stamp, ago, cityName, countTo, flipList, toast, src, once, copyText, formSheet, quiet, newId, sameText } from './ui.js';
 import { miniHand, lens, setLens } from './hand.js';
 
 const MONDAY = '2026-11-16';   // any Monday: only used to name the days of the week
@@ -18,6 +18,16 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
   const act = (btn, call, okKey) => once(btn, async () => {
     try { const res = await call(); if (res && res.reps) team = res; renderAll(false); if (okKey) toast(t(okKey)); refresh(false); } catch (e) { toast(errText(e)); }
   });
+
+  /** A step that is hard to take back asks twice: the first tap arms the button and says what will happen. */
+  function twice(btn, warnKey, run) {
+    if (!btn.classList.contains('armed')) { btn.classList.add('armed'); toast(t(warnKey)); setTimeout(() => btn.classList.remove('armed'), 6000); return; }
+    btn.classList.remove('armed'); run();
+  }
+  /** Take back a confirmation made by mistake: that part goes back to waiting. */
+  const undoConfirm = (btn, logId, what) => act(btn, () => api('POST', 'confirm', { logId, what, undo: true }), 'needs.undone');
+  /** Open a day that a rep closed too early, so they can log again. */
+  const reopenDay = (btn, repId, day) => act(btn, () => api('POST', 'reopen', { rep: repId, day }), 'reps.reopen.done');
 
   // ---- the team ----
   function flagsOf(rep) {
@@ -126,10 +136,12 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       h('span', {}, h('b', { text: s.lead.name }), h('small', { text: `${rep ? rep.name : ''} · ${stamp(s.at, zone)}` }),
         ['installed', 'first_hour'].filter((k) => s.steps[k]).map((k) => h('small', { text: `${t(`needs.sites.${k}`)}: ${stamp(s.steps[k], zone)}` }))),
       h('span', { class: 'acts' }, ['installed', 'first_hour'].filter((k) => !s.steps[k]).map((k) =>
-        h('button', { class: 'mini-btn', type: 'button', text: t(`needs.sites.mark.${k}`), onclick: (e) => act(e.currentTarget, () => api('POST', `site/${encodeURIComponent(s.id)}`, { what: k }), 'needs.sites.done') })))); });
-    const addSite = h('button', { class: 'btn', type: 'button', text: t('needs.sites.add'), disabled: !team.reps.length, onclick: () => formSheet({ title: t('needs.sites.title'), submit: t('needs.sites.submit'),
+        h('button', { class: 'mini-btn', type: 'button', text: t(`needs.sites.mark.${k}`), onclick: (e) => act(e.currentTarget, () => api('POST', `site/${encodeURIComponent(s.id)}`, { what: k }), 'needs.sites.done') })),
+        h('button', { class: 'mini-btn', type: 'button', text: t('needs.sites.void'), onclick: (e) => { const btn = e.currentTarget; twice(btn, 'needs.sites.void.confirm', () => act(btn, () => api('POST', `site/${encodeURIComponent(s.id)}`, { what: 'void' }), 'needs.sites.voided')); } }))); });
+    // The site gets its id when the form opens: sending the form twice records one site.
+    const addSite = h('button', { class: 'btn', type: 'button', text: t('needs.sites.add'), disabled: !team.reps.length, onclick: () => { const siteId = `s_${newId()}`; formSheet({ title: t('needs.sites.title'), submit: t('needs.sites.submit'),
       fields: [{ name: 'rep', type: 'select', label: t('needs.sites.rep'), options: team.reps.map((r) => ({ value: r.id, label: r.name })) }, { name: 'name', label: t('needs.sites.name') }],
-      onSubmit: async (v) => { team = await api('POST', 'site', { rep: v.rep, lead: { name: v.name } }); toast(t('needs.sites.added')); await refresh(false); } }) });
+      onSubmit: async (v) => { team = await api('POST', 'site', { id: siteId, rep: v.rep, lead: { name: v.name } }); toast(t('needs.sites.added')); await refresh(false); } }); } });
     $('#needsBody').replaceChildren(
       h('div', {}, group('needs.confirm.title', confirm, 'needs.confirm.empty'), group('needs.late.title', late, 'needs.late.empty'), group('needs.sites.title', sites, 'needs.sites.empty', h('p', { class: 'note' }, addSite), false)),
       h('div', {}, group('needs.silent.title', silent, 'needs.silent.empty'), group('needs.pace.title', pace, 'needs.pace.empty'), (silent.length || pace.length) ? h('p', { class: 'note', text: t('needs.msg.note') }) : null));
@@ -144,13 +156,21 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     const today = dayOf(team.serverTime, S.me.me.tz);
     const fields = [{ name: 'name', label: t('reps.form.name'), value: rep ? rep.name : '', max: 80 }];
     if (!rep) fields.push({ name: 'handle', label: t('reps.form.handle'), hint: t('reps.form.handle.hint'), lower: true, max: 40 });
-    fields.push({ name: 'city', label: t('reps.form.city'), hint: t('reps.form.city.hint'), value: rep ? rep.city : 'Panama City', max: 60 },
+    // The city decides which businesses a rep can pick, so it comes from the business list. Another one can still be written.
+    const known = team.cities || [], listed = (c) => known.find((k) => sameText(k, c));
+    const city = rep ? (listed(rep.city) || rep.city) : (listed('Panama City') || known[0] || 'Panama City');
+    fields.push(known.length
+      ? { name: 'city', type: 'pick', label: t('reps.form.city'), hint: t('reps.form.city.pick'), value: city, max: 60, other: t('reps.form.city.other'), otherLabel: t('reps.form.city.other.label'), otherHint: t('reps.form.city.hint'),
+        options: [...known, ...(city && !listed(city) ? [city] : [])].map((c) => ({ value: c, label: cityName(c) })) }
+      : { name: 'city', label: t('reps.form.city'), hint: t('reps.form.city.hint'), value: city, max: 60 },
       { name: 'country', type: 'select', label: t('reps.form.country'), value: rep ? rep.country : 'PA', options: ['PA', 'CO'].map((c) => ({ value: c, label: t(`country.${c}`) })) },
       { name: 'startDate', type: 'date', label: t('reps.form.start'), value: rep ? rep.startDate : today },
-      { name: 'workdays', type: 'days', label: t('reps.form.workdays'), value: rep ? rep.workdays : [1, 2, 3, 4, 5], options: [1, 2, 3, 4, 5, 6, 7].map((n) => ({ value: n, label: dayName(n) })) });
+      { name: 'workdays', type: 'days', label: t('reps.form.workdays'), value: rep ? rep.workdays : [1, 2, 3, 4, 5], options: [1, 2, 3, 4, 5].map((n) => ({ value: n, label: dayName(n) })) });
     if (!rep && isAdmin()) fields.push({ name: 'role', type: 'select', label: t('reps.form.role'), value: 'rep', options: ['rep', 'manager', 'admin'].map((r) => ({ value: r, label: t(`role.${r}`) })) });
     formSheet({ title: t(rep ? 'reps.edit.title' : 'reps.add.title'), submit: t(rep ? 'reps.form.save' : 'reps.form.submit'), fields,
       onSubmit: async (v) => {
+        if (!v.city) throw { code: 'fields' };
+        v.city = listed(v.city) || v.city;   // the list's own spelling when it is the same city
         if (rep) { team = await api('POST', `reps/${encodeURIComponent(rep.id)}`, { patch: { name: v.name, city: v.city, country: v.country, startDate: v.startDate, workdays: v.workdays } }); toast(t('reps.saved')); renderAll(false); return false; }
         const res = await api('POST', 'reps', { handle: v.handle.toLowerCase(), name: v.name, city: v.city, country: v.country, startDate: v.startDate, workdays: v.workdays, role: v.role });
         showLink(v.name.split(' ')[0], res.setupUrl); refresh(false);
@@ -158,9 +178,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       } });
   }
   function newLink(btn, rep) {
-    if (!btn.classList.contains('armed')) { btn.classList.add('armed'); toast(t('reps.newlink.confirm')); setTimeout(() => btn.classList.remove('armed'), 6000); return; }
-    btn.classList.remove('armed');
-    once(btn, async () => { try { const res = await api('POST', `reps/${encodeURIComponent(rep.id)}/link`, {}); showLink(rep.first, res.setupUrl); refresh(false); } catch (e) { toast(errText(e)); } });
+    twice(btn, 'reps.newlink.confirm', () => once(btn, async () => { try { const res = await api('POST', `reps/${encodeURIComponent(rep.id)}/link`, {}); showLink(rep.first, res.setupUrl); refresh(false); } catch (e) { toast(errText(e)); } }));
   }
   function dayOff() {
     const today = dayOf(team.serverTime, S.me.me.tz), countries = [...new Set(team.reps.map((r) => r.country))];
@@ -173,8 +191,10 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     const status = !r.active ? t('reps.inactive') : r.hasPin ? t('reps.pin.ok') : r.setupPending ? t('reps.pin.pending') : t('reps.pin.none');
     const days = r.workdays.map(dayName).join(' ');
     const canTouch = isPlayer || isAdmin(), self = r.id === S.me.viewer.id;
+    // How many businesses of the list this rep can pick. None means the city is written another way than in the list.
+    const leads = !isPlayer || !team.leadCount || !r.active ? null : r.leadsInCity ? h('small', { text: t('reps.leads', { n: r.leadsInCity }) }) : h('small', { class: 'warn', text: t('reps.leads.none') });
     return h('li', {},
-      h('span', {}, h('b', { text: r.name }), h('small', { text: `${r.handle} · ${isPlayer ? '' : `${t(`role.${r.role}`)} · `}${cityName(r.city)} · ${t('reps.start', { date: dayMonth(r.startDate) })} · ${days}` }), h('small', { text: status })),
+      h('span', {}, h('b', { text: r.name }), h('small', { text: `${r.handle} · ${isPlayer ? '' : `${t(`role.${r.role}`)} · `}${cityName(r.city)} · ${t('reps.start', { date: dayMonth(r.startDate) })} · ${days}` }), h('small', { text: status }), leads),
       h('span', { class: 'acts' },
         isPlayer ? h('a', { class: 'mini-btn', href: `/equipo?as=${encodeURIComponent(r.id)}`, text: t('mgr.viewas', { name: r.first }) }) : null,
         canTouch && r.role === 'rep' ? h('button', { class: 'mini-btn', type: 'button', text: t('reps.edit'), onclick: () => repForm(r) }) : null,
@@ -195,5 +215,5 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     renderTeam(animate); renderNeeds(); renderReps();
     $('#dayoffBtn').onclick = dayOff; $('#addRepBtn').onclick = () => repForm();
   }
-  return { load, render, needsCount, voidLog, giveBadge };
+  return { load, render, needsCount, voidLog, giveBadge, undoConfirm, reopenDay };
 }

@@ -87,6 +87,10 @@ export function ago(iso, nowIso, tz) {
   return stamp(iso, tz);
 }
 const plain = (text) => String(text || '').normalize('NFD').replace(/\p{M}/gu, '');
+/** Two spellings of the same word: accents and capitals do not count, as on the server. */
+export const sameText = (a, b) => plain(a).toLowerCase().trim() === plain(b).toLowerCase().trim();
+/** An id made on this device: sending the same form twice is then the same record, never two. */
+export const newId = () => (crypto.randomUUID ? crypto.randomUUID() : [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join(''));
 /** A city in the reader's language: Panama City is "Ciudad de Panamá" in Spanish. */
 export const cityName = (city) => DICT[LANG][`city.${plain(city)}`] || city || '';
 export const joinList = (items) => (items.length > 1 ? `${items.slice(0, -1).join(', ')}${T('c.and')}${items.at(-1)}` : items[0] || '');
@@ -234,11 +238,19 @@ export function grain() {
 let explain = (err) => String((err && err.message) || err);
 /** How a refusal becomes a sentence. The app sets it once, so the forms here never know about the API. */
 export function setExplain(fn) { explain = fn; }
+const OTHER = '__other__';
 function fieldNode(f) {
   const id = `fs-${f.name}`;
   if (f.type === 'days') {
     return h('fieldset', { class: 'field', 'data-name': f.name, 'data-type': 'days' }, h('legend', { class: 'label', text: f.label }),
       h('div', { class: 'checks' }, f.options.map((o) => h('label', { class: 'check' }, h('input', { type: 'checkbox', value: o.value, checked: (f.value || []).includes(o.value) }), h('span', { text: o.label })))));
+  }
+  if (f.type === 'pick') {   // choose from a list, or write a value the list does not have yet
+    const other = h('input', { id: `${id}-other`, type: 'text', 'aria-label': f.otherLabel, maxlength: f.max || 120, autocomplete: 'off', hidden: true });
+    const hint = f.hint ? h('span', { class: 'hint', text: f.hint }) : null;
+    const select = h('select', { id, name: f.name, 'aria-label': f.label, onchange: () => { other.hidden = select.value !== OTHER; if (hint) hint.textContent = other.hidden ? f.hint : (f.otherHint || f.hint); if (!other.hidden) other.focus(); } },
+      f.options.map((o) => h('option', { value: o.value, selected: String(o.value) === String(f.value ?? ''), text: o.label })), h('option', { value: OTHER, text: f.other }));
+    return h('label', { class: 'field', 'data-name': f.name, 'data-type': 'pick' }, h('span', { class: 'label', text: f.label }), select, other, hint);
   }
   let input;
   if (f.type === 'select') input = h('select', { id, name: f.name, 'aria-label': f.label }, f.options.map((o) => h('option', { value: o.value, selected: String(o.value) === String(f.value ?? ''), text: o.label })));
@@ -260,6 +272,7 @@ export function formSheet({ title, intro = '', fields = [], body = null, submit,
     const values = {};
     for (const node of $$('[data-name]', form)) {
       if (node.dataset.type === 'days') values[node.dataset.name] = $$('input:checked', node).map((i) => Number(i.value));
+      else if (node.dataset.type === 'pick') values[node.dataset.name] = ($('select', node).value === OTHER ? $('input', node).value : $('select', node).value).trim();
       else values[node.dataset.name] = $('input,select,textarea', node).value.trim();
     }
     once(btn, async () => {

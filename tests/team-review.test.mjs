@@ -160,6 +160,16 @@ test('a day with nothing logged cannot be closed, so a tap after midnight does n
   assert.equal(s.lines().some((e) => e.type === 'day.close'), false);
 });
 
+test('the preview of the close says when the day has nothing to report yet, before the rep writes anything', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin(); const m = await s.addRep(a.cookie, 'mario');
+  const before = await s.call('POST', '/equipo/api/close', { preview: true, tomorrow: '', blocker: '' }, { cookie: m.cookie });
+  assert.deepEqual([before.status, before.json.empty], [200, true]);
+  await s.call('POST', '/equipo/api/log', logBody('ecec0001'), { cookie: m.cookie });
+  const after = await s.call('POST', '/equipo/api/close', { preview: true, tomorrow: '', blocker: '' }, { cookie: m.cookie });
+  assert.deepEqual([after.status, after.json.empty], [200, false]);
+});
+
 test('a manager reopens a day closed by mistake: the points for closing go and the rep can log again', async (t) => {
   const s = await start(); t.after(() => s.srv.close());
   const a = await s.admin(); const m = await s.addRep(a.cookie, 'mario');

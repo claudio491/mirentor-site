@@ -107,6 +107,7 @@ export function seed(dir, { now = new Date() } = {}) {
     const e = { type: 'log', id: logId, rep: id(handle), lead: leadOf(key), kind, clientAt: x.lateBy ? new Date(Date.parse(t) - x.lateBy * 60000).toISOString() : t, t };
     const ch = channelOf(kind, x.channel); if (ch) e.channel = ch;
     if (x.lateBy) e.late = true;
+    if (LEADS[key][3]) e.prior = addDays(ws, -16);   // the CRM already had a contact with this business, as the API stamps it
     if (x.contact) e.contact = x.contact;
     if (x.whenIn != null) e.when = addDays(day, x.whenIn);
     push(e);

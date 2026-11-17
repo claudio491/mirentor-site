@@ -201,8 +201,8 @@ test('the nightly routine pushes leads, reads the day\'s logs and maps new busin
   assert.equal((await s.call('GET', '/equipo/api/export?since=2026-11-16T00:00:00Z', undefined, B)).json.logs[1].lead.id, 'PA-SB-2901');
 });
 
-test('the bearer token gives the first manager a new link when the PIN is lost, and never takes over a rep', async (t) => {
-  const s = await start(); t.after(() => s.srv.close());
+test('with bootstrap opened by name, the bearer token gives the first manager a new link when the PIN is lost, and never takes over a rep', async (t) => {
+  const s = await start({ bootstrapOpen: true }); t.after(() => s.srv.close());
   const a = await s.admin(); await s.addRep(a.cookie, 'mario');
   const again = await s.call('POST', '/equipo/api/bootstrap', { handle: 'jefe', name: 'Jefe Uno' }, { bearer: 'push-token' });
   assert.match(again.json.setupUrl, /\/equipo\/alta\?t=[\w-]{32,}$/);
@@ -325,7 +325,7 @@ test('the module stays off until it is switched on by name, even when the keys i
   assert.equal(teamConfig({ TEAM_ENABLED: '1' }), null);                 // switched on but with nothing to sign sessions with
   assert.equal(teamConfig({ ...desk, TEAM_ENABLED: '0' }), null);
   assert.deepEqual(teamConfig({ ...desk, TEAM_ENABLED: '1', ALLOWED_ORIGINS: 'https://www.mirentor.com, https://mirentor.onrender.com' }),
-    { secret: 'desk-pass|desk-token', pushToken: 'desk-token', origins: ['https://www.mirentor.com', 'https://mirentor.onrender.com'], publicBase: '' });
-  assert.deepEqual(teamConfig({ ...desk, TEAM_ENABLED: 'true', TEAM_SECRET: 'own-secret', TEAM_PUSH_TOKEN: 'own-token', TEAM_PUBLIC_BASE: 'https://www.mirentor.com/' }),
-    { secret: 'own-secret', pushToken: 'own-token', origins: [], publicBase: 'https://www.mirentor.com' });
+    { secret: 'desk-pass|desk-token', pushToken: 'desk-token', origins: ['https://www.mirentor.com', 'https://mirentor.onrender.com'], publicBase: '', bootstrapOpen: false });
+  assert.deepEqual(teamConfig({ ...desk, TEAM_ENABLED: 'true', TEAM_SECRET: 'own-secret', TEAM_PUSH_TOKEN: 'own-token', TEAM_PUBLIC_BASE: 'https://www.mirentor.com/', TEAM_BOOTSTRAP: '1' }),
+    { secret: 'own-secret', pushToken: 'own-token', origins: [], publicBase: 'https://www.mirentor.com', bootstrapOpen: true });
 });

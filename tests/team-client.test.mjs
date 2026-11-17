@@ -7,7 +7,7 @@ import { DICT, makeT, LANGS } from '../team/i18n.js';
 import { KINDS, CHANNELS, RULES } from '../lib/team/rules.mjs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const SCRIPTS = ['team/app.js', 'team/hand.js', 'team/manager.js', 'team/ui.js'];
+const SCRIPTS = ['team/app.js', 'team/hand.js', 'team/manager.js', 'team/ui.js', 'team/queue.js'];
 const flat = (v) => (Array.isArray(v) ? v.join(' ') : v);
 const holes = (v) => [...new Set(flat(v).match(/\{\w+\}/g) || [])].sort();
 
@@ -26,6 +26,12 @@ test('no em dash anywhere a person reads, and the fixed vocabulary holds', () =>
   // One word per thing: the score is "puntos / points", the hand's joints are "marcas / marks".
   for (const [k, v] of Object.entries(DICT.es)) assert.equal(/\bXP\b|\bpuntaje\b/i.test(flat(v)), false, `es.${k} names the score another way`);
   for (const [k, v] of Object.entries(DICT.en)) assert.equal(/\bXP\b|\bscore points\b/i.test(flat(v)), false, `en.${k} names the score another way`);
+  // Who confirms is "líder" in Spanish and "manager" in English, everywhere.
+  for (const [k, v] of Object.entries(DICT.es)) assert.equal(/\bmanagers?\b/i.test(flat(v)), false, `es.${k} says manager`);
+  for (const [k, v] of Object.entries(DICT.en)) assert.equal(/l[ií]der/i.test(flat(v)), false, `en.${k} says líder`);
+  // "Meta" and "goal" name only the weekly goal a rep picks; the team's number is "objetivo" and "target".
+  const outsideGoal = (lang, re) => Object.entries(DICT[lang]).filter(([k, v]) => !/^(goal\.|err\.goal|col\.goal)/.test(k) && re.test(flat(v).replace(/\{\w+\}/g, ''))).map(([k]) => k);
+  assert.deepEqual([outsideGoal('es', /\bmetas?\b/i), outsideGoal('en', /\bgoals?\b/i)], [[], []]);
 });
 
 test('every key the scripts ask for exists', () => {
@@ -96,6 +102,11 @@ test('the stylesheet keeps the motion rules', () => {
   assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)/);
   assert.equal(/scale\(0\)/.test(css), false, 'scale(0)');
   for (const m of css.matchAll(/url\(([^)]+)\)/g)) { const f = m[1].replace(/["']/g, ''); if (!f.startsWith('data:')) assert.ok(existsSync(new URL(`../team/${f}`, import.meta.url)), `missing ${f}`); }
-  // Data is never set under 13 px: the only smaller sizes allowed are the mono labels.
+  // Nothing is set under 11 px. Sizes from 11 to 12.9 px are for the short mono labels only (chips, column heads, axis labels):
+  // every rule that uses one must say so by using the mono family or being one of the label classes.
   for (const m of css.matchAll(/font(?:-size)?:[^;}]*?(\d+(?:\.\d+)?)px/g)) assert.ok(Number(m[1]) >= 11, `a ${m[1]}px font`);
+  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const size = /font(?:-size)?:[^;]*?(\d+(?:\.\d+)?)px/.exec(m[2]);
+    if (size && Number(size[1]) < 13) assert.ok(/var\(--mono\)/.test(m[2]) || /\.(tab|flabel|count|tag|cell-l|chip)\b/.test(m[1]), `text under 13 px outside a label: ${m[1].trim()}`);
+  }
 });

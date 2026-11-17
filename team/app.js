@@ -2,9 +2,10 @@
 // The server answers codes and numbers; every sentence comes from i18n.js through t().
 import { APP_NAME, LANGS } from './i18n.js';
 import { $, $$, h, put, icon, t, setLang, lang, applyStatic, giant, num, ord, wdShort, wdLong, dayMonth, monthName, upper, cap, isoWeek, addDays, clock, hourName, stamp, ago, cityName, joinList,
-  lock, buzz, quiet, countTo, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, once, copyText, grain, reduce, formSheet, setExplain } from './ui.js';
+  lock, buzz, quiet, countTo, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, once, copyText, grain, reduce, formSheet, setExplain, newId } from './ui.js';
 import { buildHand, paintHand, miniHand, rowWrist, lens, setLens, levelBone, badgeGlyph } from './hand.js';
 import { createManager } from './manager.js';
+import { verdict, mine as waitingOf } from './queue.js';
 
 const API = '/equipo/api';
 const KEY = { lang: 'cancha.lang', queue: 'cancha.queue', me: 'cancha.me' };
@@ -273,20 +274,27 @@ function paintCloseSheet() {
   $('#closeFields').hidden = closed;
   $('#closeSubmit').textContent = closed ? t('close.copy') : t('close.submit');
   $('#closeNote').textContent = closed ? t('close.note.done') : t('close.note');
-  $('#closeErr').hidden = true;
+  $('#closeErr').hidden = true; $('#closeSubmit').disabled = false;
   drawReport();
 }
 async function openClose() {
   if (readOnly()) return;
   baseReport = ''; paintCloseSheet(); openSheet($('#closeSheet'));
-  try { const r = await api('POST', 'close', { preview: true, tomorrow: '', blocker: '' }); baseReport = r.report; drawReport(); }
-  catch (e) { $('#closeErr').textContent = errText(e); $('#closeErr').hidden = false; }
+  try {
+    if (myQueue().length) await flush();   // the report counts what the server has, so waiting logs go out first
+    const r = await api('POST', 'close', { preview: true, tomorrow: '', blocker: '' }); baseReport = r.report; drawReport();
+    // Nothing logged today: say so before the rep writes a plan that cannot be sent.
+    if (r.empty && !myQueue().length) { $('#closeErr').textContent = t('err.nothing_to_close'); $('#closeErr').hidden = false; $('#closeSubmit').disabled = true; }
+  } catch (e) { $('#closeErr').textContent = errText(e); $('#closeErr').hidden = false; }
 }
 function submitClose() {
   const btn = $('#closeSubmit'), err = $('#closeErr');
   return once(btn, async () => {
     err.hidden = true;
     if (S.me.today.closed) { toast(t((await copyText($('#slackText').textContent)) ? 'close.copied' : 'close.copy.fail')); return; }
+    // A closed day refuses new logs, so the ones still waiting on this phone go out first.
+    if (myQueue().length) await flush();
+    if (myQueue().length) { err.textContent = t('close.waiting', { n: myQueue().length }); err.hidden = false; return; }
     try {
       const res = await api('POST', 'close', { tomorrow: $('#fTomorrow').value.trim(), blocker: $('#fBlock').value.trim() });
       const was = S.me.today.points;
@@ -383,7 +391,9 @@ function renderProfile() {
       () => t('c.source'), () => t(`ledsrc.${e.code}`, { pts: pts(e.pts), cap: rules.caps.messagesPerDay, days: rules.pendingDays, time: hourName(rules.closeBy) }));
     let act = null;
     const p = heldSet.get(`${e.logId}:${e.code}`);
-    if (readOnly() && e.logId && e.code !== 'day_closed') act = h('button', { class: 'mini-btn', type: 'button', text: t('needs.btn.void'), 'aria-label': t('void.row'), onclick: () => manager.voidLog(e.logId) });
+    const confirmed = ['meeting_held', 'contract_sent', 'contract_signed'].includes(e.code) && e.status === 'earned';
+    if (readOnly() && e.logId && confirmed) act = h('button', { class: 'mini-btn', type: 'button', text: t('needs.btn.undo'), 'aria-label': t('undo.row'), onclick: (ev) => manager.undoConfirm(ev.currentTarget, e.logId, e.code) });
+    else if (readOnly() && e.logId && e.code !== 'day_closed') act = h('button', { class: 'mini-btn', type: 'button', text: t('needs.btn.void'), 'aria-label': t('void.row'), onclick: () => manager.voidLog(e.logId) });
     else if (waiting && e.code === 'meeting_held' && p) {
       act = p.held ? h('small', { text: t('profile.held.done') }) : h('button', { class: 'mini-btn', type: 'button', text: t('profile.held'), onclick: (ev) => once(ev.currentTarget, async () => {
         try { const res = await api('POST', 'held', { logId: e.logId }); adopt(res.me); renderAll(false); toast(t('profile.held.toast')); } catch (err) { toast(errText(err)); }
@@ -395,8 +405,9 @@ function renderProfile() {
 
   const box = $('#settings');
   if (readOnly()) {
-    box.replaceChildren(h('div', { class: 'line' }, h('span', { text: t('profile.user', { handle: me.handle }) })),
-      h('button', { class: 'btn', type: 'button', text: t('reps.badge'), onclick: () => manager.giveBadge(me) }));
+    put(box, h('div', { class: 'line' }, h('span', { text: t('profile.user', { handle: me.handle }) })),
+      h('button', { class: 'btn', type: 'button', text: t('reps.badge'), onclick: () => manager.giveBadge(me) }),
+      S.me.today && S.me.today.closed ? h('button', { class: 'btn', type: 'button', text: t('reps.reopen'), onclick: (ev) => manager.reopenDay(ev.currentTarget, me.id, S.me.today.day) }) : null);
   } else {
     box.replaceChildren(h('div', { class: 'line' }, h('span', { text: t('profile.user', { handle: me.handle }) })),
       h('button', { class: 'btn', type: 'button', text: t('profile.rules'), 'data-open': 'rulesSheet' }),
@@ -511,7 +522,6 @@ function renderLeadList() {
   renderLog();
   if (had) { input.focus(); try { input.setSelectionRange(at, at); } catch { /* not a text field in this browser */ } }
 }
-const newId = () => (crypto.randomUUID ? crypto.randomUUID() : [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join(''));
 function saveLog() {
   if (!logReady()) return undefined;
   keepFields();
@@ -525,8 +535,8 @@ function saveLog() {
     toast(`${t('c.saving')}…`);   // on a slow signal the tap is answered at once; the result replaces this line
     try { const res = await api('POST', 'log', body); setTimeout(() => logged(res, body), reduce ? 0 : 260); }
     catch (e) {
-      if (e.code === 'offline') { S.queue.push({ rep: S.me.me.id, body }); store.set(KEY.queue, S.queue); renderTop(); toast(t('toast.queued')); }
-      else if (e.status === 401) lostSession();
+      // No answer, a service that is restarting or a session that ended: the log waits on the phone. Only a plain refusal ends it.
+      if (verdict(e) === 'keep') { S.queue.push({ rep: S.me.me.id, body }); store.set(KEY.queue, S.queue); renderTop(); toast(t('toast.queued')); if (e.status === 401) lostSession(); }
       else toast(errText(e));
     }
   });
@@ -534,7 +544,7 @@ function saveLog() {
 function logged(res, body) {
   adopt(res.me); renderAll(true);
   const label = t(`kind.${body.kind}`);
-  if (res.repeat) toast(t('toast.repeat'));
+  if (res.repeat) toast(t(res.updated ? 'toast.repeat.updated' : 'toast.repeat'));
   else {
     const follow = res.me.ledger.some((e) => e.logId === res.logId && e.code === 'followup');
     const bits = [label + (follow ? ` · ${t('toast.followup')}` : '')];
@@ -568,7 +578,7 @@ function lockOn(done) {
 
 // ---- logs that wait for signal ----
 /** A phone can be shared: each waiting log remembers whose it is, and only its owner sends it. */
-function myQueue() { return S.me ? S.queue.filter((q) => q && q.rep === S.me.me.id && q.body) : []; }
+function myQueue() { return S.me ? waitingOf(S.queue, S.me.me.id) : []; }
 let flushing = false;
 async function flush() {
   if (flushing || !S.me || readOnly() || !myQueue().length) return;
@@ -578,8 +588,7 @@ async function flush() {
     for (const item of myQueue()) {
       try { await api('POST', 'log', item.body); sent += 1; }
       catch (e) {
-        if (e.code === 'offline') break;
-        if (e.status === 401) { lostSession(); break; }
+        if (verdict(e) === 'keep') { if (e.status === 401) lostSession(); break; }   // it stays in the queue for the next try
         toast(t('toast.dropped', { why: errText(e) }));   // refused for good: it leaves the queue with the reason shown
       }
       S.queue = S.queue.filter((q) => q !== item); store.set(KEY.queue, S.queue);
@@ -707,7 +716,8 @@ function wire() {
   addEventListener('online', flush);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && S.me) { flush(); if (Date.now() - S.lastLoad > 45000) poll(); } });
   // The table and the feed stay current while the app is open and nobody is in the middle of a form.
-  setInterval(() => { if (S.me && !document.hidden && !$('dialog[open]')) { if (myQueue().length) flush(); else if (Date.now() - S.lastLoad > 45000) poll(); } }, 15000);
+  // Waiting logs go out even while a sheet is open; the quiet check for news waits until no form is in the way.
+  setInterval(() => { if (!S.me || document.hidden) return; if (myQueue().length) flush(); else if (!$('dialog[open]') && Date.now() - S.lastLoad > 45000) poll(); }, 15000);
 }
 
 setLang(store.get(KEY.lang, null) || ((navigator.language || 'es').toLowerCase().startsWith('en') ? 'en' : 'es'));
