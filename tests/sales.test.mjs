@@ -147,3 +147,15 @@ test('portal: the popup login posts JSON with its header and gets the cookie', a
     assert.match(r.headers.get('set-cookie'), /^msales=/);
   } finally { srv.close(); }
 });
+
+test('portal: the login page script parses', async () => {
+  const sales = createSales({ clientId: CLIENT, secret: 's', root: root() });
+  const srv = await serve(sales);
+  try {
+    const html = await (await fetch(`http://127.0.0.1:${srv.address().port}/ventas`)).text();
+    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+    assert.ok(scripts.length >= 1);
+    for (const code of scripts) assert.doesNotThrow(() => new Function(code), code.slice(0, 80));
+    assert.ok(html.indexOf('function mirentorSignIn') < html.indexOf('gsi/client'), 'callback before Google script');
+  } finally { srv.close(); }
+});
