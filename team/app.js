@@ -2,14 +2,14 @@
 // The server answers codes and numbers; every sentence comes from i18n.js through t().
 import { APP_NAME, LANGS } from './i18n.js';
 import { $, $$, h, put, icon, t, setLang, lang, applyStatic, giant, num, ord, wdShort, wdLong, dayMonth, monthName, upper, cap, isoWeek, addDays, clock, hourName, stamp, ago, cityName, joinList,
-  lock, buzz, quiet, countTo, recount, ringAt, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, once, copyText, grain, reduce, formSheet, setExplain, newId, putFace, face, dayOf } from './ui.js';
+  lock, buzz, quiet, countTo, recount, ringAt, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, once, copyText, grain, reduce, formSheet, setExplain, newId, putFace, face, dayOf, showErr } from './ui.js';
 import { buildHand, paintHand, miniHand, rowWrist, lens, setLens, levelBone, badgeGlyph, portrait, setPortrait, replayHand, drawIn, fingerGlyph, handGlyph, stepsGlyph, daysBone } from './hand.js';
 import { swap, roll, floatUp, flyDot, reveal, stagger, lockIn, alive, greet, isGreeting, celebrate } from './fx.js';
 import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, tableNote, firstDays, untouched, anyLog, shortNames } from './moments.js';
 import { createManager } from './manager.js';
 import { verdict, mine as waitingOf } from './queue.js';
 
-const API = '/equipo/api';
+const API = 'api';   // every address is relative to the page, so the app works wherever it is mounted
 const KEY = { lang: 'cancha.lang', queue: 'cancha.queue', me: 'cancha.me', greet: 'cancha.greet' };
 const store = {
   get(k, fallback) { try { const v = localStorage.getItem(k); return v == null ? fallback : JSON.parse(v); } catch { return fallback; } },
@@ -18,7 +18,7 @@ const store = {
 };
 
 // ---- the API ----
-class ApiError extends Error { constructor(code, status) { super(code); this.code = code; this.status = status; } }
+class ApiError extends Error { constructor(code, status, data = null) { super(code); this.code = code; this.status = status; this.data = data; } }
 async function api(method, path, body) {
   let res;
   // A request that hangs is treated as no signal: a log then waits on the phone and goes out again with the same id.
@@ -28,7 +28,7 @@ async function api(method, path, body) {
   } catch { throw new ApiError('offline', 0); } finally { clearTimeout(timer); }
   let data = null;
   try { data = await res.json(); } catch { /* an answer that is not JSON is treated as a failure below */ }
-  if (!res.ok || !data || data.ok === false) throw new ApiError((data && data.error) || 'unknown', res.status);
+  if (!res.ok || !data || data.ok === false) throw new ApiError((data && data.error) || 'unknown', res.status, data);
   return data;
 }
 const errText = (e) => { try { return t(`err.${(e && e.code) || 'unknown'}`); } catch { return t('err.unknown'); } };
@@ -36,7 +36,7 @@ setExplain(errText);
 
 // ---- state ----
 const S = { me: null, sig: '', tab: null, period: 'week', as: null, mgr: false, queue: store.get(KEY.queue, []), seenFeed: null, lastLoad: 0, lastPaint: 0, arrived: new Set(), ledgerAll: false };
-const SCREENS = ['boot', 'auth', 'setup', 'today', 'table', 'profile', 'team', 'needs', 'reps'];
+const SCREENS = ['boot', 'gate', 'today', 'table', 'profile', 'team', 'needs', 'reps'];
 const FOLLOWS = new Set(['talk', 'absent', 'call', 'reply', 'meeting']);
 const CHANNELS = { message: ['whatsapp', 'linkedin', 'email', 'sms'], meeting: ['visit', 'call', 'whatsapp'], reply: ['whatsapp', 'linkedin', 'email', 'sms', 'call'], baddata: ['call', 'email'] };
 const TAGGED = new Set(['talk', 'call', 'reply']);
@@ -151,7 +151,7 @@ async function switchLang(next) {
   if (!LANGS.includes(next) || next === lang()) return;
   setLang(next); store.set(KEY.lang, next); applyStatic();
   if (S.me) { renderAll(false); if (!readOnly()) api('POST', 'lang', { lang: next }).catch(() => { /* the choice is kept on this phone; it follows the person once the signal is back */ }); }
-  else for (const b of $$('#langSeg button')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang()));
+  else { for (const b of $$('#langSeg button')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang())); if (S.gate) showGate(S.gate.kind, S.gate.detail); }
   toast(t('toast.lang'));
 }
 
@@ -417,7 +417,7 @@ function submitClose() {
     if (S.me.today.closed) { toast(t((await copyText($('#slackText').textContent)) ? 'close.copied' : 'close.copy.fail')); return; }
     // A closed day refuses new logs, so the ones still waiting on this phone go out first.
     if (myQueue().length) await flush();
-    if (myQueue().length) { err.textContent = t('close.waiting', { n: myQueue().length }); err.hidden = false; return; }
+    if (myQueue().length) { showErr(err, t('close.waiting', { n: myQueue().length })); return; }
     try {
       const res = await api('POST', 'close', { tomorrow: $('#fTomorrow').value.trim(), blocker: $('#fBlock').value.trim() });
       const was = S.me.today.points, before = S.me;
@@ -429,7 +429,7 @@ function submitClose() {
       const gained = res.me.today.points - was;
       toast(t('close.toast'), gained > 0 ? t('pts.plus', { n: gained }) : '');
       $('#fTomorrow').value = ''; $('#fBlock').value = '';
-    } catch (e) { err.textContent = errText(e); err.hidden = false; }
+    } catch (e) { showErr(err, errText(e)); }
   });
 }
 
@@ -543,13 +543,14 @@ function renderProfile() {
 
   const box = $('#settings');
   if (readOnly()) {
-    put(box, h('div', { class: 'line' }, h('span', { text: t('profile.user', { handle: me.handle }) })),
+    put(box,
       h('button', { class: 'btn', type: 'button', text: t('reps.badge'), onclick: () => manager.giveBadge(me) }),
       S.me.today && S.me.today.closed ? h('button', { class: 'btn', type: 'button', text: t('reps.reopen'), onclick: (ev) => manager.reopenDay(ev.currentTarget, me.id, S.me.today.day) }) : null);
   } else {
-    box.replaceChildren(h('div', { class: 'line' }, h('span', { text: t('profile.user', { handle: me.handle }) })),
+    // The account is the Google one the person came in with. A copy with no session (the demonstration) has none to show.
+    put(box, S.me.viewer.email ? h('div', { class: 'line' }, h('span', { text: t('profile.account', { email: S.me.viewer.email }) })) : null,
       h('button', { class: 'btn', type: 'button', text: t('profile.rules'), 'data-open': 'rulesSheet' }),
-      h('button', { class: 'btn', type: 'button', text: t('profile.signout'), onclick: signOut }));
+      h('button', { class: 'btn signout', type: 'button', text: t('profile.signout'), onclick: signOut }));
   }
 }
 function renderRules() {
@@ -674,8 +675,8 @@ function saveLog() {
     try { const res = await api('POST', 'log', body); setTimeout(() => logged(res, body), reduce ? 0 : 260); }
     catch (e) {
       // No answer, a service that is restarting or a session that ended: the log waits on the phone. Only a plain refusal ends it.
-      if (verdict(e) === 'keep') { S.queue.push({ rep: S.me.me.id, body }); store.set(KEY.queue, S.queue); renderTop(); toast(t('toast.queued')); if (e.status === 401) lostSession(); }
-      else toast(errText(e));
+      if (verdict(e) === 'keep') { S.queue.push({ rep: S.me.me.id, body }); store.set(KEY.queue, S.queue); renderTop(); toast(t('toast.queued')); shutOut(e); }
+      else if (!shutOut(e)) toast(errText(e));
     }
   });
 }
@@ -752,7 +753,7 @@ async function flush() {
     for (const item of myQueue()) {
       try { await api('POST', 'log', item.body); sent += 1; }
       catch (e) {
-        if (verdict(e) === 'keep') { if (e.status === 401) lostSession(); break; }   // it stays in the queue for the next try
+        if (verdict(e) === 'keep' || e.code === 'not_on_team') { shutOut(e); break; }   // it stays in the queue for the next try
         toast(t('toast.dropped', { why: errText(e) }));   // refused for good: it leaves the queue with the reason shown
       }
       S.queue = S.queue.filter((q) => q !== item); store.set(KEY.queue, S.queue);
@@ -766,7 +767,7 @@ async function flush() {
 /** What a view says, leaving out the clock: two reads that match have nothing new to draw. */
 const signature = (me) => JSON.stringify({ ...me, serverTime: null });
 function adopt(me) { S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); if (!readOnly()) store.set(KEY.me, me); }
-function enter(me, { fresh = false } = {}) {
+function enter(me) {
   S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); S.lastPaint = Date.now();
   if (!S.as || me.viewer.role === 'rep') S.as = me.viewer.as;   // a rep's `as` is ignored by the server
   const own = S.as ? me.viewer.lang : me.me.lang;
@@ -778,9 +779,10 @@ function enter(me, { fresh = false } = {}) {
   const first = S.mgr ? 'team' : 'today';
   const ready = S.mgr ? manager.load().then(() => { renderAll(false); }).catch((e) => toast(errText(e))) : Promise.resolve();
   renderAll(false); setTab(S.tab && $(`#nav [data-tab="${S.tab}"]`) ? S.tab : first, { instant: true });
-  // The full entrance plays after signing in and on the first open of a day; after that the screen just puts itself together.
+  // The full entrance plays on the first open of a day and after signing in again (signing out forgets the last one);
+  // after that the screen just puts itself together.
   const tab = S.tab, day = me.today ? me.today.day : dayOf(me.serverTime, me.me.tz), seen = store.get(KEY.greet, null) || {};
-  const how = S.as ? 'short' : entrance({ fresh, lastDay: seen.day, lastId: seen.id, today: day, id: me.me.id });
+  const how = S.as ? 'short' : entrance({ lastDay: seen.day, lastId: seen.id, today: day, id: me.me.id });
   S.arrived = new Set([tab]);
   if (how === 'full') { store.set(KEY.greet, { id: me.me.id, day }); welcome(tab, day, ready); }
   else ready.then(() => arrive(tab, { fast: true }));
@@ -816,7 +818,7 @@ async function poll() {
     if (S.mgr) await manager.load();
     renderAll(true);
     if (!S.mgr && !readOnly()) playMoments(moments(before, me));   // something confirmed elsewhere can be a moment here
-  } catch (e) { if (e.status === 401) lostSession(); }
+  } catch (e) { shutOut(e); }
 }
 async function refresh(animate = false) {
   try {
@@ -824,31 +826,51 @@ async function refresh(animate = false) {
     adopt(me);
     if (S.mgr) await manager.load();
     renderAll(animate);
-  } catch (e) { if (e.status === 401) lostSession(); }
+  } catch (e) { shutOut(e); }
 }
-function showAuth(message = '') {
-  S.me = null; document.body.classList.add('bare'); document.body.classList.remove('mgr');
-  $('#nav').hidden = true; renderTop(); show('auth');
-  const err = $('#authErr'); err.textContent = message; err.hidden = !message;
+/** The board has no sign-in of its own: its door is the portal's, at this same address. This is the little it says
+ * itself. kind is 'team' (the account is not on the team; detail is the account), 'session' (the session ended and
+ * coming back did not help) or 'error' (it did not load; detail is why). */
+function showGate(kind, detail = '') {
+  S.me = null; S.gate = { kind, detail };
+  document.body.classList.add('bare'); document.body.classList.remove('mgr');
+  $('#nav').hidden = true; renderTop(); show('gate');
+  $('#gateLead').textContent = kind === 'team' && detail ? t('gate.team.lead', { email: detail }) : t('gate.lead');
+  giant($('#gateGiant'), t(`gate.${kind}.title`));
+  $('#gateSupport').textContent = kind === 'error' ? detail : t(`gate.${kind}.support`);
+  const go = $('#gateGo'), alt = $('#gateAlt');
+  go.textContent = t(kind === 'session' ? 'gate.enter' : 'gate.retry'); go.href = './';
+  alt.hidden = kind !== 'team'; alt.textContent = t('gate.switch'); alt.href = 'salir';
 }
-function lostSession() { store.del(KEY.me); showAuth(t('err.session')); }
-async function signOut() {
-  try { await api('POST', 'logout', {}); } catch { /* signing out of this phone works even without signal: the next call will ask for the PIN */ }
-  store.del(KEY.me); S.tab = null; showAuth();
+const DOOR = 'cancha.door';
+/** The session ended. The page itself is the door: loading it again shows the portal's sign-in. If that was tried a
+ * moment ago and the answer is the same, the screen says so instead of going round in circles. */
+function lostSession() {
+  store.del(KEY.me);
+  let last = 0;
+  try { last = Number(sessionStorage.getItem(DOOR)) || 0; } catch { /* no storage here: the screen below is the way on */ }
+  if (Date.now() - last < 20000) { showGate('session'); return; }
+  try { sessionStorage.setItem(DOOR, String(Date.now())); } catch { showGate('session'); return; }
+  location.reload();
 }
+/** True when the error means this person can no longer use the board, and the screen now says so. */
+function shutOut(e) {
+  if (e && e.status === 401) { lostSession(); return true; }
+  if (e && e.code === 'not_on_team') { store.del(KEY.me); showGate('team', (e.data && e.data.email) || ''); return true; }
+  return false;
+}
+/** Signing out ends the portal's session, which is the board's too. The next entrance plays in full. */
+function signOut() { store.del(KEY.me); store.del(KEY.greet); location.href = 'salir'; }
 /** `as` is whose screens to open as their manager. Left out, the page's own address says it. */
-async function start(as = undefined, { fresh = false } = {}) {
+async function start(as = undefined) {
   const url = new URL(location.href);
-  if (url.pathname.replace(/\/$/, '').endsWith('/alta')) return showSetup(url.searchParams.get('t') || '');
   S.as = as === undefined ? url.searchParams.get('as') : as;
-  try { enter(await api('GET', S.as ? `me?as=${encodeURIComponent(S.as)}` : 'me'), { fresh }); }
+  try { S.gate = null; enter(await api('GET', S.as ? `me?as=${encodeURIComponent(S.as)}` : 'me')); }
   catch (e) {
     const cached = store.get(KEY.me, null);
     if (e.code === 'offline' && cached && !S.as) { enter(cached); toast(t('err.offline')); }
-    else if (e.status === 401) showAuth();
-    else showAuth(errText(e));
+    else if (!shutOut(e)) showGate('error', errText(e));
   }
-  return undefined;
 }
 /** Open a rep's screens as their manager, or come back to the team, without loading the page again. */
 async function viewAs(id = null) {
@@ -858,38 +880,6 @@ async function viewAs(id = null) {
   S.tab = null; window.scrollTo(0, 0);
   await start(id);
 }
-function signIn(e) {
-  e.preventDefault();
-  const err = $('#authErr');
-  return once($('#authBtn'), async () => {
-    err.hidden = true;
-    try { await api('POST', 'login', { handle: $('#aHandle').value, pin: $('#aPin').value }); $('#aPin').value = ''; await start(undefined, { fresh: true }); }
-    catch (ex) { err.textContent = errText(ex); err.hidden = false; $('#aPin').value = ''; $('#aPin').focus(); }
-  });
-}
-async function showSetup(token) {
-  document.body.classList.add('bare'); show('setup');
-  const form = $('#setupForm'), err = $('#setupErr');
-  const expired = () => { giant($('#setupGiant'), t('setup.expired.title')); $('#setupLead').textContent = ''; $('#setupSupport').textContent = t('err.link_expired'); form.hidden = true; $('#setupToLogin').hidden = false; };
-  try {
-    const who = await api('GET', `setup?t=${encodeURIComponent(token)}`);
-    if (!store.get(KEY.lang, null) && who.lang !== lang()) { setLang(who.lang); applyStatic(); renderTop(); }
-    $('#setupLead').textContent = t('setup.lead', { name: who.first });
-    giant($('#setupGiant'), t('setup.title'));
-    $('#setupSupport').textContent = t('setup.support', { handle: who.handle });
-  } catch (e) { if (e.status === 410) expired(); else { giant($('#setupGiant'), t('setup.title')); err.textContent = errText(e); err.hidden = false; } }
-  form.onsubmit = (e) => {
-    e.preventDefault();
-    once($('#setupBtn'), async () => {
-      err.hidden = true;
-      const pin = $('#sPin').value, again = $('#sPin2').value;
-      if (pin !== again) { err.textContent = t('setup.mismatch'); err.hidden = false; return; }
-      try { await api('POST', 'setup', { token, pin }); history.replaceState(null, '', '/equipo'); $('#sPin').value = ''; $('#sPin2').value = ''; await start(undefined, { fresh: true }); }
-      catch (ex) { if (ex.status === 410) expired(); else { err.textContent = errText(ex); err.hidden = false; } }
-    });
-  };
-}
-
 // ---- wiring ----
 const manager = createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs });
 function wire() {
@@ -901,7 +891,6 @@ function wire() {
   $('#langSeg').addEventListener('click', (e) => { const b = e.target.closest('button[data-lang]'); if (b) switchLang(b.dataset.lang); });
   src($('#streakChip'), () => t('top.streak'), () => { const st = S.me.streak; return t('src.streak', { spares: st.spares, max: S.me.rules.spares, best: t('u.days', { n: st.best }) }); });
   $('#queueChip').addEventListener('click', flush);
-  $('#authForm').addEventListener('submit', signIn);
   document.addEventListener('click', (e) => { const o = e.target.closest('[data-open]'); if (o) openSheet($(`#${o.dataset.open}`)); });
   $('#hand').addEventListener('click', (e) => { const hit = e.target.closest('.hit'); if (hit) { e.stopPropagation(); fingerDetail(hit); } });
   $('#hand').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('hit')) { e.preventDefault(); fingerDetail(e.target); } });

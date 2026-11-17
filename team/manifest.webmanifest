@@ -2,10 +2,10 @@
   "name": "cancha",
   "short_name": "cancha",
   "lang": "es",
-  "start_url": "/equipo",
-  "scope": "/equipo",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#1b1d20",
   "theme_color": "#1b1d20",
-  "icons": [{ "src": "/equipo/img/mirentor-symbol-dark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+  "icons": [{ "src": "img/mirentor-symbol-dark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
 }

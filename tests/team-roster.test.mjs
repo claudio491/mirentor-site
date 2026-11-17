@@ -13,7 +13,7 @@ const JPG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]), Bu
 const fresh = (name) => mkdtempSync(path.join(tmpdir(), name));
 // Placeholder people: a roster file with real names never lives in the repository.
 const PEOPLE = [
-  { handle: 'uno', name: 'Persona Uno', role: 'rep', city: 'Panama City', startDate: '2026-11-10', photo: 'uno.jpg' },
+  { handle: 'uno', name: 'Persona Uno', role: 'rep', city: 'Panama City', startDate: '2026-11-10', photo: 'uno.jpg', email: 'Uno@Mirentor.com' },
   { handle: 'dos', name: 'Persona Dos', role: 'rep', city: 'Panama City', startDate: '2026-11-16' },
   { handle: 'guia', name: 'Persona Guía', role: 'admin', city: 'Panama City', startDate: '2026-10-28', photo: 'missing.jpg' },
 ];
@@ -22,13 +22,14 @@ test('a roster starts an empty folder with those people, their photos, no activi
   const dir = fresh('team-roster-'), photos = fresh('team-roster-photos-');
   writeFileSync(path.join(photos, 'uno.jpg'), JPG);
   const out = seedRoster(dir, { now: NOW, people: PEOPLE, photosDir: photos });
-  assert.match(out.pin, /^\d{6}$/);
   assert.deepEqual(out.people, ['uno (rep)', 'dos (rep)', 'guia (admin)']);
   assert.deepEqual(out.skipped, [{ handle: 'guia', why: 'photo' }]);   // the file named for that person is not there
 
   const { state } = openTeamStore(dir);
-  assert.deepEqual([...state.reps.values()].map((p) => [p.handle, p.name, p.role, p.startDate, !!p.pin, !!p.photo]), [
-    ['uno', 'Persona Uno', 'rep', '2026-11-10', true, true], ['dos', 'Persona Dos', 'rep', '2026-11-16', true, false], ['guia', 'Persona Guía', 'admin', '2026-10-28', true, false]]);
+  // an address is kept when the list gives one; nobody is given a made-up one
+  assert.deepEqual([...state.reps.values()].map((p) => [p.handle, p.name, p.role, p.startDate, p.email, !!p.photo]), [
+    ['uno', 'Persona Uno', 'rep', '2026-11-10', 'uno@mirentor.com', true], ['dos', 'Persona Dos', 'rep', '2026-11-16', '', false], ['guia', 'Persona Guía', 'admin', '2026-10-28', '', false]]);
+  assert.deepEqual([state.emails.get('uno@mirentor.com'), state.emails.size], [state.handles.get('uno'), 1]);
   assert.equal(state.logs.size, 0);
   assert.equal(existsSync(path.join(dir, 'team', 'SAMPLE')), false);
   const uno = state.handles.get('uno');
@@ -54,6 +55,8 @@ test('the roster only fills an empty folder, and names the line it cannot use be
   bad([{ handle: 'uno', name: 'Persona Uno', role: 'boss' }], /line 1.*role/);
   bad([{ handle: 'uno', name: 'Persona Uno', startDate: '10/11/2026' }], /line 1.*startDate/);
   bad([PEOPLE[0], { ...PEOPLE[1], handle: 'uno' }], /line 2.*handle/);   // the same handle twice
+  bad([{ handle: 'uno', name: 'Persona Uno', email: 'no es un correo' }], /line 1.*email/);
+  bad([PEOPLE[0], { ...PEOPLE[1], email: 'uno@mirentor.com' }], /line 2.*email/);   // the same address twice
 });
 
 test('the sample people can be shown under other labels and usernames, with the same week of work', () => {

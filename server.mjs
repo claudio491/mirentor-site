@@ -63,7 +63,7 @@ export function createServer({ store, sheets, origins, limit = 10, visitLimit = 
 
     if (req.method === 'GET' && pathname === '/healthz') return send(200, { ok: true, sheets: !!sheets, pending: store.pending().length, dataDir: store.dir, desk: !!desk, sales: !!sales });
     if (desk && (await desk(req, res, pathname))) return;
-    // The sales team's platform lives under /equipo and answers nothing else.
+    // The sales team's board lives inside the portal, at /ventas/equipo, so it is asked before the portal is.
     if (team && (await team(req, res, pathname))) return;
     if (sales && (await sales(req, res, pathname))) return;
     // The site's home asks where the visitor is to pick its default language. Nothing is stored.
@@ -149,9 +149,9 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     devLogin: process.env.SALES_DEV_LOGIN === '1' && !process.env.RENDER,
   });
   const adminToken = process.env.VISITS_TOKEN || process.env.DESK_PUSH_TOKEN || '';
-  // The sales team platform is off until TEAM_ENABLED=1. It signs sessions with TEAM_SECRET, or with the two desk secrets when
-  // that is not set. If it cannot start, the waitlist and the desk start without it.
-  const team = startTeam(process.env, store.dir);
+  // The sales team's board is off until TEAM_ENABLED=1, and needs the portal: people come in through its Google sign-in.
+  // If it cannot start, the waitlist, the desk and the portal start without it.
+  const team = startTeam(process.env, store.dir, { sales });
   createServer({ store, sheets, origins, desk, sales, adminToken, team }).listen(port, () => console.log(`waitlist on ${port}, sheets ${sheets ? 'on' : 'off'}, desk ${desk ? 'on' : 'off'}, sales ${sales ? 'on' : 'off'}, team ${team ? 'on' : 'off'}, ${store.pending().length} pending`));
   if (sheets) { syncPending(store, sheets); setInterval(() => syncPending(store, sheets), 60_000); }
 }

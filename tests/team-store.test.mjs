@@ -4,7 +4,6 @@ import { appendFileSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { openTeamStore, searchLeads } from '../lib/team/store.mjs';
-import { hashPin, checkPin, validPin, newSetupToken, hashToken, sessions, lockout } from '../lib/team/auth.mjs';
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'team-'));
 const repEvent = (id) => ({ type: 'rep.created', id, handle: id, name: id, role: 'rep', country: 'PA', city: 'Panama City', tz: 'America/Panama', workdays: [1, 2, 3, 4, 5], startDate: '2026-11-02', lang: 'es' });
@@ -58,52 +57,4 @@ test('a search ignores accents and case, stays in the rep\'s city and leaves out
   assert.deepEqual(searchLeads(leads, 'FERRETERIA', 'Panama City').map((l) => l.id), ['1']);
   assert.deepEqual(searchLeads(leads, 'ferre', 'Colón').map((l) => l.id), ['2']);
   assert.deepEqual(searchLeads(leads, '', 'Panama City').length, 0);
-});
-
-test('a PIN is six digits and not a trivial one', () => {
-  for (const bad of ['12345', '1234567', 'abcdef', '111111', '123456', '654321', '']) assert.equal(validPin(bad), false, bad);
-  for (const ok of ['482915', '100200']) assert.equal(validPin(ok), true, ok);
-});
-
-test('the right PIN passes, a wrong one fails, and the hash never contains the PIN', () => {
-  const { salt, hash } = hashPin('482915');
-  assert.equal(checkPin('482915', salt, hash), true);
-  assert.equal(checkPin('482916', salt, hash), false);
-  assert.equal(hash.includes('482915'), false);
-  assert.notEqual(hashPin('482915').hash, hash);
-});
-
-test('a setup token is random and only its hash is kept', () => {
-  const a = newSetupToken(), b = newSetupToken();
-  assert.notEqual(a.token, b.token);
-  assert.equal(a.tokenHash, hashToken(a.token));
-  assert.equal(a.tokenHash.includes(a.token), false);
-  assert.equal(a.token.length >= 32, true);
-});
-
-test('a session cookie is signed, expires after 30 days and breaks when touched', () => {
-  let clock = Date.parse('2026-11-16T15:00:00Z');
-  const s = sessions('secret-one', () => clock);
-  const value = s.issue('r_ana', 3);
-  assert.deepEqual(s.read(value), { repId: 'r_ana', pinVersion: 3 });
-  assert.equal(s.read(value.replace('r_ana', 'r_eve')), null);
-  assert.equal(s.read(`${value}x`), null);
-  assert.equal(sessions('secret-two', () => clock).read(value), null);
-  assert.equal(s.read(''), null);
-  clock += 31 * 24 * 3600 * 1000;
-  assert.equal(s.read(value), null);
-});
-
-test('five wrong tries lock a handle for 15 minutes', () => {
-  let clock = 0;
-  const l = lockout(() => clock);
-  for (let i = 0; i < 4; i += 1) l.fail('ana');
-  assert.equal(l.blocked('ana'), false);
-  l.fail('ana');
-  assert.equal(l.blocked('ana'), true);
-  assert.equal(l.blocked('beto'), false);
-  clock += 15 * 60 * 1000 + 1;
-  assert.equal(l.blocked('ana'), false);
-  l.fail('ana'); l.clear('ana');
-  assert.equal(l.blocked('ana'), false);
 });

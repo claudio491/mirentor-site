@@ -3,11 +3,9 @@
 // Every person, business and number here is made up. The folder gets a SAMPLE marker, and the app then labels
 // every screen as sample data. It refuses to touch a folder that already holds events.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { randomInt } from 'node:crypto';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { openTeamStore } from '../lib/team/store.mjs';
-import { hashPin, validPin } from '../lib/team/auth.mjs';
 import { channelOf, weekStart, monthStart, addDays, localDay } from '../lib/team/rules.mjs';
 
 const TZ = 'America/Panama', UTC_OFFSET_H = 5;   // Panama is UTC-5 all year
@@ -76,16 +74,6 @@ const THIS_WEEK = {
 const LAST_WEEK = { andrea: 'FFcFc', omar: 'FFFFF', luis: 'cFccc', camila: 'c-c--', nadia: '-----' };
 const LAST_LEADS = { andrea: ['P1', 'P3', 'P6'], omar: ['C1', 'C2', 'C4'], luis: ['P11', 'P12', 'P13'], camila: ['P9', 'P10', 'P2'], nadia: [] };
 
-export function freshPin() { let pin; do { pin = String(randomInt(0, 1000000)).padStart(6, '0'); } while (!validPin(pin)); return pin; }
-
-/** Give every sample person a new PIN. Only for a folder that carries the SAMPLE marker. */
-export function resetSamplePins(dir, pin = freshPin()) {
-  if (!existsSync(path.join(dir, 'team', 'SAMPLE'))) throw new Error('not a sample folder: PINs are left alone');
-  const store = openTeamStore(dir);
-  for (const r of SAMPLE_REPS) if (store.state.reps.has(r.id)) store.append({ type: 'rep.pin', id: r.id, ...hashPin(pin) });
-  return pin;
-}
-
 /** `names` shows a sample person under another label, by handle: { andrea: 'Vendedor A' }, and `handles` gives them
  *  another username: { andrea: 'vendedor.a' }. The person and their week of work stay the same. */
 export function seed(dir, { now = new Date(), names = {}, handles = {} } = {}) {
@@ -93,15 +81,15 @@ export function seed(dir, { now = new Date(), names = {}, handles = {} } = {}) {
   if (existsSync(events) && readFileSync(events, 'utf8').trim()) throw new Error(`${events} already holds events: the seed only fills an empty folder`);
   mkdirSync(path.join(dir, 'team'), { recursive: true });
   writeFileSync(path.join(dir, 'team', 'SAMPLE'), 'Sample data written by tools/team-seed.mjs. Every person and business here is fictional.\n');
-  const nowIso = now.toISOString(), today = localDay(nowIso, TZ), ws = weekStart(today), pin = freshPin();
+  const nowIso = now.toISOString(), today = localDay(nowIso, TZ), ws = weekStart(today);
   const out = [];
   const push = (e) => { if (e.t <= nowIso) out.push(e); };
 
   for (const r of SAMPLE_REPS) {
     const start = r.isNew ? addDays(today, -5) : addDays(today, -60), t = at(start, '08:00');
     const handle = typeof handles[r.handle] === 'string' && /^[a-z0-9][a-z0-9._-]{1,39}$/.test(handles[r.handle]) ? handles[r.handle] : r.handle;
-    out.push({ type: 'rep.created', id: r.id, handle, name: (typeof names[r.handle] === 'string' && names[r.handle].trim()) || r.name, role: r.role, country: 'PA', city: r.city, tz: TZ, workdays: [1, 2, 3, 4, 5], startDate: start, lang: 'es', t });
-    out.push({ type: 'rep.pin', id: r.id, ...hashPin(pin), t: at(start, '08:05') });
+    // An address under .test, the ending kept for examples: it can never be anyone's.
+    out.push({ type: 'rep.created', id: r.id, handle, email: `${handle}@ejemplo.test`, name: (typeof names[r.handle] === 'string' && names[r.handle].trim()) || r.name, role: r.role, country: 'PA', city: r.city, tz: TZ, workdays: [1, 2, 3, 4, 5], startDate: start, lang: 'es', t });
   }
   const id = (handle) => `r_sample_${handle}`;
   let n = 0;
@@ -152,7 +140,7 @@ export function seed(dir, { now = new Date(), names = {}, handles = {} } = {}) {
   const store = openTeamStore(dir);
   for (const e of out) store.append(e);
   store.setLeads(Object.entries(LEADS).map(([key, [company, zone, city, known]]) => ({ id: leadId(key), company, zone, city, stage: known ? 'Contacted' : 'New', ...(known ? { lastContact: addDays(ws, -16) } : {}) })));
-  return { pin, events: out.length, reps: SAMPLE_REPS.map((r) => `${r.handle} (${r.role})`) };
+  return { events: out.length, reps: SAMPLE_REPS.map((r) => `${r.handle} (${r.role})`) };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
@@ -161,7 +149,6 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   try {
     const r = seed(dir);
     console.log(`Sample data written to ${dir}: ${r.events} events, all fictional.`);
-    console.log(`Sign in at /equipo as ${r.reps.join(', ')}.`);
-    console.log(`PIN for every sample person: ${r.pin}`);
+    console.log(`People: ${r.reps.join(', ')}. To look at it, run tools/team-dev.mjs --sample and choose who to be.`);
   } catch (err) { console.error(err.message); process.exit(1); }
 }

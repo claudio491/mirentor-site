@@ -7,11 +7,11 @@
 <meta name="theme-color" content="#1b1d20">
 <meta name="format-detection" content="telephone=no">
 <title>cancha</title>
-<link rel="icon" href="/equipo/img/mirentor-symbol-dark.svg">
-<link rel="manifest" href="/equipo/manifest.webmanifest">
-<link rel="preload" href="/equipo/fonts/geist-v1.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/equipo/app.css">
-<script type="module" src="/equipo/app.js"></script>
+<link rel="icon" href="img/mirentor-symbol-dark.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preload" href="fonts/geist-v1.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="app.css">
+<script type="module" src="app.js"></script>
 </head>
 <body class="bare">
 
@@ -41,45 +41,28 @@
 <div class="stage">
 <main class="app" id="app">
   <header class="top">
-    <a class="brand" href="/equipo" id="home" data-t-aria="top.home.aria"><img src="/equipo/img/mirentor-symbol-dark.svg" alt="" width="26" height="26"><span id="brandName">cancha</span></a>
+    <a class="brand" href="./" id="home" data-t-aria="top.home.aria"><img src="img/mirentor-symbol-dark.svg" alt="" width="26" height="26"><span id="brandName">cancha</span></a>
     <div class="top-r">
       <button class="chip" type="button" id="queueChip" hidden><i class="dot"></i><span id="queueN"></span></button>
       <button class="chip" type="button" id="streakChip" hidden><i class="dot"></i><span data-t="top.streak"></span> <b class="num" id="streakN"></b></button>
       <div class="seg lang" role="group" id="langSeg" data-t-aria="top.lang.aria"><button type="button" data-lang="es" aria-pressed="true">ES</button><button type="button" data-lang="en" aria-pressed="false">EN</button></div>
     </div>
   </header>
-  <div class="asbar" id="asBar" hidden><span id="asText"></span><a class="mini-btn" id="asExit" href="/equipo" data-t="top.viewAs.exit"></a></div>
+  <div class="asbar" id="asBar" hidden><span id="asText"></span><a class="mini-btn" id="asExit" href="./" data-t="top.viewAs.exit"></a></div>
 
   <section class="screen" id="s-boot"><div class="boot" role="status"><i></i><span class="vh" data-t="c.loading"></span></div></section>
 
-  <!-- SIGN IN -->
-  <section class="screen" id="s-auth" hidden aria-labelledby="authGiant">
+  <!-- THE GATE. The board has no sign-in of its own: its door is the sales portal's Google sign-in, shown at this same
+       address to whoever has no session. This screen is the little the board says itself: the account is not on the
+       team, the session ended and coming back did not help, or the app did not load. -->
+  <section class="screen" id="s-gate" hidden aria-labelledby="gateGiant">
     <div class="scope vfbox" aria-hidden="true"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
       <svg viewBox="0 0 132 132" focusable="false"><circle class="disc" cx="66" cy="66" r="50"/><g class="seek"><circle class="a" cx="66" cy="66" r="58"/><circle class="tipj" cx="76.07" cy="123.12" r="4.6"/></g></svg>
-      <img src="/equipo/img/mirentor-symbol-dark.svg" alt="" width="44" height="44"></div>
-    <p class="lead" data-t="auth.lead"></p>
-    <h1 class="giant" id="authGiant" data-t="auth.title"></h1>
-    <form class="form" id="authForm" novalidate>
-      <label class="field"><span class="label" data-t="auth.handle"></span><input id="aHandle" name="username" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40" data-t-ph="auth.handle.ph"></label>
-      <label class="field"><span class="label" data-t="auth.pin"></span><input class="pin" id="aPin" name="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="current-password"></label>
-      <p class="formerr" id="authErr" role="alert" hidden></p>
-      <button class="btn primary wide" type="submit" id="authBtn" data-t="auth.submit"></button>
-    </form>
-    <p class="note" data-t="auth.help"></p>
-  </section>
-
-  <!-- FIRST PIN, from a one-time link -->
-  <section class="screen" id="s-setup" hidden aria-labelledby="setupGiant">
-    <p class="lead" id="setupLead"></p>
-    <h1 class="giant word" id="setupGiant"></h1>
-    <p class="support" id="setupSupport"></p>
-    <form class="form" id="setupForm" novalidate>
-      <label class="field"><span class="label" data-t="setup.pin"></span><input class="pin" id="sPin" name="new-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password"></label>
-      <label class="field"><span class="label" data-t="setup.pin2"></span><input class="pin" id="sPin2" name="new-pin-again" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password"></label>
-      <p class="formerr" id="setupErr" role="alert" hidden></p>
-      <button class="btn primary wide" type="submit" id="setupBtn" data-t="setup.submit"></button>
-    </form>
-    <a class="btn" id="setupToLogin" href="/equipo" hidden data-t="setup.toLogin"></a>
+      <img src="img/mirentor-symbol-dark.svg" alt="" width="44" height="44"></div>
+    <p class="lead" id="gateLead"></p>
+    <h1 class="giant" id="gateGiant"></h1>
+    <p class="support" id="gateSupport"></p>
+    <p class="gate-acts"><a class="btn primary wide" id="gateGo"></a><a class="btn wide" id="gateAlt" hidden></a></p>
   </section>
 
   <!-- TODAY -->

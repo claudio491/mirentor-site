@@ -3,41 +3,57 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { teamConfig } from '../lib/team/api.mjs';
-import { ORIGIN, PIN, MON_10, start, logBody } from './team-helper.mjs';
+import { ORIGIN, MON_10, start, logBody } from './team-helper.mjs';
 
-test('the first manager is created with the bearer token and sets their own PIN through a link that works once', async (t) => {
+test('the first manager is made with the bearer token and their work email, and no secret of theirs is kept', async (t) => {
   const s = await start(); t.after(() => s.srv.close());
-  assert.equal((await s.call('POST', '/equipo/api/bootstrap', { handle: 'jefe', name: 'Jefe' })).status, 401);
+  assert.equal((await s.call('POST', '/equipo/api/bootstrap', { email: 'jefe@equipo.test', name: 'Jefe' })).status, 401);
   const a = await s.admin();
-  assert.match(a.setupUrl, /\/equipo\/alta\?t=[\w-]{32,}$/);
   const me = await s.call('GET', '/equipo/api/me', undefined, { cookie: a.cookie });
-  assert.deepEqual([me.status, me.json.me.handle, me.json.me.role, me.json.today], [200, 'jefe', 'admin', null]);
-  assert.equal((await s.call('POST', '/equipo/api/setup', { token: s.tokenOf(a.setupUrl), pin: '775533' })).status, 410);
-  assert.equal(JSON.stringify(s.lines()).includes(PIN), false);
+  assert.deepEqual([me.status, me.json.me.handle, me.json.viewer.email, me.json.me.role, me.json.today], [200, 'jefe', 'jefe@equipo.test', 'admin', null]);
+  assert.deepEqual(s.lines().flatMap((e) => Object.keys(e)).filter((k) => /pin|salt|hash|token|secret/i.test(k)), []);
+  // the board has no door of its own any more
+  for (const gone of ['login', 'setup', 'logout']) assert.equal((await s.call('POST', `/equipo/api/${gone}`, {})).status, 404, gone);
 });
 
-test('a setup link expires after 72 hours and refuses a weak PIN', async (t) => {
+test('a person is added with a work email on the company domain that nobody else has', async (t) => {
   const s = await start(); t.after(() => s.srv.close());
   const a = await s.admin();
-  const r = await s.call('POST', '/equipo/api/reps', { handle: 'mario', name: 'Mario Rep', country: 'PA', city: 'Panama City' }, { cookie: a.cookie });
-  const token = s.tokenOf(r.json.setupUrl);
-  assert.deepEqual([(await s.call('POST', '/equipo/api/setup', { token, pin: '111111' })).status, (await s.call('POST', '/equipo/api/setup', { token, pin: '12345' })).json.error], [400, 'weak_pin']);
-  assert.equal((await s.call('GET', `/equipo/api/setup?t=${token}`)).json.first, 'Mario');
-  s.time.now += 72 * 3600 * 1000 + 1000;
-  assert.equal((await s.call('POST', '/equipo/api/setup', { token, pin: PIN })).status, 410);
+  const add = (over) => s.call('POST', '/equipo/api/reps', { name: 'Mario Rep', email: 'mario@equipo.test', country: 'PA', city: 'Panama City', ...over }, { cookie: a.cookie });
+  const refused = async (over) => { const r = await add(over); return [r.status, r.json.error]; };
+  assert.deepEqual(await refused({ email: 'mario@otra.test' }), [400, 'email_domain']);
+  assert.deepEqual(await refused({ email: 'mario@equipo.test.evil.io' }), [400, 'email_domain']);
+  assert.deepEqual(await refused({ email: 'no es un correo' }), [400, 'fields']);
+  assert.deepEqual(await refused({ email: undefined }), [400, 'fields']);
+  assert.deepEqual(await refused({ email: 'jefe@equipo.test' }), [409, 'email_taken']);
+  const ok = await add({ email: '  Mario.Rep+ventas@Equipo.Test ' });
+  assert.equal(ok.status, 200);
+  const made = ok.json.reps.find((r) => r.id === ok.json.id);
+  assert.deepEqual([made.email, made.handle, made.name], ['mario.rep+ventas@equipo.test', 'mario.rep-ventas', 'Mario Rep']);
+  assert.deepEqual(await refused({ email: 'MARIO.rep+ventas@equipo.test' }), [409, 'email_taken']);
+  // nothing to hand over: that account opens the board from now on
+  assert.equal('setupUrl' in ok.json, false);
+  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: s.as('mario.rep+ventas@equipo.test') })).status, 200);
+  // teammates see each other's names and numbers, not each other's addresses
+  const seen = await s.call('GET', '/equipo/api/me', undefined, { cookie: s.as('mario.rep+ventas@equipo.test') });
+  assert.equal(JSON.stringify(seen.json).includes('jefe@equipo.test'), false);
 });
 
-test('five wrong PINs lock the handle for 15 minutes, then the right PIN works', async (t) => {
+test('nobody signed in gets 401, and an account that is not on the team gets 403 with the address it used', async (t) => {
   const s = await start(); t.after(() => s.srv.close());
-  const a = await s.admin(); await s.addRep(a.cookie, 'mario');
-  for (let i = 0; i < 5; i += 1) assert.equal((await s.call('POST', '/equipo/api/login', { handle: 'mario', pin: '000001' })).status, 401);
-  assert.equal((await s.call('POST', '/equipo/api/login', { handle: 'mario', pin: PIN })).status, 429);
-  s.time.now += 15 * 60 * 1000 + 1000;
-  const ok = await s.call('POST', '/equipo/api/login', { handle: ' Mario ', pin: PIN });
-  assert.equal(ok.status, 200);
-  assert.match(ok.cookie, /^mteam=/);
-  assert.match(ok.headers.get('set-cookie'), /HttpOnly; Secure; SameSite=Lax/);
-  assert.equal((await s.call('POST', '/equipo/api/login', { handle: 'nadie', pin: PIN })).status, 401);
+  await s.admin();
+  const none = await s.call('GET', '/equipo/api/me');
+  assert.deepEqual([none.status, none.json.error], [401, 'session']);
+  const other = await s.call('GET', '/equipo/api/me', undefined, { cookie: s.as('Otra@Equipo.Test') });
+  assert.deepEqual([other.status, other.json.error, other.json.email], [403, 'not_on_team', 'otra@equipo.test']);
+  assert.equal((await s.call('GET', '/equipo/api/team', undefined, { cookie: s.as('otra@equipo.test') })).status, 403);
+  // the page needs someone signed in; mounted without a door, it only says where to go
+  assert.equal((await s.call('GET', '/equipo/')).status, 401);
+  assert.equal((await s.call('GET', '/equipo/', undefined, { cookie: s.as('otra@equipo.test') })).status, 200);
+  const bare = await s.call('GET', '/equipo?as=r_x');
+  assert.deepEqual([bare.status, bare.headers.get('location')], [301, '/equipo/?as=r_x']);
+  assert.deepEqual([(await s.call('POST', '/equipo/auth', {})).status, (await s.call('GET', '/equipo/salir')).status], [404, 404]);
+  assert.deepEqual(s.said, []);
 });
 
 test('a log earns its points once: the same id again, or the same result on the same business the same day, is a repeat', async (t) => {
@@ -137,17 +153,22 @@ test('a manager confirms a meeting and a contract, voids a log and gives a day o
   assert.equal((await s.call('GET', `/equipo/api/me?as=${m.id}`, undefined, { cookie: m.cookie })).json.viewer.as, null);
 });
 
-test('a new setup link signs the rep out and the old PIN stops working', async (t) => {
+test('a manager fixes a person\'s email, city and days, and the old address stops opening the board', async (t) => {
   const s = await start(); t.after(() => s.srv.close());
   const a = await s.admin(); const m = await s.addRep(a.cookie, 'mario');
-  const link = await s.call('POST', `/equipo/api/reps/${m.id}/link`, {}, { cookie: a.cookie });
-  assert.match(link.json.setupUrl, /alta\?t=/);
-  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: m.cookie })).status, 401);
-  assert.equal((await s.call('POST', '/equipo/api/login', { handle: 'mario', pin: PIN })).status, 401);
-  assert.equal((await s.call('POST', '/equipo/api/reps', { handle: 'mario', name: 'Otro', country: 'PA', city: 'Colón' }, { cookie: a.cookie })).json.error, 'handle_taken');
-  assert.equal((await s.call('POST', `/equipo/api/reps/${m.id}`, { patch: { workdays: [1, 3, 5], city: 'Colón' } }, { cookie: a.cookie })).status, 200);
+  const patch = (id, p) => s.call('POST', `/equipo/api/reps/${id}`, { patch: p }, { cookie: a.cookie });
+  assert.equal((await patch(m.id, { email: 'mario.rep@equipo.test' })).status, 200);
+  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: m.cookie })).status, 403);
+  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: s.as('mario.rep@equipo.test') })).status, 200);
+  assert.deepEqual([(await patch(m.id, { email: 'jefe@equipo.test' })).json.error, (await patch(m.id, { email: 'mario@otra.test' })).json.error], ['email_taken', 'email_domain']);
+  // nobody moves their own way in: a slip would lock them out
+  assert.equal((await patch(a.id, { email: 'otro@equipo.test' })).json.error, 'patch');
+  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: a.cookie })).status, 200);
+  assert.equal((await s.call('POST', '/equipo/api/reps', { email: 'mario.rep@equipo.test', name: 'Otro', country: 'PA', city: 'Colón' }, { cookie: a.cookie })).json.error, 'email_taken');
+  assert.equal((await s.call('POST', `/equipo/api/reps/${m.id}/link`, {}, { cookie: a.cookie })).status, 404);
+  assert.equal((await patch(m.id, { workdays: [1, 3, 5], city: 'Colón' })).status, 200);
   const team = await s.call('GET', '/equipo/api/team', undefined, { cookie: a.cookie });
-  assert.deepEqual([team.json.reps[0].workdays, team.json.reps[0].city, team.json.reps[0].setupPending], [[1, 3, 5], 'Colón', true]);
+  assert.deepEqual([team.json.reps[0].workdays, team.json.reps[0].city, team.json.reps[0].email], [[1, 3, 5], 'Colón', 'mario.rep@equipo.test']);
 });
 
 test('goal, applause, plays and language are the rep\'s own to set', async (t) => {
@@ -201,27 +222,18 @@ test('the nightly routine pushes leads, reads the day\'s logs and maps new busin
   assert.equal((await s.call('GET', '/equipo/api/export?since=2026-11-16T00:00:00Z', undefined, B)).json.logs[1].lead.id, 'PA-SB-2901');
 });
 
-test('with bootstrap opened by name, the bearer token gives the first manager a new link when the PIN is lost, and never takes over a rep', async (t) => {
+test('with bootstrap opened by name, the bearer token makes another admin, and never takes over a rep', async (t) => {
   const s = await start({ bootstrapOpen: true }); t.after(() => s.srv.close());
   const a = await s.admin(); await s.addRep(a.cookie, 'mario');
-  const again = await s.call('POST', '/equipo/api/bootstrap', { handle: 'jefe', name: 'Jefe Uno' }, { bearer: 'push-token' });
-  assert.match(again.json.setupUrl, /\/equipo\/alta\?t=[\w-]{32,}$/);
-  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: a.cookie })).status, 401);
-  const back = await s.call('POST', '/equipo/api/setup', { token: s.tokenOf(again.json.setupUrl), pin: '775533' });
-  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: back.cookie })).json.me.role, 'admin');
-  const taken = await s.call('POST', '/equipo/api/bootstrap', { handle: 'mario', name: 'Mario' }, { bearer: 'push-token' });
-  assert.deepEqual([taken.status, taken.json.error], [409, 'handle_taken']);
-  assert.equal(s.lines().filter((e) => e.type === 'rep.created').length, 2);
-});
-
-test('a new PIN set through a fresh link lifts the lock at once', async (t) => {
-  const s = await start(); t.after(() => s.srv.close());
-  const a = await s.admin(); const m = await s.addRep(a.cookie, 'mario');
-  for (let i = 0; i < 5; i += 1) await s.call('POST', '/equipo/api/login', { handle: 'mario', pin: '000001' });
-  assert.equal((await s.call('POST', '/equipo/api/login', { handle: 'mario', pin: PIN })).status, 429);
-  const link = await s.call('POST', `/equipo/api/reps/${m.id}/link`, {}, { cookie: a.cookie });
-  assert.equal((await s.call('POST', '/equipo/api/setup', { token: s.tokenOf(link.json.setupUrl), pin: '775533' })).status, 200);
-  assert.equal((await s.call('POST', '/equipo/api/login', { handle: 'mario', pin: '775533' })).status, 200);
+  const B = { bearer: 'push-token' };
+  const same = await s.call('POST', '/equipo/api/bootstrap', { email: 'jefe@equipo.test', name: 'Jefe Uno' }, B);
+  assert.deepEqual([same.status, same.json.id], [200, a.id]);
+  assert.equal((await s.call('POST', '/equipo/api/bootstrap', { email: 'jefa@equipo.test', name: 'Jefa Dos' }, B)).status, 200);
+  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: s.as('jefa@equipo.test') })).json.me.role, 'admin');
+  const taken = await s.call('POST', '/equipo/api/bootstrap', { email: 'mario@equipo.test', name: 'Mario' }, B);
+  assert.deepEqual([taken.status, taken.json.error], [409, 'email_taken']);
+  assert.equal((await s.call('POST', '/equipo/api/bootstrap', { email: 'x@otra.test', name: 'Equis' }, B)).json.error, 'email_domain');
+  assert.equal(s.lines().filter((e) => e.type === 'rep.created').length, 3);
 });
 
 test('a lead list of a few megabytes keeps every accent', async (t) => {
@@ -239,11 +251,11 @@ test('requests from another site are refused, and the page ships with a strict p
   const a = await s.admin(); const m = await s.addRep(a.cookie, 'mario');
   assert.equal((await s.call('POST', '/equipo/api/log', logBody('efef0001'), { cookie: m.cookie, origin: 'https://evil.example' })).status, 403);
   assert.equal((await s.call('POST', '/equipo/api/log', logBody('efef0001'), { cookie: m.cookie, origin: ORIGIN })).status, 200);
-  const page = await s.call('GET', '/equipo');
+  const page = await s.call('GET', '/equipo/', undefined, { cookie: m.cookie });
   assert.equal(page.status, 200);
   assert.match(page.headers.get('content-security-policy'), /script-src 'self'/);
   assert.equal(page.headers.get('x-robots-tag'), 'noindex, nofollow');
-  assert.equal((await s.call('GET', '/equipo/alta?t=abc')).text, page.text);
+  assert.equal((await s.call('GET', '/equipo/alta')).status, 404);   // the one-time links are gone with the PIN
   const js = await s.call('GET', '/equipo/app.js');
   assert.deepEqual([js.status, js.headers.get('content-type'), js.headers.get('cache-control')], [200, 'text/javascript; charset=utf-8', 'no-cache']);
   assert.equal((await fetch(`${s.url}/equipo/app.js`, { headers: { 'if-none-match': js.headers.get('etag') } })).status, 304);
@@ -265,23 +277,19 @@ test('the rest of the service is untouched while the team module is on', async (
   assert.equal((await s.call('GET', '/equipox')).status, 404);
 });
 
-test('a folder of sample data says so on every view, and a local preview signs in over plain http', async (t) => {
+test('a folder of sample data says so on every view', async (t) => {
   const s = await start({ sample: true, dev: true }); t.after(() => s.srv.close());
-  const b = await s.call('POST', '/equipo/api/bootstrap', { handle: 'jefe', name: 'Jefe Uno' }, { bearer: 'push-token' });
-  const set = await s.call('POST', '/equipo/api/setup', { token: s.tokenOf(b.json.setupUrl), pin: PIN });
-  assert.equal(/Secure/.test(set.headers.get('set-cookie')), false);
-  assert.match(set.headers.get('set-cookie'), /HttpOnly; SameSite=Lax/);
-  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: set.cookie })).json.sample, true);
+  const a = await s.admin();
+  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: a.cookie })).json.sample, true);
   const real = await start(); t.after(() => real.srv.close());
-  const a = await real.admin();
-  assert.equal((await real.call('GET', '/equipo/api/me', undefined, { cookie: a.cookie })).json.sample, false);
+  const b = await real.admin();
+  assert.equal((await real.call('GET', '/equipo/api/me', undefined, { cookie: b.cookie })).json.sample, false);
 });
 
 test('a preview whose clock runs days away from the real one does not flag every log as late', async (t) => {
   const offset = 3 * 24 * 3600 * 1000, real = MON_10 - offset;   // the phone says Friday morning, the preview says Monday
   const s = await start({ sample: true, dev: true, previewOffsetMs: offset }); t.after(() => s.srv.close());
-  const b = await s.call('POST', '/equipo/api/bootstrap', { handle: 'jefe', name: 'Jefe Uno' }, { bearer: 'push-token' });
-  const a = await s.call('POST', '/equipo/api/setup', { token: s.tokenOf(b.json.setupUrl), pin: PIN });
+  const a = await s.admin();
   const m = await s.addRep(a.cookie, 'mario');
   await s.call('POST', '/equipo/api/log', logBody('face0001', { clientAt: new Date(real).toISOString() }), { cookie: m.cookie });
   await s.call('POST', '/equipo/api/log', logBody('face0002', { clientAt: new Date(real - 3 * 3600 * 1000).toISOString(), lead: { name: 'Otro Negocio', zone: 'Z' } }), { cookie: m.cookie });
@@ -310,22 +318,20 @@ test('a manager records a signed site, marks its steps, gives a recognition and 
   assert.equal((await s.call('POST', '/equipo/api/badge', { rep: m.id, text: 'Volvió tres veces hasta encontrar al dueño.' }, { cookie: a.cookie })).status, 200);
   const seen = (await s.call('GET', '/equipo/api/me', undefined, { cookie: j.cookie })).json.feed[0];
   assert.deepEqual([seen.code, seen.name, seen.play], ['badge', 'mario', 'Volvió tres veces hasta encontrar al dueño.']);
-  // a rep who leaves: the session ends, the PIN stops working, and the table forgets them
+  // a rep who leaves: their account stops opening the board, and the table forgets them
   const off = await s.call('POST', `/equipo/api/reps/${j.id}`, { patch: { active: false } }, { cookie: a.cookie });
   assert.deepEqual([off.status, off.json.reps.map((r) => r.handle), off.json.others.some((r) => r.handle === 'jose' && !r.active)], [200, ['mario'], true]);
-  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: j.cookie })).status, 401);
-  assert.equal((await s.call('POST', '/equipo/api/login', { handle: 'jose', pin: PIN })).status, 401);
+  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: j.cookie })).status, 403);
   assert.equal((await s.call('POST', `/equipo/api/reps/${a.cookie ? 'r_nope' : ''}`, { patch: { active: false } }, { cookie: a.cookie })).status, 404);
 });
 
-test('the module stays off until it is switched on by name, even when the keys it could use are there', () => {
+test('the module stays off until it is switched on by name, and keeps no secret of its own', () => {
   const desk = { DESK_PASSWORD: 'desk-pass', DESK_PUSH_TOKEN: 'desk-token', DATA_DIR: '/var/data' };
   assert.equal(teamConfig({}), null);
-  assert.equal(teamConfig(desk), null);                                  // a deploy for any other reason must not publish /equipo
-  assert.equal(teamConfig({ TEAM_ENABLED: '1' }), null);                 // switched on but with nothing to sign sessions with
+  assert.equal(teamConfig(desk), null);                                  // a deploy for any other reason must not publish the board
   assert.equal(teamConfig({ ...desk, TEAM_ENABLED: '0' }), null);
+  assert.deepEqual(teamConfig({ TEAM_ENABLED: '1' }), { pushToken: '', origins: [], bootstrapOpen: false });
   assert.deepEqual(teamConfig({ ...desk, TEAM_ENABLED: '1', ALLOWED_ORIGINS: 'https://www.mirentor.com, https://mirentor.onrender.com' }),
-    { secret: 'desk-pass|desk-token', pushToken: 'desk-token', origins: ['https://www.mirentor.com', 'https://mirentor.onrender.com'], publicBase: '', bootstrapOpen: false });
-  assert.deepEqual(teamConfig({ ...desk, TEAM_ENABLED: 'true', TEAM_SECRET: 'own-secret', TEAM_PUSH_TOKEN: 'own-token', TEAM_PUBLIC_BASE: 'https://www.mirentor.com/', TEAM_BOOTSTRAP: '1' }),
-    { secret: 'own-secret', pushToken: 'own-token', origins: [], publicBase: 'https://www.mirentor.com', bootstrapOpen: true });
+    { pushToken: 'desk-token', origins: ['https://www.mirentor.com', 'https://mirentor.onrender.com'], bootstrapOpen: false });
+  assert.deepEqual(teamConfig({ ...desk, TEAM_ENABLED: 'true', TEAM_PUSH_TOKEN: 'own-token', TEAM_BOOTSTRAP: '1' }), { pushToken: 'own-token', origins: [], bootstrapOpen: true });
 });

@@ -83,9 +83,15 @@ test('the page obeys its own policy: no inline script, no inline style, no handl
   assert.equal(/\sstyle\s*=/i.test(page), false, 'style attribute');
   assert.equal(/<style[\s>]/i.test(page), false, 'style element');
   assert.equal(/\son[a-z]+\s*=/i.test(page), false, 'handler attribute');
-  assert.match(page, /<script type="module" src="\/equipo\/app\.js"><\/script>/);
+  assert.match(page, /<script type="module" src="app\.js"><\/script>/);
   assert.match(page, /<meta name="robots" content="noindex, ?nofollow">/);
-  for (const m of page.matchAll(/(?:src|href)="(\/equipo\/[^"#?]+)"/g)) assert.ok(existsSync(new URL(`../team/${m[1].slice('/equipo/'.length)}`, import.meta.url)), `missing file ${m[1]}`);
+  for (const m of page.matchAll(/(?:src|href)="([^"#?:]+\.[a-z0-9]+)"/g)) assert.ok(existsSync(new URL(`../team/${m[1]}`, import.meta.url)), `missing file ${m[1]}`);
+});
+
+test('every address in the client is relative, so the app works wherever it is mounted', () => {
+  for (const file of [...SCRIPTS, 'team/index.html', 'team/app.css', 'team/manifest.webmanifest']) {
+    assert.equal(/(["'`]|url\()\/(?!\/)[a-z]/i.test(read(file)), false, `${file} has an address that starts at the root of the site`);
+  }
 });
 
 test('the scripts never build markup from strings', () => {

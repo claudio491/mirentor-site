@@ -9,7 +9,7 @@ import { openStore } from '../lib/store.mjs';
 import { createDesk } from '../lib/desk.mjs';
 import { startTeam } from '../lib/team/api.mjs';
 import { openTeamStore } from '../lib/team/store.mjs';
-import { ORIGIN, PIN, MON_10, start, logBody } from './team-helper.mjs';
+import { ORIGIN, MON_10, start, logBody } from './team-helper.mjs';
 
 const DAY_MS = 24 * 3600 * 1000;
 const B = { bearer: 'push-token' };
@@ -20,9 +20,8 @@ test('a request with the wrong types is refused, and the service keeps answering
   const a = await s.admin(); const m = await s.addRep(a.cookie, 'mario');
   const st = async (...args) => (await s.call(...args)).status;
   const C = { cookie: m.cookie }, A = { cookie: a.cookie };
-  assert.equal(await st('POST', '/equipo/api/login', { handle: odd, pin: '123456' }), 401);
-  assert.equal(await st('POST', '/equipo/api/login', { handle: 'mario', pin: odd }), 401);
-  assert.equal(await st('POST', '/equipo/api/setup', { token: odd, pin: PIN }), 410);
+  assert.equal(await st('POST', '/equipo/api/bootstrap', { email: odd, name: odd }, B), 400);
+  assert.equal(await st('POST', `/equipo/api/reps/${m.id}`, { patch: { email: odd } }, A), 400);
   assert.equal((await s.call('POST', '/equipo/api/log', logBody('aaaa1111', { id: 12345678 }), C)).json.error, 'id');
   assert.equal((await s.call('POST', '/equipo/api/log', logBody('aaaa1112', { kind: ['message'] }), C)).json.error, 'kind');
   assert.equal(await st('POST', '/equipo/api/log', logBody('aaaa1114', { lead: { id: odd } }), C), 400);
@@ -32,7 +31,8 @@ test('a request with the wrong types is refused, and the service keeps answering
   assert.equal(await st('POST', '/equipo/api/held', { logId: odd }, C), 404);
   assert.equal(await st('POST', '/equipo/api/kudos', { target: odd }, C), 400);
   assert.equal(await st('POST', '/equipo/api/play', { logId: 'aaaa1113', text: odd }, C), 400);
-  assert.equal(await st('POST', '/equipo/api/reps', { handle: odd, name: odd }, A), 400);
+  assert.equal(await st('POST', '/equipo/api/reps', { email: odd, name: odd }, A), 400);
+  assert.equal(await st('POST', '/equipo/api/reps', { email: odd, name: 'Nombre Bueno' }, A), 400);
   assert.equal(await st('POST', '/equipo/api/dayoff', { scope: odd, date: odd }, A), 400);
   assert.equal(await st('POST', '/equipo/api/void', { logId: odd, reason: odd }, A), 404);
   assert.equal(await st('POST', '/equipo/api/confirm', { logId: odd, what: odd }, A), 404);
@@ -45,12 +45,12 @@ test('a request with the wrong types is refused, and the service keeps answering
 
 test('a time zone that does not exist is refused when a person is created', async (t) => {
   const s = await start(); t.after(() => s.srv.close());
-  assert.equal((await s.call('POST', '/equipo/api/bootstrap', { handle: 'jefe', name: 'Jefe Uno', tz: 'Panama' }, B)).status, 400);
+  assert.equal((await s.call('POST', '/equipo/api/bootstrap', { email: 'jefe@equipo.test', name: 'Jefe Uno', tz: 'Panama' }, B)).status, 400);
   const a = await s.admin();
-  const bad = await s.call('POST', '/equipo/api/reps', { handle: 'mario', name: 'Mario Rep', tz: 'Not/AZone' }, { cookie: a.cookie });
+  const bad = await s.call('POST', '/equipo/api/reps', { email: 'mario@equipo.test', name: 'Mario Rep', tz: 'Not/AZone' }, { cookie: a.cookie });
   assert.deepEqual([bad.status, bad.json.error], [400, 'fields']);
   assert.equal(s.lines().filter((e) => e.type === 'rep.created').length, 1);
-  assert.equal((await s.call('POST', '/equipo/api/reps', { handle: 'mario', name: 'Mario Rep', tz: 'America/Bogota' }, { cookie: a.cookie })).status, 200);
+  assert.equal((await s.call('POST', '/equipo/api/reps', { email: 'mario@equipo.test', name: 'Mario Rep', tz: 'America/Bogota' }, { cookie: a.cookie })).status, 200);
   assert.equal((await s.call('GET', '/equipo/api/team', undefined, { cookie: a.cookie })).status, 200);
 });
 
@@ -91,12 +91,13 @@ test('an exception inside a handler answers 500 and the service stays up', async
 test('the service starts with the team off when the team module cannot start', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'team-noboot-'));
   writeFileSync(path.join(dir, 'team'), 'a file where the folder should be');
-  const env = { TEAM_ENABLED: '1', TEAM_SECRET: 'a-secret-for-this-test', TEAM_PUSH_TOKEN: 'a-token-for-this-test' };
+  const env = { TEAM_ENABLED: '1', TEAM_PUSH_TOKEN: 'a-token-for-this-test' };
+  const sales = Object.assign(async () => false, { who: () => null });   // the portal, as far as starting goes
   const said = [];
-  assert.equal(startTeam(env, dir, (m) => said.push(m)), null);
-  assert.match(said.join(' '), /team/i);
-  assert.equal(typeof startTeam(env, mkdtempSync(path.join(tmpdir(), 'team-boot-'))), 'function');
-  assert.equal(startTeam({}, dir), null);
+  assert.equal(startTeam(env, dir, { sales, log: (m) => said.push(m) }), null);
+  assert.match(said.join(' '), /could not start/);
+  assert.equal(typeof startTeam(env, mkdtempSync(path.join(tmpdir(), 'team-boot-')), { sales }), 'function');
+  assert.equal(startTeam({}, dir, { sales }), null);
 });
 
 test('a follow-up is decided when the log is made: pushing the lead list again does not move points already earned', async (t) => {
@@ -203,7 +204,7 @@ test('the manager still sees a meeting to confirm when its date is weeks after t
 test('working days are Monday to Friday: the hand has five fingers', async (t) => {
   const s = await start(); t.after(() => s.srv.close());
   const a = await s.admin();
-  const r = await s.call('POST', '/equipo/api/reps', { handle: 'sabado', name: 'Rep Sabado', city: 'Panama City', workdays: [2, 3, 4, 5, 6, 7] }, { cookie: a.cookie });
+  const r = await s.call('POST', '/equipo/api/reps', { email: 'sabado@equipo.test', name: 'Rep Sabado', city: 'Panama City', workdays: [2, 3, 4, 5, 6, 7] }, { cookie: a.cookie });
   const team = await s.call('GET', '/equipo/api/team', undefined, { cookie: a.cookie });
   assert.deepEqual(team.json.reps.find((x) => x.id === r.json.id).workdays, [2, 3, 4, 5]);
   const patch = await s.call('POST', `/equipo/api/reps/${r.json.id}`, { patch: { workdays: [6, 7] } }, { cookie: a.cookie });
@@ -275,19 +276,17 @@ test('the team view lists the cities of the lead list and how many businesses ea
   assert.deepEqual([team.reps.find((r) => r.id === m.id).leadsInCity, team.reps.find((r) => r.id === j.id).leadsInCity], [2, 0]);
 });
 
-test('bootstrap closes once an admin has a PIN, unless it is opened by name', async (t) => {
+test('bootstrap closes once the team has an admin, unless it is opened by name', async (t) => {
   const s = await start(); t.after(() => s.srv.close());
-  const first = await s.call('POST', '/equipo/api/bootstrap', { handle: 'jefe', name: 'Jefe Uno' }, B);
-  const lost = await s.call('POST', '/equipo/api/bootstrap', { handle: 'jefe', name: 'Jefe Uno' }, B);   // the first link was lost before it was used
-  assert.deepEqual([first.status, lost.status], [200, 200]);
-  assert.equal((await s.call('POST', '/equipo/api/setup', { token: s.tokenOf(lost.json.setupUrl), pin: PIN })).status, 200);
-  const other = await s.call('POST', '/equipo/api/bootstrap', { handle: 'intruso', name: 'Otro Admin' }, B);
-  const same = await s.call('POST', '/equipo/api/bootstrap', { handle: 'jefe', name: 'Jefe Uno' }, B);
+  const first = await s.call('POST', '/equipo/api/bootstrap', { email: 'jefe@equipo.test', name: 'Jefe Uno' }, B);
+  assert.equal(first.status, 200);
+  const other = await s.call('POST', '/equipo/api/bootstrap', { email: 'intruso@equipo.test', name: 'Otro Admin' }, B);
+  const same = await s.call('POST', '/equipo/api/bootstrap', { email: 'jefe@equipo.test', name: 'Jefe Uno' }, B);
   assert.deepEqual([other.status, other.json.error, same.status], [409, 'bootstrap_closed', 409]);
   assert.equal(s.lines().filter((e) => e.type === 'rep.created').length, 1);
   const open = await start({ bootstrapOpen: true }); t.after(() => open.srv.close());
   await open.admin();
-  assert.equal((await open.call('POST', '/equipo/api/bootstrap', { handle: 'segundo', name: 'Segundo Admin' }, B)).status, 200);
+  assert.equal((await open.call('POST', '/equipo/api/bootstrap', { email: 'segundo@equipo.test', name: 'Segundo Admin' }, B)).status, 200);
 });
 
 test('the feed shows points only on the viewer\'s own moves, and all of them to a manager', async (t) => {
@@ -303,7 +302,7 @@ test('the desk and the waitlist answer as before with the team module on', async
   const d = await s.call('GET', '/desk');
   assert.deepEqual([d.status, /text\/html/.test(d.headers.get('content-type'))], [200, true]);
   assert.equal((await s.call('GET', '/healthz')).json.desk, true);
-  assert.equal((await s.call('GET', '/equipo')).status, 200);
+  assert.equal((await s.call('GET', '/equipo/app.js')).status, 200);
   const wl = await fetch(`${s.url}/api/waitlist`, { method: 'POST', headers: { 'content-type': 'application/json', origin: ORIGIN }, body: '{}' });
   assert.equal(wl.status, 400);
   void MON_10;

@@ -3,11 +3,9 @@
 // A value that is a pair, [one, many], is picked by the `n` given to t().
 // Fixed words: puntos / points (the score), marcas / marks (the hand's joints), meta / goal (the weekly goal a rep picks),
 // objetivo del equipo / team target, teléfono / phone (a device), líder / manager (who confirms).
-
 export const APP_NAME = 'cancha';   // a working name, kept in one place
 export const LANGS = ['es', 'en'];
 export const LOCALE = { es: 'es-PA', en: 'en-US' };
-
 const es = {
   // ---- shared ----
   'c.close': 'Cerrar', 'c.cancel': 'Cancelar', 'c.save': 'Guardar', 'c.saving': 'Guardando', 'c.copy': 'Copiar', 'c.copied': 'Copiado',
@@ -18,22 +16,27 @@ const es = {
   'city.Panama City': 'Ciudad de Panamá', 'city.Colon': 'Colón', 'city.Medellin': 'Medellín', 'city.Bogota': 'Bogotá', 'city.Cali': 'Cali', 'city.David': 'David',
   'country.PA': 'Panamá', 'country.CO': 'Colombia',
   'time.now': 'ahora', 'time.min': 'hace {n} min', 'time.h': 'hace {n} h', 'time.yesterday': 'ayer', 'time.week': 'Semana {n}', 'time.range': '{a} al {b}',
-
   // ---- errors: one line per refusal the server can answer ----
   'err.offline': 'Sin señal. Revisa tu conexión y vuelve a intentar.',
   'err.unknown': 'Algo falló de nuestro lado. Vuelve a intentar en un momento.',
-  'err.bad_login': 'El usuario o el PIN no coinciden.',
-  'err.locked': 'Demasiados intentos. Espera 15 minutos o pide un enlace nuevo a tu líder.',
+
   'err.session': 'Tu sesión terminó. Entra de nuevo.',
-  'err.weak_pin': 'Ese PIN es fácil de adivinar. Usa 6 dígitos que no sean iguales ni seguidos.',
-  'err.link_expired': 'Este enlace ya se usó o venció. Pide uno nuevo a tu líder.',
+  'err.not_on_team': 'Tu cuenta ya no está en el equipo de ventas.',
+  'err.email_domain': 'Usa su correo de Mirentor, el que termina en @mirentor.com.', 'err.email_taken': 'Ese correo ya es de otra persona del equipo.',
+  'gate.lead': 'Equipo de ventas de Mirentor', 'gate.team.lead': 'Entraste como {email}',
+  'gate.team.title': 'todavía no.', 'gate.team.support': 'Esa cuenta todavía no está en el equipo de ventas. Pídele a tu líder que te agregue con ese correo y vuelve a intentar.',
+  'gate.session.title': 'entra de nuevo.', 'gate.session.support': 'Tu sesión terminó. Entra con tu cuenta de Google de Mirentor.',
+  'gate.error.title': 'no cargó.', 'gate.retry': 'Volver a intentar', 'gate.enter': 'Entrar', 'gate.switch': 'Entrar con otra cuenta',
+  'profile.account': 'Cuenta: {email}',
+  'reps.form.email': 'Correo de Mirentor', 'reps.form.email.hint': 'Con esa cuenta de Google entra. No hay clave que compartir.',
+  'reps.added': '{name} ya puede entrar con su cuenta de Google.', 'reps.noemail': 'Falta su correo: todavía no puede entrar.',
+
   'err.origin': 'Abre la app desde su dirección oficial.',
   'err.content_type': 'La app envió algo que el servidor no entiende. Recarga la página.',
   'err.too_large': 'Es demasiado texto. Acórtalo y vuelve a intentar.',
   'err.body': 'La app envió algo que el servidor no entiende. Recarga la página.',
   'err.token': 'Falta el permiso para esta acción.',
   'err.fields': 'Revisa los datos: falta algo o tiene un formato distinto.',
-  'err.handle_taken': 'Ese usuario ya existe. Elige otro.',
   'err.rep': 'Ese vendedor no existe.',
   'err.id': 'El registro llegó incompleto. Vuelve a intentar.',
   'err.kind': 'Elige un resultado.',
@@ -63,14 +66,9 @@ const es = {
   'err.not_closed': 'Ese día no está cerrado.',
   'err.bootstrap_closed': 'Ya hay un administrador con acceso. Este paso está cerrado.',
   'err.expired': 'El plazo para confirmar ya pasó. Esta parte no suma.',
+  // ---- the gate: not on the team, a session that ended, a page that did not load ----
 
-  // ---- sign in and first PIN ----
-  'auth.lead': 'Equipo de ventas de Mirentor', 'auth.title': 'entra.', 'auth.handle': 'Tu usuario', 'auth.handle.ph': 'Ej.: andrea',
-  'auth.pin': 'Tu PIN de 6 dígitos', 'auth.submit': 'Entrar', 'auth.help': '¿Olvidaste tu PIN? Pide un enlace nuevo a tu líder.',
-  'setup.lead': 'Hola, {name}.', 'setup.title': 'elige tu PIN.',
-  'setup.support': 'Son 6 dígitos que solo tú conoces. Con tu usuario {handle} y este PIN entras desde cualquier teléfono.',
-  'setup.pin': 'PIN nuevo', 'setup.pin2': 'Repite el PIN', 'setup.submit': 'Guardar y entrar', 'setup.mismatch': 'Los dos PIN no coinciden.',
-  'setup.expired.title': 'enlace vencido.', 'setup.toLogin': 'Ir a entrar',
+
 
   // ---- top bar and navigation ----
   'top.home.aria': 'Ir al inicio', 'top.streak': 'racha', 'top.streak.aria': 'Tu racha: {n}', 'top.lang.aria': 'Idioma',
@@ -78,7 +76,6 @@ const es = {
   'top.viewAs': 'Viendo como {name}', 'top.viewAs.exit': 'Volver al equipo',
   'nav.aria': 'Secciones', 'nav.today': 'Hoy', 'nav.table': 'Tabla', 'nav.profile': 'Perfil', 'nav.log': 'Registrar',
   'nav.team': 'Equipo', 'nav.needs': 'Pendientes', 'nav.reps': 'Vendedores',
-
   // ---- today ----
   'today.lead': '{name}, tus hábitos de hoy', 'today.of': '{a} de {b}',
   'today.lead.zero': '{name}, tu día está por empezar', 'today.zero.giant': 'arranca.',
@@ -94,7 +91,6 @@ const es = {
   'habit.2': 'Un seguimiento', 'habit.2.s': 'A un negocio que ya tenía un contacto',
   'habit.3': 'Cerrar el día', 'habit.3.s': 'Tu reporte, antes de las {time}',
   'habitname.0': 'visita', 'habitname.1': 'dos conversaciones', 'habitname.2': 'seguimiento', 'habitname.3': 'cierre del día',
-
   // ---- the hand ----
   'hand.aria': 'La mano de la semana',
   'hand.caption': 'La mano de la semana: {a} de {b} marcas. Cada dedo es un día. De la base a la punta: visita, conversaciones, seguimiento y cierre.',
@@ -104,7 +100,6 @@ const es = {
   'finger.done': 'Hecho: {list}.', 'finger.missing.today': 'Falta: {list}.', 'finger.missing.past': 'Faltó: {list}.',
   'finger.full': 'Dedo completo.', 'finger.repaired': 'Lo completaste con tu trabajo en un día libre.',
   'finger.counts': 'Visitas {v}, conversaciones {c}.', 'finger.title': '{day} · {a} de 4 marcas',
-
   // ---- weekly goal ----
   'goal.line': 'Tu meta de la semana: {goal}.', 'goal.progress': 'Llevas {a} de {b} dedos.', 'goal.reached': 'Meta cumplida.',
   'goal.name': ['{n} dedo completo', '{n} dedos completos'], 'goal.name.hand': 'la mano completa',
@@ -115,7 +110,6 @@ const es = {
   'goal.opt.0': 'Base', 'goal.opt.1': 'Reto', 'goal.opt.2': 'Tope',
   'goal.opt.s': ['{n} día con los cuatro hábitos', '{n} días con los cuatro hábitos'],
   'goal.suggested': 'Sugerida', 'goal.pick.next': 'Elegir la de la próxima semana', 'goal.saved': 'Vas por {goal}.', 'goal.next.picked': 'Próxima semana: {goal}.',
-
   // ---- lenses and sources ----
   'lens.meetings': 'Reuniones', 'lens.contract': 'Contrato', 'lens.points': 'Puntos', 'lens.team': 'Equipo', 'lens.aria': '{label}: {value}',
   'src.meetings': 'Reuniones que agendaste esta semana, de lunes a domingo. El objetivo semanal es {goal}. Cuentan al agendarlas; el resto de los puntos llega cuando tu líder confirma que ocurrieron.',
@@ -126,7 +120,6 @@ const es = {
   'src.team': 'Reuniones agendadas por todo el equipo esta semana. El objetivo del equipo es {target}: {per} por vendedor.',
   'src.life': 'Todos los puntos que has ganado desde que entraste. No vuelven a cero.',
   'src.place': 'Lugar según los puntos ganados en el periodo. Quien trabaja menos de cinco días compite con sus puntos llevados a una semana de cinco. Un empate deja arriba a quien llegó primero.',
-
   // ---- rank strip and table ----
   'rank.place': 'vas {ord} de {n}', 'rank.none': 'aún sin puntos esta semana', 'rank.new': 'tus primeros {n} días', 'rank.open': 'Ver la tabla', 'rank.open.aria': 'Abrir la tabla', 'rank.days.aria': 'Día {d} de tus primeros {n}',
   'table.week': 'Semana', 'table.day': 'Hoy', 'table.month': 'Mes', 'table.period.aria': 'Periodo',
@@ -142,7 +135,6 @@ const es = {
   'table.note': 'Ves la punta y tu lugar. El resto del equipo aparece en orden alfabético, con las marcas de su mano. Los puntos vuelven a cero cada lunes.',
   'team.title': 'Objetivo del equipo', 'team.p': ['Falta {n} reunión para el objetivo de la semana. Cada una cuenta para todos.', 'Faltan {n} reuniones para el objetivo de la semana. Cada una cuenta para todos.'],
   'team.done': 'Objetivo de la semana cumplido. Cada reunión cuenta para todos.',
-
   // ---- closing the day ----
   'close.title': 'cierra tu día', 'close.p': 'Tu reporte se arma solo con lo que registraste. Tú agregas qué harás mañana y si algo te frena.',
   'close.btn': 'Cerrar el día', 'close.done.title': 'día cerrado', 'close.done.p': 'Tu reporte quedó a las {time}.',
@@ -155,7 +147,6 @@ const es = {
   'close.submit': 'Cerrar el día', 'close.copy': 'Copiar el reporte', 'close.copied': 'Copiado. Pégalo en el canal del equipo en Slack.', 'close.toast': 'Día cerrado.',
   'close.copy.fail': 'No se pudo copiar. Mantén presionado el texto y cópialo a mano.',
   'close.waiting': ['Tienes {n} registro por enviar. Espera a que salga antes de cerrar el día.', 'Tienes {n} registros por enviar. Espera a que salgan antes de cerrar el día.'],
-
   // ---- plays and the feed ----
   'play.card.title': 'la última jugada', 'play.card.p': 'Cuando agendas una reunión, la app te pregunta qué funcionó. Así el equipo aprende de lo que sí sirve.',
   'play.ask.title': '¿qué funcionó?', 'play.ask.p': 'Cuéntalo en dos líneas. Lo verá todo el equipo junto a tu reunión.',
@@ -166,7 +157,6 @@ const es = {
   'feed.contract_signed': 'firmó un contrato', 'feed.site_signed': 'firmó un sitio', 'feed.site_installed': 'tiene un sitio instalado', 'feed.site_first_hour': 'tiene su primera hora aprobada',
   'feed.day_closed': 'cerró su día', 'feed.badge': 'recibió un reconocimiento',
   'kudos.aria': 'Aplaudir a {name}', 'kudos.on': 'Aplaudiste a {name}',
-
   // ---- logging ----
   'log.title': '¿qué pasó?', 'log.step1': '1 · Con quién', 'log.step2': '2 · Resultado', 'log.step3': '3 · Detalles',
   'log.search': 'Buscar un negocio', 'log.search.ph': 'Busca un negocio de tu ciudad', 'log.recent': 'Recientes',
@@ -193,7 +183,6 @@ const es = {
   'toast.sent': ['Se envió {n} registro guardado.', 'Se enviaron {n} registros guardados.'], 'toast.dropped': 'Un registro guardado no se pudo enviar. {why}',
   'toast.lang': 'La app ahora está en español.',
   'lockon.title.a': 'tomaste', 'lockon.title.b': 'la punta.', 'lockon.s.behind': '{name} queda a {gap}. La semana cierra el domingo.', 'lockon.s': 'La semana cierra el domingo.', 'lockon.aria': 'Tomaste la punta. Toca para cerrar.',
-
   // ---- the entrance, the next step and the moments ----
   'greet.morning': 'Buenos días', 'greet.afternoon': 'Buenas tardes', 'greet.evening': 'Buenas noches', 'greet.aria': 'Bienvenida. Toca para entrar.', 'greet.skip': 'Toca para entrar',
   'greet.lead.a': 'Llevas la punta.', 'greet.lead.b': 'Tienes {pts} esta semana.', 'greet.place.a': 'Vas {ord} de {n}.',
@@ -213,7 +202,6 @@ const es = {
   'hand.hud': '{a}/{b} marcas', 'hand.today': 'hoy',
   'squad.aria': 'El equipo esta semana', 'squad.marks': '{name}: {a} de {b} marcas', 'squad.place': '{name}: lugar {place}, {pts}',
   'wall.aria': 'El equipo hoy', 'wall.today': '{a}/4 hoy', 'wall.open.aria': '{name}: {state}. Abre su vista.',
-
   // ---- profile ----
   'profile.lead': 'Tu trayectoria', 'level.aprendizaje': 'aprendizaje', 'level.oficio': 'oficio', 'level.maestria': 'maestría', 'level.mentoria': 'mentoría',
   'profile.step': 'Paso {a} de {b}', 'profile.life': 'en total', 'profile.ledger.more': 'Ver {n} más', 'profile.next.step': ['Falta {n} punto para el paso {s}.', 'Faltan {n} puntos para el paso {s}.'],
@@ -229,7 +217,7 @@ const es = {
   'badge.info.first_site_live': 'Tu primer sitio con su primera hora aprobada.',
   'profile.ledger': 'historial de puntos', 'profile.ledger.empty': 'Aquí queda cada punto que ganes, con su fuente.',
   'profile.held': 'Ya ocurrió', 'profile.held.done': 'Avisaste que ocurrió', 'profile.held.toast': 'Listo. Tu líder la confirma y suman los puntos.',
-  'profile.settings': 'ajustes', 'profile.lang': 'Idioma', 'profile.rules': 'Cómo se gana', 'profile.signout': 'Salir', 'profile.user': 'Usuario: {handle}',
+  'profile.settings': 'ajustes', 'profile.lang': 'Idioma', 'profile.rules': 'Cómo se gana', 'profile.signout': 'Salir',
   'led.visit': 'Visita en persona', 'led.conversation': 'Conversación con quien decide', 'led.followup': 'Seguimiento', 'led.message': 'Mensaje o correo',
   'led.reply': 'Respuesta de un negocio', 'led.meeting_booked': 'Reunión agendada', 'led.meeting_held': 'Reunión realizada', 'led.contract_sent': 'Contrato enviado',
   'led.contract_signed': 'Contrato firmado', 'led.site_signed': 'Sitio firmado', 'led.site_installed': 'Sitio instalado', 'led.site_first_hour': 'Primera hora aprobada', 'led.day_closed': 'Día cerrado a tiempo',
@@ -248,7 +236,6 @@ const es = {
   'ledsrc.site_first_hour': 'Primera hora aprobada: {pts} cuando el sitio tiene su primera hora aprobada.',
   'ledsrc.day_closed': 'Día cerrado antes de las {time}: {pts}.',
   'led.meta.lead': '{lead} · {when}',
-
   // ---- how you earn ----
   'rules.title': 'cómo se gana',
   'rules.note.visit': 'Una por negocio al día', 'rules.note.conversation': 'En persona o por teléfono', 'rules.note.followup': 'Un contacto con un negocio que ya tenía uno',
@@ -260,7 +247,6 @@ const es = {
   'rules.streak.b': 'La racha.', 'rules.streak': 'Se mantiene con una conversación con quien decide cada día de trabajo. Tienes {n} comodines para un día malo y recuperas uno con cada semana completa.',
   'rules.table.b': 'La tabla.', 'rules.table': 'Muestra la punta y tu lugar. Los puntos vuelven a cero cada lunes y nadie más aparece con número.',
   'rules.money': 'Es una propuesta para revisar con el equipo. Los puntos no son dinero y no se convierten en dinero.',
-
   // ---- manager: the team ----
   'mgr.lead': 'Días cerrados hoy', 'mgr.support': 'Hoy trabajan {w} de {p} vendedores. Reuniones del equipo esta semana: {m} de {t}.',
   'mgr.none': 'Todavía no hay vendedores. Crea el primero en Vendedores.', 'mgr.filter.aria': 'Ciudad', 'mgr.filter.all': 'Todas',
@@ -270,7 +256,6 @@ const es = {
   'mgr.viewas': 'Ver como {name}', 'mgr.viewas.row': 'Ver su vista', 'mgr.flag.silent': 'Sin registros hoy', 'mgr.flag.pace': 'Bajo ritmo', 'mgr.flag.confirm': ['{n} por confirmar', '{n} por confirmar'], 'mgr.flag.late': 'Hora distinta',
   'mgr.of': '{a} de {b}', 'mgr.table.aria': 'El equipo esta semana', 'mgr.noplace': 'sin lugar',
   'src.mgr.closed': 'Vendedores con día de trabajo hoy que ya cerraron su día. El reporte queda con la hora del servidor.',
-
   // ---- manager: needs me ----
   'needs.lead': 'Necesita de ti', 'needs.zero': 'todo al día.', 'needs.support': 'Reuniones y contratos por confirmar, vendedores sin registros y registros con la hora cambiada.',
   'needs.confirm.title': 'por confirmar', 'needs.confirm.empty': 'Nada por confirmar.',
@@ -293,16 +278,13 @@ const es = {
   'needs.sites.installed': 'Instalado', 'needs.sites.first_hour': 'Primera hora aprobada', 'needs.sites.mark.installed': 'Marcar instalado', 'needs.sites.mark.first_hour': 'Marcar primera hora',
   'needs.sites.done': 'Listo. Los puntos ya cuentan.',
   'needs.sites.void': 'Anular sitio', 'needs.sites.void.confirm': 'El sitio deja de sumar. Toca otra vez para confirmar.', 'needs.sites.voided': 'Sitio anulado.',
-
   // ---- manager: reps ----
   'reps.lead': 'Vendedores', 'reps.add': 'Crear vendedor', 'reps.add.title': 'vendedor nuevo',
-  'reps.form.name': 'Nombre y apellido', 'reps.form.handle': 'Usuario', 'reps.form.handle.hint': 'Minúsculas, sin espacios. Con esto entra.',
+  'reps.form.name': 'Nombre y apellido',
   'reps.form.city': 'Ciudad', 'reps.form.city.hint': 'Escrita igual que en el CRM. Ej.: Panama City', 'reps.form.city.pick': 'Son las ciudades de la lista de negocios.', 'reps.form.city.other': 'Otra ciudad', 'reps.form.city.other.label': 'Nombre de la otra ciudad', 'reps.form.country': 'País', 'reps.form.start': 'Fecha de inicio', 'reps.form.workdays': 'Días de trabajo', 'reps.form.role': 'Rol',
-  'reps.form.submit': 'Crear y generar enlace', 'reps.form.save': 'Guardar cambios', 'reps.edit.title': 'editar vendedor', 'reps.saved': 'Cambios guardados.',
-  'reps.link.title': 'enlace de un solo uso', 'reps.link.p': 'Envíaselo a {name}. Sirve una vez y vence en 72 horas. Con él elige su propio PIN: nadie más lo ve.',
-  'reps.link.copy': 'Copiar enlace', 'reps.link.copied': 'Enlace copiado.', 'reps.link.once': 'No se vuelve a mostrar. Si se pierde, genera uno nuevo.',
-  'reps.pin.ok': 'Con PIN', 'reps.pin.pending': 'Enlace sin usar', 'reps.pin.none': 'Sin acceso', 'reps.inactive': 'Inactivo',
-  'reps.newlink': 'Enlace nuevo', 'reps.newlink.confirm': 'Un enlace nuevo cierra su sesión y borra su PIN actual. Toca otra vez para confirmar.',
+  'reps.form.submit': 'Agregar al equipo', 'reps.form.save': 'Guardar cambios', 'reps.edit.title': 'editar vendedor', 'reps.saved': 'Cambios guardados.',
+
+'reps.inactive': 'Inactivo',
   'reps.edit': 'Editar', 'reps.deactivate': 'Desactivar', 'reps.activate': 'Reactivar', 'reps.others': 'líderes y administradores',
   'reps.reopen': 'Reabrir el día de hoy', 'reps.reopen.done': 'Día reabierto. Ya puede registrar de nuevo.',
   'reps.leads': ['{n} negocio de la lista en su ciudad', '{n} negocios de la lista en su ciudad'], 'reps.leads.none': 'Ningún negocio de la lista coincide con su ciudad. Revisa cómo está escrita.',
@@ -312,7 +294,6 @@ const es = {
   'reps.start': 'Desde {date}', 'role.rep': 'Vendedor', 'role.manager': 'Líder', 'role.admin': 'Administrador',
   'void.row': 'Anular este registro',
 };
-
 const en = {
   // ---- shared ----
   'c.close': 'Close', 'c.cancel': 'Cancel', 'c.save': 'Save', 'c.saving': 'Saving', 'c.copy': 'Copy', 'c.copied': 'Copied',
@@ -323,22 +304,27 @@ const en = {
   'city.Panama City': 'Panama City', 'city.Colon': 'Colón', 'city.Medellin': 'Medellín', 'city.Bogota': 'Bogotá', 'city.Cali': 'Cali', 'city.David': 'David',
   'country.PA': 'Panama', 'country.CO': 'Colombia',
   'time.now': 'just now', 'time.min': '{n} min ago', 'time.h': '{n} h ago', 'time.yesterday': 'yesterday', 'time.week': 'Week {n}', 'time.range': '{a} to {b}',
-
   // ---- errors ----
   'err.offline': 'No signal. Check your connection and try again.',
   'err.unknown': 'Something failed on our side. Try again in a moment.',
-  'err.bad_login': 'The username or the PIN does not match.',
-  'err.locked': 'Too many tries. Wait 15 minutes or ask your manager for a new link.',
+
   'err.session': 'Your session ended. Sign in again.',
-  'err.weak_pin': 'That PIN is easy to guess. Use 6 digits that are not all the same or in a row.',
-  'err.link_expired': 'This link was already used or has expired. Ask your manager for a new one.',
+  'err.not_on_team': 'Your account is no longer on the sales team.',
+  'err.email_domain': 'Use their Mirentor email, the one that ends in @mirentor.com.', 'err.email_taken': 'That email already belongs to someone on the team.',
+  'gate.lead': 'Mirentor sales team', 'gate.team.lead': 'You are signed in as {email}',
+  'gate.team.title': 'not yet.', 'gate.team.support': 'That account is not on the sales team yet. Ask your manager to add you with that email, then try again.',
+  'gate.session.title': 'sign in again.', 'gate.session.support': 'Your session ended. Sign in with your Mirentor Google account.',
+  'gate.error.title': 'did not load.', 'gate.retry': 'Try again', 'gate.enter': 'Sign in', 'gate.switch': 'Use another account',
+  'profile.account': 'Account: {email}',
+  'reps.form.email': 'Mirentor email', 'reps.form.email.hint': 'They sign in with that Google account. There is no password to share.',
+  'reps.added': '{name} can now sign in with their Google account.', 'reps.noemail': 'No email yet: they cannot sign in.',
+
   'err.origin': 'Open the app from its official address.',
   'err.content_type': 'The app sent something the server does not understand. Reload the page.',
   'err.too_large': 'That is too much text. Shorten it and try again.',
   'err.body': 'The app sent something the server does not understand. Reload the page.',
   'err.token': 'This action needs a permission that is missing.',
   'err.fields': 'Check the details: something is missing or in a different format.',
-  'err.handle_taken': 'That username already exists. Choose another one.',
   'err.rep': 'That rep does not exist.',
   'err.id': 'The log arrived incomplete. Try again.',
   'err.kind': 'Choose a result.',
@@ -368,14 +354,9 @@ const en = {
   'err.not_closed': 'That day is not closed.',
   'err.bootstrap_closed': 'An admin with access already exists. This step is closed.',
   'err.expired': 'The time to confirm has passed. This part earns nothing.',
+  // ---- the gate: not on the team, a session that ended, a page that did not load ----
 
-  // ---- sign in and first PIN ----
-  'auth.lead': 'Mirentor sales team', 'auth.title': 'sign in.', 'auth.handle': 'Your username', 'auth.handle.ph': 'E.g. andrea',
-  'auth.pin': 'Your 6-digit PIN', 'auth.submit': 'Sign in', 'auth.help': 'Forgot your PIN? Ask your manager for a new link.',
-  'setup.lead': 'Hi, {name}.', 'setup.title': 'choose your PIN.',
-  'setup.support': 'Six digits that only you know. With your username {handle} and this PIN you can sign in from any phone.',
-  'setup.pin': 'New PIN', 'setup.pin2': 'Repeat the PIN', 'setup.submit': 'Save and sign in', 'setup.mismatch': 'The two PINs do not match.',
-  'setup.expired.title': 'link expired.', 'setup.toLogin': 'Go to sign in',
+
 
   // ---- top bar and navigation ----
   'top.home.aria': 'Go to the start', 'top.streak': 'streak', 'top.streak.aria': 'Your streak: {n}', 'top.lang.aria': 'Language',
@@ -383,7 +364,6 @@ const en = {
   'top.viewAs': 'Viewing as {name}', 'top.viewAs.exit': 'Back to the team',
   'nav.aria': 'Sections', 'nav.today': 'Today', 'nav.table': 'Table', 'nav.profile': 'Profile', 'nav.log': 'Log',
   'nav.team': 'Team', 'nav.needs': 'Needs me', 'nav.reps': 'Reps',
-
   // ---- today ----
   'today.lead': '{name}, your habits today', 'today.of': '{a} of {b}',
   'today.lead.zero': '{name}, your day is about to start', 'today.zero.giant': 'start.',
@@ -399,7 +379,6 @@ const en = {
   'habit.2': 'One follow-up', 'habit.2.s': 'With a business that already had a contact',
   'habit.3': 'Close the day', 'habit.3.s': 'Your report, before {time}',
   'habitname.0': 'visit', 'habitname.1': 'two conversations', 'habitname.2': 'follow-up', 'habitname.3': 'closing the day',
-
   // ---- the hand ----
   'hand.aria': 'The hand of the week',
   'hand.caption': 'The hand of the week: {a} of {b} marks. Each finger is a day. From base to tip: visit, conversations, follow-up and closing.',
@@ -409,7 +388,6 @@ const en = {
   'finger.done': 'Done: {list}.', 'finger.missing.today': 'Still to do: {list}.', 'finger.missing.past': 'Missed: {list}.',
   'finger.full': 'Finger complete.', 'finger.repaired': 'You completed it with your work on a day off.',
   'finger.counts': 'Visits {v}, conversations {c}.', 'finger.title': '{day} · {a} of 4 marks',
-
   // ---- weekly goal ----
   'goal.line': 'Your goal for the week: {goal}.', 'goal.progress': 'You have {a} of {b} fingers.', 'goal.reached': 'Goal reached.',
   'goal.name': ['{n} full finger', '{n} full fingers'], 'goal.name.hand': 'the full hand',
@@ -420,7 +398,6 @@ const en = {
   'goal.opt.0': 'Base', 'goal.opt.1': 'Stretch', 'goal.opt.2': 'Top',
   'goal.opt.s': ['{n} day with all four habits', '{n} days with all four habits'],
   'goal.suggested': 'Suggested', 'goal.pick.next': 'Choose next week\'s', 'goal.saved': 'You are going for {goal}.', 'goal.next.picked': 'Next week: {goal}.',
-
   // ---- lenses and sources ----
   'lens.meetings': 'Meetings', 'lens.contract': 'Contract', 'lens.points': 'Points', 'lens.team': 'Team', 'lens.aria': '{label}: {value}',
   'src.meetings': 'Meetings you booked this week, Monday to Sunday. The weekly target is {goal}. They count when booked; the rest of the points arrive when your manager confirms they happened.',
@@ -431,7 +408,6 @@ const en = {
   'src.team': 'Meetings booked by the whole team this week. The team target is {target}: {per} per rep.',
   'src.life': 'Every point you have earned since you joined. They never go back to zero.',
   'src.place': 'Place by the points earned in the period. Anyone who works fewer than five days competes with their points scaled to a five-day week. In a tie, whoever got there first stays ahead.',
-
   // ---- rank strip and table ----
   'rank.place': 'you are {ord} of {n}', 'rank.none': 'no points yet this week', 'rank.new': 'your first {n} days', 'rank.open': 'Open the table', 'rank.open.aria': 'Open the table', 'rank.days.aria': 'Day {d} of your first {n}',
   'table.week': 'Week', 'table.day': 'Today', 'table.month': 'Month', 'table.period.aria': 'Period',
@@ -447,7 +423,6 @@ const en = {
   'table.note': 'You see the lead and your own place. The rest of the team appears in alphabetical order, with the marks of their hand. Points go back to zero every Monday.',
   'team.title': 'Team target', 'team.p': ['{n} meeting to go for the week\'s target. Each one counts for everyone.', '{n} meetings to go for the week\'s target. Each one counts for everyone.'],
   'team.done': 'The week\'s target is reached. Each meeting counts for everyone.',
-
   // ---- closing the day ----
   'close.title': 'close your day', 'close.p': 'Your report builds itself from what you logged. You add what you will do tomorrow and anything blocking you.',
   'close.btn': 'Close the day', 'close.done.title': 'day closed', 'close.done.p': 'Your report was saved at {time}.',
@@ -460,7 +435,6 @@ const en = {
   'close.submit': 'Close the day', 'close.copy': 'Copy the report', 'close.copied': 'Copied. Paste it in the team channel in Slack.', 'close.toast': 'Day closed.',
   'close.copy.fail': 'Copying failed. Press and hold the text and copy it by hand.',
   'close.waiting': ['You have {n} log to send. Wait for it to go out before closing the day.', 'You have {n} logs to send. Wait for them to go out before closing the day.'],
-
   // ---- plays and the feed ----
   'play.card.title': 'the latest play', 'play.card.p': 'When you book a meeting, the app asks what worked. That is how the team learns from what works.',
   'play.ask.title': 'what worked?', 'play.ask.p': 'Tell it in two lines. The whole team will see it next to your meeting.',
@@ -471,7 +445,6 @@ const en = {
   'feed.contract_signed': 'signed a contract', 'feed.site_signed': 'signed a site', 'feed.site_installed': 'has a site installed', 'feed.site_first_hour': 'has their first approved hour',
   'feed.day_closed': 'closed their day', 'feed.badge': 'received a recognition',
   'kudos.aria': 'Applaud {name}', 'kudos.on': 'You applauded {name}',
-
   // ---- logging ----
   'log.title': 'what happened?', 'log.step1': '1 · With whom', 'log.step2': '2 · Result', 'log.step3': '3 · Details',
   'log.search': 'Search a business', 'log.search.ph': 'Search a business in your city', 'log.recent': 'Recent',
@@ -498,7 +471,6 @@ const en = {
   'toast.sent': ['{n} saved log was sent.', '{n} saved logs were sent.'], 'toast.dropped': 'A saved log could not be sent. {why}',
   'toast.lang': 'The app is now in English.',
   'lockon.title.a': 'you took', 'lockon.title.b': 'the lead.', 'lockon.s.behind': '{name} is {gap} behind. The week closes on Sunday.', 'lockon.s': 'The week closes on Sunday.', 'lockon.aria': 'You took the lead. Tap to close.',
-
   // ---- the entrance, the next step and the moments ----
   'greet.morning': 'Good morning', 'greet.afternoon': 'Good afternoon', 'greet.evening': 'Good evening', 'greet.aria': 'Welcome. Tap to enter.', 'greet.skip': 'Tap to enter',
   'greet.lead.a': 'You are in the lead.', 'greet.lead.b': 'You have {pts} this week.', 'greet.place.a': 'You are {ord} of {n}.',
@@ -518,7 +490,6 @@ const en = {
   'hand.hud': '{a}/{b} marks', 'hand.today': 'today',
   'squad.aria': 'The team this week', 'squad.marks': '{name}: {a} of {b} marks', 'squad.place': '{name}: place {place}, {pts}',
   'wall.aria': 'The team today', 'wall.today': '{a}/4 today', 'wall.open.aria': '{name}: {state}. Opens their view.',
-
   // ---- profile ----
   'profile.lead': 'Your path', 'level.aprendizaje': 'learning', 'level.oficio': 'craft', 'level.maestria': 'mastery', 'level.mentoria': 'mentorship',
   'profile.step': 'Step {a} of {b}', 'profile.life': 'in total', 'profile.ledger.more': 'See {n} more', 'profile.next.step': ['{n} point to step {s}.', '{n} points to step {s}.'],
@@ -534,7 +505,7 @@ const en = {
   'badge.info.first_site_live': 'Your first site with its first approved hour.',
   'profile.ledger': 'points history', 'profile.ledger.empty': 'Every point you earn shows here, with its source.',
   'profile.held': 'It happened', 'profile.held.done': 'You reported it happened', 'profile.held.toast': 'Done. Your manager confirms it and the points count.',
-  'profile.settings': 'settings', 'profile.lang': 'Language', 'profile.rules': 'How you earn', 'profile.signout': 'Sign out', 'profile.user': 'Username: {handle}',
+  'profile.settings': 'settings', 'profile.lang': 'Language', 'profile.rules': 'How you earn', 'profile.signout': 'Sign out',
   'led.visit': 'In-person visit', 'led.conversation': 'Conversation with whoever decides', 'led.followup': 'Follow-up', 'led.message': 'Message or email',
   'led.reply': 'Reply from a business', 'led.meeting_booked': 'Meeting booked', 'led.meeting_held': 'Meeting held', 'led.contract_sent': 'Contract sent',
   'led.contract_signed': 'Contract signed', 'led.site_signed': 'Site signed', 'led.site_installed': 'Site installed', 'led.site_first_hour': 'First approved hour', 'led.day_closed': 'Day closed on time',
@@ -553,7 +524,6 @@ const en = {
   'ledsrc.site_first_hour': 'First approved hour: {pts} once the site has its first approved hour.',
   'ledsrc.day_closed': 'Day closed before {time}: {pts}.',
   'led.meta.lead': '{lead} · {when}',
-
   // ---- how you earn ----
   'rules.title': 'how you earn',
   'rules.note.visit': 'One per business per day', 'rules.note.conversation': 'In person or by phone', 'rules.note.followup': 'A contact with a business that already had one',
@@ -565,7 +535,6 @@ const en = {
   'rules.streak.b': 'The streak.', 'rules.streak': 'You keep it with one conversation with whoever decides each working day. You have {n} spare days for a bad day and you get one back with each complete week.',
   'rules.table.b': 'The table.', 'rules.table': 'It shows the lead and your own place. Points go back to zero every Monday and nobody else appears with a number.',
   'rules.money': 'This is a proposal to review with the team. Points are not money and do not convert to money.',
-
   // ---- manager: the team ----
   'mgr.lead': 'Days closed today', 'mgr.support': '{w} of {p} reps work today. Team meetings this week: {m} of {t}.',
   'mgr.none': 'No reps yet. Create the first one under Reps.', 'mgr.filter.aria': 'City', 'mgr.filter.all': 'All',
@@ -575,7 +544,6 @@ const en = {
   'mgr.viewas': 'View as {name}', 'mgr.viewas.row': 'See their view', 'mgr.flag.silent': 'No logs today', 'mgr.flag.pace': 'Under pace', 'mgr.flag.confirm': ['{n} to confirm', '{n} to confirm'], 'mgr.flag.late': 'Different time',
   'mgr.of': '{a} of {b}', 'mgr.table.aria': 'The team this week', 'mgr.noplace': 'no place',
   'src.mgr.closed': 'Reps with a working day today who already closed their day. The report keeps the server\'s time.',
-
   // ---- manager: needs me ----
   'needs.lead': 'Needs you', 'needs.zero': 'all clear.', 'needs.support': 'Meetings and contracts to confirm, reps with no logs and logs with a changed time.',
   'needs.confirm.title': 'to confirm', 'needs.confirm.empty': 'Nothing to confirm.',
@@ -598,16 +566,13 @@ const en = {
   'needs.sites.installed': 'Installed', 'needs.sites.first_hour': 'First approved hour', 'needs.sites.mark.installed': 'Mark installed', 'needs.sites.mark.first_hour': 'Mark first hour',
   'needs.sites.done': 'Done. The points now count.',
   'needs.sites.void': 'Void site', 'needs.sites.void.confirm': 'The site stops counting. Tap again to confirm.', 'needs.sites.voided': 'Site voided.',
-
   // ---- manager: reps ----
   'reps.lead': 'Reps', 'reps.add': 'Create a rep', 'reps.add.title': 'new rep',
-  'reps.form.name': 'Full name', 'reps.form.handle': 'Username', 'reps.form.handle.hint': 'Lowercase, no spaces. They sign in with this.',
+  'reps.form.name': 'Full name',
   'reps.form.city': 'City', 'reps.form.city.hint': 'Written as in the CRM. E.g. Panama City', 'reps.form.city.pick': 'These are the cities in the business list.', 'reps.form.city.other': 'Another city', 'reps.form.city.other.label': 'Name of the other city', 'reps.form.country': 'Country', 'reps.form.start': 'Start date', 'reps.form.workdays': 'Working days', 'reps.form.role': 'Role',
-  'reps.form.submit': 'Create and get the link', 'reps.form.save': 'Save changes', 'reps.edit.title': 'edit rep', 'reps.saved': 'Changes saved.',
-  'reps.link.title': 'one-time link', 'reps.link.p': 'Send it to {name}. It works once and expires in 72 hours. They choose their own PIN with it: nobody else sees it.',
-  'reps.link.copy': 'Copy link', 'reps.link.copied': 'Link copied.', 'reps.link.once': 'It is not shown again. If it gets lost, generate a new one.',
-  'reps.pin.ok': 'PIN set', 'reps.pin.pending': 'Link not used yet', 'reps.pin.none': 'No access', 'reps.inactive': 'Inactive',
-  'reps.newlink': 'New link', 'reps.newlink.confirm': 'A new link signs them out and erases their current PIN. Tap again to confirm.',
+  'reps.form.submit': 'Add to the team', 'reps.form.save': 'Save changes', 'reps.edit.title': 'edit rep', 'reps.saved': 'Changes saved.',
+
+'reps.inactive': 'Inactive',
   'reps.edit': 'Edit', 'reps.deactivate': 'Deactivate', 'reps.activate': 'Reactivate', 'reps.others': 'managers and admins',
   'reps.reopen': 'Reopen today', 'reps.reopen.done': 'Day reopened. They can log again.',
   'reps.leads': ['{n} business from the list in their city', '{n} businesses from the list in their city'], 'reps.leads.none': 'No business from the list matches their city. Check how it is written.',
@@ -617,9 +582,7 @@ const en = {
   'reps.start': 'Since {date}', 'role.rep': 'Rep', 'role.manager': 'Manager', 'role.admin': 'Admin',
   'void.row': 'Void this log',
 };
-
 export const DICT = { es, en };
-
 /** t(key, vars): the sentence in one language. Numbers are written the way that language writes them. */
 export function makeT(lang) {
   const dict = DICT[lang] || DICT.es, locale = LOCALE[lang] || LOCALE.es;

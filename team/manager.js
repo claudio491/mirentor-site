@@ -70,7 +70,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     const rep = r.today.isWork ? (r.today.closed ? t('mgr.report.closed', { time: clock(r.today.closedAt, zone) }) : t('mgr.report.open')) : t('mgr.report.rest');
     set('report', t('col.report'), rep); $('.c-report .cv', row).classList.toggle('ok', !!r.today.closed);
     set('last', t('col.last'), r.today.lastLogAt ? ago(r.today.lastLogAt, team.serverTime, zone) : t('mgr.last.none'));
-    const link = $('.act a', row); link.href = `/equipo?as=${encodeURIComponent(r.id)}`; link.dataset.as = r.id; link.textContent = t('mgr.viewas.row'); link.setAttribute('aria-label', t('mgr.viewas', { name: r.first }));
+    const link = $('.act a', row); link.href = `?as=${encodeURIComponent(r.id)}`; link.dataset.as = r.id; link.textContent = t('mgr.viewas.row'); link.setAttribute('aria-label', t('mgr.viewas', { name: r.first }));
   }
   function renderTeam(animate) {
     const tn = team.team, day = dayOf(team.serverTime, S.me.me.tz);
@@ -95,7 +95,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       (node, r) => {
         const done = r.today.habits.filter(Boolean).length, flagged = flagsOf(r).length > 0;
         const state = !r.today.isWork ? t('mgr.report.rest') : r.today.closed ? t('mgr.report.closed', { time: clock(r.today.closedAt, tzOf(r)) }) : r.today.logs ? t('wall.today', { a: done }) : t('mgr.last.none');
-        node.href = `/equipo?as=${encodeURIComponent(r.id)}`; node.dataset.as = r.id; node.classList.toggle('flag', flagged);
+        node.href = `?as=${encodeURIComponent(r.id)}`; node.dataset.as = r.id; node.classList.toggle('flag', flagged);
         node.setAttribute('aria-label', t('wall.open.aria', { name: r.name, state }));
         putFace($('.pt', node), r, (person) => portrait(person, { share: 0 }));
         setPortrait($('.pt .portrait', node), r.today.isWork ? done / 4 : 0);
@@ -168,14 +168,12 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
   }
 
   // ---- reps ----
-  function showLink(name, url) {
-    formSheet({ title: t('reps.link.title'), intro: t('reps.link.p', { name }), body: h('div', { class: 'linkbox', text: url }), submit: t('reps.link.copy'), note: t('reps.link.once'),
-      onSubmit: async () => { toast(t((await copyText(url)) ? 'reps.link.copied' : 'close.copy.fail')); return true; } });
-  }
   function repForm(rep = null) {
     const today = dayOf(team.serverTime, S.me.me.tz);
     const fields = [{ name: 'name', label: t('reps.form.name'), value: rep ? rep.name : '', max: 80 }];
-    if (!rep) fields.push({ name: 'handle', label: t('reps.form.handle'), hint: t('reps.form.handle.hint'), lower: true, max: 40 });
+    // The address is the person's way in. Nobody edits their own: a slip would lock them out.
+    const own = !!rep && rep.id === S.me.viewer.id;
+    if (!own) fields.push({ name: 'email', type: 'email', label: t('reps.form.email'), hint: t('reps.form.email.hint'), value: rep ? rep.email : '', lower: true, max: 120 });
     // The city decides which businesses a rep can pick, so it comes from the business list. Another one can still be written.
     const known = team.cities || [], listed = (c) => known.find((k) => sameText(k, c));
     const city = rep ? (listed(rep.city) || rep.city) : (listed('Panama City') || known[0] || 'Panama City');
@@ -191,14 +189,12 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       onSubmit: async (v) => {
         if (!v.city) throw { code: 'fields' };
         v.city = listed(v.city) || v.city;   // the list's own spelling when it is the same city
-        if (rep) { team = await api('POST', `reps/${encodeURIComponent(rep.id)}`, { patch: { name: v.name, city: v.city, country: v.country, startDate: v.startDate, workdays: v.workdays } }); toast(t('reps.saved')); renderAll(false); return false; }
-        const res = await api('POST', 'reps', { handle: v.handle.toLowerCase(), name: v.name, city: v.city, country: v.country, startDate: v.startDate, workdays: v.workdays, role: v.role });
-        showLink(v.name.split(' ')[0], res.setupUrl); refresh(false);
-        return true;
+        if (rep) { team = await api('POST', `reps/${encodeURIComponent(rep.id)}`, { patch: { name: v.name, city: v.city, country: v.country, startDate: v.startDate, workdays: v.workdays, ...(own ? {} : { email: v.email }) } }); toast(t('reps.saved')); renderAll(false); return false; }
+        // Nothing to hand over: from now on that Google account opens the board.
+        team = await api('POST', 'reps', { email: v.email, name: v.name, city: v.city, country: v.country, startDate: v.startDate, workdays: v.workdays, role: v.role });
+        toast(t('reps.added', { name: v.name.trim().split(/\s+/)[0] })); renderAll(false);
+        return false;
       } });
-  }
-  function newLink(btn, rep) {
-    twice(btn, 'reps.newlink.confirm', () => once(btn, async () => { try { const res = await api('POST', `reps/${encodeURIComponent(rep.id)}/link`, {}); showLink(rep.first, res.setupUrl); refresh(false); } catch (e) { toast(errText(e)); } }));
   }
   function dayOff() {
     const today = dayOf(team.serverTime, S.me.me.tz), countries = [...new Set(team.reps.map((r) => r.country))];
@@ -208,17 +204,17 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       onSubmit: async (v) => { team = await api('POST', 'dayoff', { scope: v.scope, date: v.date }); toast(t('reps.dayoff.done')); await refresh(false); } });
   }
   function repItem(r, isPlayer) {
-    const status = !r.active ? t('reps.inactive') : r.hasPin ? t('reps.pin.ok') : r.setupPending ? t('reps.pin.pending') : t('reps.pin.none');
+    // Without an address nobody can come in as this person: the list says so until a manager adds it.
+    const status = !r.active ? h('small', { text: t('reps.inactive') }) : r.email ? null : h('small', { class: 'warn', text: t('reps.noemail') });
     const days = r.workdays.map(dayName).join(' ');
     const canTouch = isPlayer || isAdmin(), self = r.id === S.me.viewer.id;
     // How many businesses of the list this rep can pick. None means the city is written another way than in the list.
     const leads = !isPlayer || !team.leadCount || !r.active ? null : r.leadsInCity ? h('small', { text: t('reps.leads', { n: r.leadsInCity }) }) : h('small', { class: 'warn', text: t('reps.leads.none') });
     return h('li', {},
-      h('span', { class: 'pers' }, face(r), h('span', { class: 'pt' }, h('b', { text: r.name }), h('small', { text: `${r.handle} · ${isPlayer ? '' : `${t(`role.${r.role}`)} · `}${cityName(r.city)} · ${t('reps.start', { date: dayMonth(r.startDate) })} · ${days}` }), h('small', { text: status }), leads)),
+      h('span', { class: 'pers' }, face(r), h('span', { class: 'pt' }, h('b', { text: r.name }), r.email ? h('small', { class: 'mail', text: r.email }) : null, h('small', { text: `${isPlayer ? '' : `${t(`role.${r.role}`)} · `}${cityName(r.city)} · ${t('reps.start', { date: dayMonth(r.startDate) })} · ${days}` }), status, leads)),
       h('span', { class: 'acts' },
-        isPlayer ? h('a', { class: 'mini-btn', href: `/equipo?as=${encodeURIComponent(r.id)}`, 'data-as': r.id, onclick: openAs, text: t('mgr.viewas', { name: r.first }) }) : null,
+        isPlayer ? h('a', { class: 'mini-btn', href: `?as=${encodeURIComponent(r.id)}`, 'data-as': r.id, onclick: openAs, text: t('mgr.viewas', { name: r.first }) }) : null,
         canTouch && r.role === 'rep' ? h('button', { class: 'mini-btn', type: 'button', text: t('reps.edit'), onclick: () => repForm(r) }) : null,
-        canTouch && !self && r.active ? h('button', { class: 'mini-btn', type: 'button', text: t('reps.newlink'), onclick: (e) => newLink(e.currentTarget, r) }) : null,
         canTouch && !self ? h('button', { class: 'mini-btn', type: 'button', text: t(r.active ? 'reps.deactivate' : 'reps.activate'), onclick: (e) => act(e.currentTarget, () => api('POST', `reps/${encodeURIComponent(r.id)}`, { patch: { active: !r.active } }), 'reps.saved') }) : null));
   }
   function renderReps() {
@@ -227,7 +223,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       team.reps.length ? h('ul', { class: 'items' }, team.reps.map((r) => repItem(r, true))) : h('p', { class: 'note', text: t('mgr.none') }),
       team.others.length ? h('section', { class: 'group' }, h('h2', { text: t('reps.others') }), h('ul', { class: 'items' }, team.others.map((r) => repItem(r, false)))) : null,
       h('section', { class: 'group' }, h('h2', { text: t('profile.settings') }), h('div', { class: 'settings' },
-        h('div', { class: 'line' }, h('span', { text: t('profile.user', { handle: S.me.me.handle }) }), h('button', { class: 'mini-btn', type: 'button', text: t('profile.signout'), onclick: signOut })))));
+        h('div', { class: 'line' }, h('span', { text: S.me.viewer.email ? t('profile.account', { email: S.me.viewer.email }) : '' }), h('button', { class: 'mini-btn signout', type: 'button', text: t('profile.signout'), onclick: signOut })))));
   }
 
   function render(animate = false) {

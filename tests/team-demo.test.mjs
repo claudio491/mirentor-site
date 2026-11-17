@@ -53,13 +53,13 @@ test('the copy is one page that loads nothing: no module left to fetch, no path 
   assert.match(made.whole, /^<!doctype html>/);
   assert.equal(/^(import|export)\s/m.test(made.script), false);
   assert.equal(/from\s+'node:/.test(made.script), false);
-  assert.equal(/(src|href)="\/equipo/.test(made.fragment), false);
+  assert.equal(/(src|href)="(?!#|data:)/.test(made.fragment), false);   // nothing in the page points at a file or an address
   assert.equal(/url\((?!data:)/.test(made.fragment.slice(0, made.fragment.indexOf('</style>'))), false);
   assert.equal(made.fragment.match(/<\/script>/g).length, 1);
   assert.equal(made.fragment.includes('Persona Uno') && made.fragment.includes('data:image/jpeg;base64,'), true);
 });
 
-test('inside the page, the team\'s own server code signs people in, scores a log and keeps the log it is given', async () => {
+test('inside the page, the team\'s own server code lets the viewer be anyone on the team, scores a log and keeps the log it is given', async () => {
   const req = await load(build().script);
   const { startServer } = req('tools/demo/server.js');
   let kept = '';
@@ -73,10 +73,10 @@ test('inside the page, the team\'s own server code signs people in, scores a log
   const [status, logged] = await json('POST', 'log', { id: 'demo-log-00000001', lead: { name: 'Ferretería de prueba', zone: 'Centro' }, kind: 'talk', clientAt: new Date().toISOString() });
   assert.deepEqual([status, logged.gained], [200, 8]);
 
-  // the leader creates someone: with no address to open a link at, the new person can sign in at once
+  // the leader adds someone by their work email: the viewer can be that person at once
   assert.equal((await s.signIn('guia')).status, 200);
   assert.equal((await json('GET', 'team'))[1].reps.length, 2);
-  assert.equal((await json('POST', 'reps', { handle: 'tres', name: 'Persona Tres', country: 'PA', city: 'Panama City', workdays: [1, 2, 3, 4, 5] }))[0], 200);
+  assert.equal((await json('POST', 'reps', { email: 'tres@mirentor.com', name: 'Persona Tres', country: 'PA', city: 'Panama City', workdays: [1, 2, 3, 4, 5] }))[0], 200);
   assert.deepEqual(s.people().map((p) => p.handle).sort(), ['dos', 'guia', 'tres', 'uno']);
   assert.equal((await s.signIn('tres')).status, 200);
 

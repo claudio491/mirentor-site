@@ -2,7 +2,7 @@
 //   node tools/team-demo.mjs <out-dir> [roster.json]
 // It is for showing the app from anywhere before it is online: the page carries the app's own screens and the
 // team's own server code (rules, event log, answers), started inside the browser by tools/demo/boot.js. What a viewer
-// logs is kept in that browser only. Everybody signs in with one public PIN, so this copy is never the real thing.
+// logs is kept in that browser only. Nobody signs in: the viewer chooses who to be, so this copy is never the real thing.
 // The people come from a roster file (the format is at the top of tools/team-roster.mjs; default data-sample/team.json,
 // which git ignores). Their names and photos end up inside the page: treat the output like the roster itself.
 // Two files are written: artifact.html, the page without a document shell, which is what an artifact takes, and
@@ -73,7 +73,7 @@ export function buildDemo({ people, photosDir = '.' } = {}) {
     const type = PHOTO_TYPE[path.extname(file).toLowerCase()];
     let version = null;
     if (file && type && existsSync(file)) { const bytes = readFileSync(file); photos[id] = dataUri(type, bytes); version = createHash('sha256').update(bytes).digest('hex').slice(0, 12); }
-    return { id, handle: p.handle, name: p.name, role: p.role || 'rep', city: p.city || '', country: p.country || 'PA', ...(p.tz ? { tz: p.tz } : {}), ...(p.startDate ? { startDate: p.startDate } : {}), photo: version };
+    return { id, handle: p.handle, ...(typeof p.email === 'string' && p.email ? { email: p.email.trim().toLowerCase() } : {}), name: p.name, role: p.role || 'rep', city: p.city || '', country: p.country || 'PA', ...(p.tz ? { tz: p.tz } : {}), ...(p.startDate ? { startDate: p.startDate } : {}), photo: version };
   });
   const script = bundle(ENTRY, { [DATA]: `export const PEOPLE = ${JSON.stringify(list)};\nexport const PHOTOS = ${JSON.stringify(photos)};\n` });
 
@@ -82,8 +82,8 @@ export function buildDemo({ people, photosDir = '.' } = {}) {
   const page = team('index.html').toString('utf8');
   const symbol = dataUri('image/svg+xml', team('img/mirentor-symbol-dark.svg'));
   const body = page.slice(page.indexOf('>', page.indexOf('<body')) + 1, page.lastIndexOf('</body>'))
-    .replaceAll('/equipo/img/mirentor-symbol-dark.svg', symbol).replaceAll('href="/equipo"', 'href="#"');
-  if (/(src|href)="\/equipo/.test(body)) throw new Error('the page still points at the server for something');
+    .replaceAll('img/mirentor-symbol-dark.svg', symbol).replaceAll('href="./"', 'href="#"');
+  if (/(src|href)="(?!#|data:)/.test(body)) throw new Error('the page still points at the server for something');
   const css = team('app.css').toString('utf8')
     .replace('url(fonts/geist-v1.woff2)', `url(${dataUri('font/woff2', team('fonts/geist-v1.woff2'))})`)
     .replace('url(fonts/geist-mono-v1.woff2)', `url(${dataUri('font/woff2', team('fonts/geist-mono-v1.woff2'))})`)

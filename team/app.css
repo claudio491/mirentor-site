@@ -115,7 +115,7 @@ svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;st
 .field .hint{color:var(--mist);font-size:13px}
 fieldset.field{border:0;padding:0;margin-left:0;margin-right:0;min-width:0}
 fieldset.field legend{padding:0;margin-bottom:6px}
-.field input.pin{font:600 24px/1 var(--mono);letter-spacing:.42em;text-align:center;padding-right:0}
+
 .field input[type=search]{-webkit-appearance:none;appearance:none}
 /* A refusal reads like the system's own readout: a hairline frame and the signal dot of the HUD chips. */
 .formerr{display:flex;gap:9px;align-items:baseline;margin-top:12px;padding:10px 12px;border:1px solid rgba(255,90,54,.55);border-radius:var(--r-input);background:rgba(255,90,54,.08);font-size:14px;line-height:1.4}
@@ -415,7 +415,7 @@ dialog.sheet.closing::backdrop{opacity:0}
 .rules li{display:grid;grid-template-columns:72px 1fr;gap:10px;padding:10px 0;border-bottom:1px solid var(--rule);font-size:14.5px}
 .rules li b{font:500 13px var(--mono);font-variant-numeric:tabular-nums}
 .rules li small{display:block;color:var(--mist);font-size:13px}
-.linkbox{margin-top:14px;padding:12px 14px;border:1px solid var(--rule);border-radius:var(--r-input);background:var(--graphite);font:400 13px/1.5 var(--mono);overflow-wrap:anywhere;user-select:all;-webkit-user-select:all}
+
 
 /* ---------- toast, popover, lock-on ---------- */
 .toast{position:fixed;z-index:30;left:50%;top:calc(10px + env(safe-area-inset-top));width:max-content;max-width:min(398px,calc(100% - 24px));transform:translate(-50%,-14px);opacity:0;pointer-events:none;
@@ -551,6 +551,7 @@ dialog.sheet.closing::backdrop{opacity:0}
 .scope .tipj{fill:var(--signal)}
 .scope .seek{transform-origin:66px 66px;animation:orbit 3.4s linear infinite}
 .scope img{position:relative;display:block;width:44px;height:44px}
+.gate-acts{display:grid;gap:10px;margin-top:26px;max-width:420px}
 @keyframes orbit{to{transform:rotate(360deg)}}
 
 /* ---------- today's hero: the person, the count, the next step ---------- */

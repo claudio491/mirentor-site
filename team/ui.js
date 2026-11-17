@@ -24,7 +24,7 @@ export const h = (tag, attrs, ...kids) => fill(document.createElement(tag), attr
 export const put = (node, ...kids) => { node.replaceChildren(...kids.flat(3).filter((k) => k != null && k !== false)); return node; };
 /** The same for SVG. */
 export const s = (tag, attrs, ...kids) => fill(document.createElementNS(SVG, tag), attrs, kids);
-let photoAddress = (person) => `/equipo/api/photo/${encodeURIComponent(person.id)}?v=${encodeURIComponent(person.photo)}`;
+let photoAddress = (person) => `api/photo/${encodeURIComponent(person.id)}?v=${encodeURIComponent(person.photo)}`;
 /** Where a person's photo is read from: the app's own server, unless a copy that runs without one says otherwise. */
 export function setPhotoAddress(fn) { photoAddress = fn; }
 /** A person's face in a round lens: their photo when there is one, their initials when not. The name is always
@@ -301,6 +301,12 @@ function fieldNode(f) {
   return h('label', { class: 'field', 'data-name': f.name, 'data-type': f.type || 'text' }, h('span', { class: 'label', text: f.label }), input, f.hint ? h('span', { class: 'hint', text: f.hint }) : null);
 }
 /** Open the form sheet. onSubmit(values) may return true to keep it open; a thrown error is shown in the form. */
+/** Say why a form was refused, where the person is looking: in a tall sheet the message sits under the fold, behind
+ * the buttons that stay at the bottom, so it is brought into view. */
+export function showErr(node, text) {
+  node.textContent = text; node.hidden = false;
+  node.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+}
 export function formSheet({ title, intro = '', fields = [], body = null, submit, skip = null, note = '', onSubmit }) {
   const dlg = $('#formSheet'), form = $('#fsForm'), err = $('#fsErr'), btn = $('#fsBtn'), skipBtn = $('#fsSkip');
   $('#fsH').textContent = title;
@@ -319,7 +325,7 @@ export function formSheet({ title, intro = '', fields = [], body = null, submit,
     }
     once(btn, async () => {
       err.hidden = true;
-      try { if ((await onSubmit(values)) !== true) closeSheet(dlg); } catch (e2) { err.textContent = explain(e2); err.hidden = false; }
+      try { if ((await onSubmit(values)) !== true) closeSheet(dlg); } catch (e2) { showErr(err, explain(e2)); }
     });
   };
   openSheet(dlg);
