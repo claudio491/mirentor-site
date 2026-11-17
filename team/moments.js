@@ -1,0 +1,83 @@
+// moments.js: what deserves a moment on screen, decided apart from the screens so it can be tested without a browser.
+// Everything here reads the numbers the server sent and answers with codes; the words and the drawings live elsewhere.
+
+export const NEW_REP_DAYS = 14;   // the same first days the server leaves out of the table
+
+/** How much of an entrance a visit gets: the full one after signing in, on the first open of a day, or when another
+ *  person used this phone last; a short one after that. */
+export function entrance({ fresh = false, lastDay = null, lastId = null, today, id }) {
+  return fresh || lastDay !== today || lastId !== id ? 'full' : 'short';
+}
+
+/** Which greeting an hour asks for, from the minutes since midnight. */
+export const dayPart = (minutes) => (minutes < 12 * 60 ? 'morning' : minutes < 19 * 60 ? 'afternoon' : 'evening');
+
+/** The minutes since midnight of a moment in a time zone. */
+export function localMinutes(iso, tz) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
+  return Number(p.hour) * 60 + Number(p.minute);
+}
+
+/** The next thing today asks for and what it pays: the first habit still open. `minutes` is the local time, because
+ *  closing the day pays only before the hour in the rules. */
+export function nextStep(today, rules, minutes = 0) {
+  if (!today) return null;
+  if (!today.isWork) return { code: 'rest' };
+  if (today.habits.every(Boolean)) return { code: 'done' };
+  if (today.closed) return { code: 'closed' };
+  const P = rules.points, H = rules.habits, left = (need, have) => Math.max(1, need - have);
+  if (!today.habits[0]) return { code: 'visit', habit: 0, pts: P.visit, left: left(H.visits, today.visits) };
+  if (!today.habits[1]) return { code: 'conversation', habit: 1, pts: P.conversation, left: left(H.conversations, today.conversations) };
+  if (!today.habits[2]) return { code: 'followup', habit: 2, pts: P.followup, left: left(H.followups, today.followups) };
+  const [h, m] = String(rules.closeBy).split(':').map(Number);
+  return { code: 'close', habit: 3, pts: minutes < h * 60 + m ? P.dayClosedOnTime : 0, left: 1 };
+}
+
+const fullFinger = (v) => !!v.today && v.today.isWork && v.today.habits.every(Boolean);
+const fullHand = (v) => !!v.week && v.week.workFingers > 0 && v.week.fullFingers === v.week.workFingers;
+const WEIGHT = { lead: 0, level: 1, badge: 2, hand: 3, finger: 4, step: 5 };
+
+/** What changed between two reads of a person's own numbers that deserves a moment, heaviest first, two at most.
+ *  Taking the lead is the server's to say (`tookLead`). Points taken back are never a moment. */
+export function moments(before, after, { tookLead = false } = {}) {
+  if (!before || !after || !after.today || !before.today) return [];
+  const out = [];
+  if (tookLead) out.push({ kind: 'lead' });
+  const a = before.level, b = after.level;
+  if (a && b && b.xp > a.xp) {
+    if (b.name !== a.name) out.push({ kind: 'level', name: b.name, xp: b.xp });
+    else if (b.step > a.step) out.push({ kind: 'step', name: b.name, step: b.step, xp: b.xp });
+  }
+  const had = new Map((before.badges || []).map((x) => [x.code, x.level]));
+  for (const x of after.badges || []) if (x.level > (had.get(x.code) ?? 0)) out.push({ kind: 'badge', code: x.code, level: x.level });
+  const handBadge = out.some((m) => m.kind === 'badge' && m.code === 'full_hand');
+  if (fullHand(after) && !fullHand(before)) { if (!handBadge) out.push({ kind: 'hand' }); }
+  else if (fullFinger(after) && !fullFinger(before)) out.push({ kind: 'finger' });
+  return out.sort((x, y) => WEIGHT[x.kind] - WEIGHT[y.kind]).slice(0, 2);
+}
+
+const days = (a, b) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86400000);
+
+/** The one fact a person is greeted with: what is at stake for them today. */
+export function stake(view) {
+  if (!view.today) return { kind: 'team', working: view.team.working, players: view.team.players, closed: view.team.closedToday };
+  if (!view.today.isWork) return { kind: 'rest' };
+  if (view.today.closed) return { kind: 'closed' };
+  const T = view.table.week, mine = T.me;
+  if (mine && mine.place === 1) return { kind: 'lead', score: mine.score, behind: T.behind ? { name: T.behind.name, pts: T.behind.pts } : null };
+  if (mine && mine.place != null) return { kind: 'place', place: mine.place, ranked: T.ranked, gap: T.gap ? { pts: T.gap.pts, name: T.gap.aheadOnPodium ? T.gap.aheadName : null } : null };
+  if (view.me.isNew) return { kind: 'new', day: Math.min(NEW_REP_DAYS, Math.max(1, days(view.me.startDate, view.today.day) + 1)), of: NEW_REP_DAYS };
+  return { kind: T.ranked === 0 ? 'zero' : 'nopts' };
+}
+
+/** How far a score is along the race to the leader's, from 0 to 1. */
+export const raceShare = (score, lead) => (lead > 0 ? Math.max(0, Math.min(1, score / lead)) : 0);
+
+/** Which characters of a number changed, so only those roll. Another length rolls them all; a first paint rolls none. */
+export function changedChars(from, to) {
+  const b = String(to);
+  if (from == null) return [...b].map(() => false);
+  const a = String(from);
+  if (a.length !== b.length) return [...b].map(() => true);
+  return [...b].map((ch, i) => ch !== a[i]);
+}

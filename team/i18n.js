@@ -192,6 +192,26 @@ const es = {
   'toast.lang': 'La app ahora está en español.',
   'lockon.title.a': 'tomaste', 'lockon.title.b': 'la punta.', 'lockon.s.behind': '{name} queda a {gap}. La semana cierra el domingo.', 'lockon.s': 'La semana cierra el domingo.', 'lockon.aria': 'Tomaste la punta. Toca para cerrar.',
 
+  // ---- the entrance, the next step and the moments ----
+  'greet.morning': 'Buenos días', 'greet.afternoon': 'Buenas tardes', 'greet.evening': 'Buenas noches', 'greet.aria': 'Bienvenida. Toca para entrar.', 'greet.skip': 'Toca para entrar',
+  'greet.lead.a': 'Llevas la punta.', 'greet.lead.b': 'Tienes {pts} esta semana.', 'greet.place.a': 'Vas {ord} de {n}.',
+  'greet.new.a': 'Día {d} de tus primeros {n}.', 'greet.new.b': 'Tu mano cuenta desde hoy.',
+  'greet.zero.a': 'La semana está en cero.', 'greet.zero.b': 'El primer punto toma la punta.',
+  'greet.nopts.a': 'Aún no tienes puntos esta semana.', 'greet.nopts.b': 'Tu primer registro te pone en la tabla.',
+  'greet.rest.a': 'Hoy es tu día libre.', 'greet.rest.b': 'Lo que registres suma igual.',
+  'greet.closed.a': 'Tu día ya está cerrado.', 'greet.closed.b': 'La semana sigue mañana.',
+  'greet.team.a': 'Hoy trabajan {w} de {p} vendedores.', 'greet.team.b': 'Días cerrados: {c}.',
+  'next.label': 'Siguiente', 'next.aria': 'Siguiente paso: {what}. Abre el registro.', 'next.aria.close': 'Siguiente paso: cerrar el día. Abre tu reporte.',
+  'cel.aria': '{title} Toca para cerrar.',
+  'cel.finger.a': 'dedo', 'cel.finger.b': 'completo.', 'cel.finger.s': 'Los cuatro hábitos de hoy están hechos.',
+  'cel.hand.a': 'mano', 'cel.hand.b': 'completa.', 'cel.hand.s': 'Todos tus días de trabajo de la semana tienen sus cuatro marcas.',
+  'cel.level.a': 'llegaste a', 'cel.level.s': 'Llevas {pts} de por vida.',
+  'cel.step.a': 'subiste al', 'cel.step.b': 'paso {a}.', 'cel.step.s': '{level}, paso {a} de {b}. Llevas {pts} de por vida.',
+  'cel.badge.a': 'insignia', 'cel.badge.level': 'Nivel {n}.',
+  'hand.hud': '{a}/{b} marcas', 'hand.today': 'hoy',
+  'squad.aria': 'El equipo esta semana', 'squad.marks': '{name}: {a} de {b} marcas', 'squad.place': '{name}: lugar {place}, {pts}',
+  'wall.aria': 'El equipo hoy', 'wall.today': '{a}/4 hoy', 'wall.open.aria': '{name}: {state}. Abre su vista.',
+
   // ---- profile ----
   'profile.lead': 'Tu trayectoria', 'level.aprendizaje': 'aprendizaje', 'level.oficio': 'oficio', 'level.maestria': 'maestría', 'level.mentoria': 'mentoría',
   'profile.step': 'Paso {a} de {b}', 'profile.life': 'de por vida', 'profile.next.step': ['Falta {n} punto para el paso {s}.', 'Faltan {n} puntos para el paso {s}.'],
@@ -474,6 +494,26 @@ const en = {
   'toast.sent': ['{n} saved log was sent.', '{n} saved logs were sent.'], 'toast.dropped': 'A saved log could not be sent. {why}',
   'toast.lang': 'The app is now in English.',
   'lockon.title.a': 'you took', 'lockon.title.b': 'the lead.', 'lockon.s.behind': '{name} is {gap} behind. The week closes on Sunday.', 'lockon.s': 'The week closes on Sunday.', 'lockon.aria': 'You took the lead. Tap to close.',
+
+  // ---- the entrance, the next step and the moments ----
+  'greet.morning': 'Good morning', 'greet.afternoon': 'Good afternoon', 'greet.evening': 'Good evening', 'greet.aria': 'Welcome. Tap to enter.', 'greet.skip': 'Tap to enter',
+  'greet.lead.a': 'You are in the lead.', 'greet.lead.b': 'You have {pts} this week.', 'greet.place.a': 'You are {ord} of {n}.',
+  'greet.new.a': 'Day {d} of your first {n}.', 'greet.new.b': 'Your hand counts from today.',
+  'greet.zero.a': 'The week is at zero.', 'greet.zero.b': 'The first point takes the lead.',
+  'greet.nopts.a': 'You have no points yet this week.', 'greet.nopts.b': 'Your first log puts you on the table.',
+  'greet.rest.a': 'Today is your day off.', 'greet.rest.b': 'Anything you log still counts.',
+  'greet.closed.a': 'Your day is already closed.', 'greet.closed.b': 'The week goes on tomorrow.',
+  'greet.team.a': 'Today {w} of {p} reps are working.', 'greet.team.b': 'Days closed: {c}.',
+  'next.label': 'Next', 'next.aria': 'Next step: {what}. Opens the log.', 'next.aria.close': 'Next step: close the day. Opens your report.',
+  'cel.aria': '{title} Tap to close.',
+  'cel.finger.a': 'finger', 'cel.finger.b': 'complete.', 'cel.finger.s': 'All four habits are done for today.',
+  'cel.hand.a': 'full', 'cel.hand.b': 'hand.', 'cel.hand.s': 'Every working day of your week has its four marks.',
+  'cel.level.a': 'you reached', 'cel.level.s': 'Your lifetime total is {pts}.',
+  'cel.step.a': 'you moved up to', 'cel.step.b': 'step {a}.', 'cel.step.s': '{level}, step {a} of {b}. Your lifetime total is {pts}.',
+  'cel.badge.a': 'badge', 'cel.badge.level': 'Level {n}.',
+  'hand.hud': '{a}/{b} marks', 'hand.today': 'today',
+  'squad.aria': 'The team this week', 'squad.marks': '{name}: {a} of {b} marks', 'squad.place': '{name}: place {place}, {pts}',
+  'wall.aria': 'The team today', 'wall.today': '{a}/4 today', 'wall.open.aria': '{name}: {state}. Opens their view.',
 
   // ---- profile ----
   'profile.lead': 'Your path', 'level.aprendizaje': 'learning', 'level.oficio': 'craft', 'level.maestria': 'mastery', 'level.mentoria': 'mentorship',

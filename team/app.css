@@ -35,6 +35,8 @@ h1,h2,h3,p,ul,ol,figure,blockquote{margin:0}ul,ol{padding:0;list-style:none}
 
 /* ---------- stage ---------- */
 .stage{position:relative;z-index:1;min-height:100dvh}
+/* The soft light of the brand pieces, behind whatever leads the screen. */
+.stage::before{content:"";position:absolute;inset:0 0 auto 0;height:620px;pointer-events:none;background:radial-gradient(ellipse 82% 56% at 60% 38%,rgba(233,235,236,.08),rgba(233,235,236,0) 72%)}
 .app{width:100%;max-width:var(--col);margin:0 auto;min-height:100dvh;padding:0 16px calc(104px + env(safe-area-inset-bottom))}
 body.mgr .app{max-width:var(--wide)}
 body.bare .app{padding-bottom:40px}
@@ -87,9 +89,9 @@ svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;st
 .top-r{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-left:auto}
 .hud-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
 .hud-row.gap{margin-top:18px}
-.screen>.lead{margin-top:22px}
-.screen>.giant{margin-top:4px}
-.screen>.support{margin-top:12px}
+.screen>.lead,.mh-a>.lead{margin-top:22px}
+.screen>.giant,.mh-a>.giant{margin-top:4px}
+.screen>.support,.mh-a>.support,.hero>.support{margin-top:12px}
 .asbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;padding:8px 8px 8px 14px;border:1px solid var(--signal);border-radius:var(--r-input);background:rgba(255,90,54,.08);font-weight:500;font-size:14px}
 .boot{display:grid;place-items:center;min-height:60dvh;color:var(--mist)}
 .boot i{width:13px;height:13px;border-radius:50%;background:var(--signal);animation:bootpulse 1.2s ease-in-out infinite}
@@ -127,8 +129,27 @@ fieldset.field legend{padding:0;margin-bottom:6px}
 .check input:focus-visible+span{outline:2px solid var(--signal);outline-offset:2px}
 
 /* ---------- the hand ---------- */
-.handwrap{margin-top:8px;position:relative}
+.handwrap{margin-top:6px;position:relative}
+.handstage{position:relative;overflow:hidden;margin:0 -16px;padding:0 16px}
+.handbox{position:relative;max-width:350px;margin:0 auto;transform-origin:50% 93%}
+.handbox.alive{animation:sway 6.5s ease-in-out infinite alternate}
+@keyframes sway{from{transform:rotate(-1deg)}to{transform:rotate(1deg)}}
 .hand{display:block;width:100%;max-width:350px;margin:0 auto;overflow:visible}
+/* The next mark to earn: the joint takes the signal ring, and a ring leaves it every two seconds. */
+.hand .finger .joint.next{stroke:var(--signal);stroke-width:2.2;stroke-dasharray:none}
+.target{position:absolute;width:0;height:0;pointer-events:none}
+.target::before,.target::after{content:"";position:absolute;left:-17px;top:-17px;width:34px;height:34px;border-radius:50%;border:2px solid var(--signal);opacity:0;animation:seek 2.2s var(--ease-out) infinite}
+.target::after{animation-delay:1.1s}
+@keyframes seek{0%{transform:scale(.3);opacity:.95}70%{opacity:0}100%{transform:scale(1.2);opacity:0}}
+/* The reader passes over the hand now and then. */
+.sweep{position:absolute;left:0;right:0;top:0;height:64px;pointer-events:none;opacity:0;background:linear-gradient(to bottom,rgba(255,90,54,0),rgba(255,90,54,.07) 96%,rgba(255,90,54,.75) 96%,rgba(255,90,54,.75) 100%)}
+.handstage.alive .sweep{animation:sweep 9s linear infinite}
+@keyframes sweep{0%{transform:translateY(-64px);opacity:0}4%{opacity:1}26%{opacity:1}30%{transform:translateY(420px);opacity:0}100%{transform:translateY(420px);opacity:0}}
+.chip.hud{position:absolute;right:16px;bottom:6px}
+.hand .bone.base.now{stroke:rgba(233,235,236,.3)}
+.hand .bone.base.hot{stroke:rgba(233,235,236,.42)}
+.hand .finger.hot .joint:not(.on){stroke:var(--porcelain)}
+.hand .finger.hot .flabel{fill:var(--porcelain)}
 .hand .bone{stroke-linecap:round;fill:none}
 .hand .bone.base{stroke:rgba(233,235,236,.14);stroke-width:2}
 .hand .bone.base.rest{stroke-dasharray:2 6;stroke:rgba(233,235,236,.16)}
@@ -158,8 +179,14 @@ fieldset.field legend{padding:0;margin-bottom:6px}
 .tier{margin-top:14px;padding:12px 14px;border:1px solid var(--rule);border-radius:var(--r-input);background:var(--panel);color:var(--mist);font-size:14.5px;line-height:1.45}
 .tier b{color:var(--porcelain);font-weight:500}
 .habits{margin-top:18px;border-top:1px solid var(--rule)}
-.habits li{display:grid;grid-template-columns:20px 1fr auto;gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid var(--rule)}
-.habits .j{width:13px;height:13px;border-radius:50%;border:1.5px solid rgba(233,235,236,.5);justify-self:center;transition:background-color 160ms linear,border-color 160ms linear}
+.habits li{position:relative;display:grid;grid-template-columns:20px 1fr auto;gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid var(--rule)}
+.habits .j{position:relative;z-index:1;width:13px;height:13px;border-radius:50%;border:1.5px solid rgba(233,235,236,.5);background:var(--graphite);justify-self:center;transition:background-color 160ms linear,border-color 160ms linear}
+/* The bone between two habits: each row draws the half above its joint and the half below. It lights between two done ones. */
+.habits li::before,.habits li::after{content:"";position:absolute;left:9.25px;width:1.5px;background:rgba(233,235,236,.16);transition:background-color 240ms linear}
+.habits li::before{top:0;bottom:calc(50% + 6px)}
+.habits li::after{top:calc(50% + 6px);bottom:-1px}
+.habits li:first-child::before,.habits li:last-child::after{display:none}
+.habits li.done+li.done::before,.habits li.done:has(+li.done)::after{background:var(--signal)}
 .habits li.done .j{background:var(--signal);border-color:var(--signal)}
 .habits .t{font-weight:500;letter-spacing:-.01em}
 .habits .t small{display:block;color:var(--mist);font-weight:400;font-size:13.5px;letter-spacing:0}
@@ -173,14 +200,18 @@ fieldset.field legend{padding:0;margin-bottom:6px}
 .face::after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--hair);pointer-events:none}
 .face img{width:100%;height:100%;object-fit:cover;display:block}
 .face .ini{font-weight:600;font-size:14px;line-height:1;letter-spacing:.02em;color:var(--mist)}
-.portrait{position:relative;flex:none;display:block;width:92px;height:92px}
+.portrait{--p:92px;position:relative;flex:none;display:block;width:var(--p);height:var(--p)}
 .portrait svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.portrait .face{position:absolute;inset:13px;width:auto;height:auto}
-.portrait .face .ini{font-size:22px;letter-spacing:-.02em}
-.portrait .arc{fill:none;stroke:var(--signal);stroke-width:3.5;stroke-linecap:round}
+.portrait .face{position:absolute;inset:14.2%;width:auto;height:auto}
+.portrait .face .ini{font-size:calc(var(--p) * .24);letter-spacing:-.02em}
+.portrait .track{fill:none;stroke:rgba(233,235,236,.13);stroke-width:3.5}
+.portrait .arc{fill:none;stroke:var(--signal);stroke-width:3.5;stroke-linecap:round;transition:stroke-dashoffset 620ms var(--ease-track)}
+.portrait .tipg{transform-origin:46px 46px;transition:transform 620ms var(--ease-track)}
 .portrait .tip{fill:var(--signal)}
-.who-row{gap:14px}
+.who-row{gap:14px;flex-wrap:nowrap}
 .who-row #portrait{display:block;flex:none}
+.who-row .who-tags{display:grid;justify-items:start;gap:8px;min-width:0}
+.who-row .who-tags .chip{max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .lens{all:unset;box-sizing:border-box;cursor:pointer;display:grid;justify-items:center;gap:6px;text-align:center;padding:4px 0 2px;border-radius:12px}
 .lens:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
 .lens .g{position:relative;width:92px;height:92px}
@@ -199,6 +230,12 @@ fieldset.field legend{padding:0;margin-bottom:6px}
 .card h2{font-size:22px;font-weight:700;letter-spacing:-.04em;text-transform:lowercase;line-height:1.05}
 .card p{color:var(--mist);margin-top:6px;font-size:14.5px}
 .card .btn{margin-top:14px;width:100%}
+/* Dark leads, light explains: the card that asks for something is porcelain. */
+.card.light{background:var(--porcelain);border-color:var(--porcelain);color:var(--graphite)}
+.card.light p{color:var(--slate)}
+.card.light .btn{background:var(--graphite);border-color:var(--graphite);color:var(--porcelain)}
+.card.light :focus-visible{outline-color:var(--graphite)}
+@media (hover:hover) and (pointer:fine){.card.light .btn:hover{background:var(--panel-2)}}
 .rankstrip{all:unset;box-sizing:border-box;display:block;width:100%;cursor:pointer;margin-top:22px;border:1px solid var(--rule);border-radius:var(--r-media);background:var(--panel);padding:14px 6px 4px}
 .rankstrip:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
 .rankstrip .rs-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:0 10px 8px}
@@ -210,6 +247,17 @@ fieldset.field legend{padding:0;margin-bottom:6px}
 .tower{position:relative}
 .scanhost{position:relative}
 .trow{position:relative;display:grid;grid-template-columns:30px 44px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border-top:1px solid var(--rule);min-height:64px}
+.trow .fc{display:none}
+/* On the home strip a row shows the person's face; the hand is one tap away, on the table. */
+.rankstrip .trow{grid-template-columns:26px 40px minmax(0,1fr) auto}
+.rankstrip .trow .fc{display:block;width:40px;height:40px}
+.rankstrip .trow .h{display:none}
+/* The race: how far this row is along the way to the leader. */
+.race{position:absolute;left:10px;right:10px;bottom:-3px;height:5px;overflow:hidden;pointer-events:none;z-index:1}
+.race .run{position:absolute;left:0;right:0;top:1.75px;height:1.5px;background:var(--porcelain);opacity:.6;transform:translateX(calc((var(--share,0) - 1) * 100%));transition:transform 760ms var(--ease-track)}
+.race .run::after{content:"";position:absolute;right:0;top:-1.75px;width:5px;height:5px;border-radius:50%;background:inherit}
+.trow.me .race .run{background:var(--signal);opacity:1}
+.trow.open .race{display:none}
 .trow .pos{font-weight:700;font-size:21px;line-height:1;letter-spacing:-.04em;font-variant-numeric:tabular-nums;color:var(--mist)}
 .trow.p1 .pos{color:var(--signal)}
 .trow .who{min-width:0;display:block}
@@ -244,7 +292,9 @@ fieldset.field legend{padding:0;margin-bottom:6px}
 /* ---------- feed ---------- */
 .sec-h{margin-top:28px;font-size:22px;font-weight:700;letter-spacing:-.04em;text-transform:lowercase}
 .feed{margin-top:8px;border-top:1px solid var(--rule)}
-.feed li{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start;padding:11px 0;border-bottom:1px solid var(--rule);font-size:14.5px}
+.feed li{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:10px;align-items:start;padding:11px 0;border-bottom:1px solid var(--rule);font-size:14.5px}
+.feed .face{width:32px;height:32px;margin-top:2px}
+.feed .face .ini{font-size:13px}
 .feed li b{font-weight:600}
 .feed li small{display:block;font-size:13px;line-height:1.4;color:var(--mist)}
 .feed li .p{font:500 13px var(--mono);color:var(--porcelain);font-variant-numeric:tabular-nums}
@@ -300,9 +350,11 @@ fieldset.field legend{padding:0;margin-bottom:6px}
 .settings .line{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:44px;color:var(--mist);font-size:14.5px}
 
 /* ---------- bottom nav ---------- */
-.nav{position:fixed;z-index:5;bottom:0;left:50%;transform:translateX(-50%);width:min(var(--col),100%);display:grid;grid-template-columns:1fr 1fr 1fr auto;align-items:center;gap:2px;
+.nav{position:fixed;z-index:5;bottom:0;left:50%;transform:translateX(-50%);width:min(var(--col),100%);display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px;view-transition-name:nav;
   padding:8px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(27,29,32,.94);border-top:1px solid var(--rule);backdrop-filter:blur(10px)}
-.nav.three{grid-template-columns:1fr 1fr 1fr}
+.nav.three{grid-template-columns:minmax(0,1fr)}
+.tabs{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px}
+.tabs::before{content:"";position:absolute;left:0;top:-9px;width:calc(100% / 3);height:2px;background:linear-gradient(var(--signal),var(--signal)) center / 26px 2px no-repeat;transform:translateX(calc(var(--i,0) * 100%));transition:transform 360ms var(--ease-track)}
 .tab{all:unset;box-sizing:border-box;position:relative;cursor:pointer;display:grid;justify-items:center;gap:3px;min-height:48px;padding:6px 0;color:var(--mist);font-size:12px;font-weight:500;border-radius:10px;--joint:currentColor;transition:color 160ms ease}
 .tab[aria-current=page]{color:var(--porcelain);--joint:var(--signal)}
 .tab:focus-visible{outline:2px solid var(--signal);outline-offset:-2px}
@@ -385,7 +437,20 @@ body.bare .toast{bottom:calc(24px + env(safe-area-inset-bottom))}
 .lo-box .bl{left:0;bottom:0;border-right:0;border-top:0;transform:translate(-22px,22px)}
 .lo-box .br{right:0;bottom:0;border-left:0;border-top:0;transform:translate(22px,22px)}
 .lockon.on .lo-box .c{opacity:1;transform:none}
-.lo-box svg{position:absolute;inset:8px;width:214px;height:214px;overflow:visible}
+.lo-box .lo-ring{position:absolute;inset:8px;width:214px;height:214px;overflow:visible}
+.lo-box .n:empty{display:none}
+.lo-g{position:absolute;inset:0;display:grid;place-items:center;opacity:0;transform:scale(.92);transition:transform 300ms var(--ease-lock) 60ms,opacity 160ms linear 60ms}
+.lo-g:empty{display:none}
+.lockon.on .lo-g{opacity:1;transform:none}
+.lo-g svg{width:150px;height:150px;overflow:visible}
+.lo-g .disc{fill:none;stroke:none}
+.lo-g .bn{stroke:var(--porcelain);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.lo-g .bj{fill:var(--graphite);stroke:rgba(233,235,236,.5);stroke-width:1.2}
+.lo-g .bj.on{fill:var(--signal);stroke:none}
+.lo-g .fg-bone{stroke:var(--signal);stroke-width:3;stroke-linecap:round;fill:none}
+.lo-g .fg-j{fill:var(--signal);stroke:var(--graphite);stroke-width:2.5;transform-box:fill-box;transform-origin:center}
+.lo-g .fg-j.off{fill:var(--graphite);stroke:rgba(233,235,236,.5);stroke-width:2}
+.lo-g .fg-rail{stroke:rgba(233,235,236,.2);stroke-width:2.5;stroke-linecap:round}
 .lo-box .a{fill:none;stroke:var(--signal);stroke-width:4;stroke-linecap:round;stroke-dasharray:640;stroke-dashoffset:640;transition:stroke-dashoffset 700ms var(--ease-track) 260ms}
 .lockon.on .lo-box .a{stroke-dashoffset:150}
 /* The arc ends in a joint: it rides the tip and locks when the arc arrives. */
@@ -468,3 +533,198 @@ body.bare .toast{bottom:calc(24px + env(safe-area-inset-bottom))}
   .lo-box .tipg{transform:rotate(278deg)}
   .toast{transition:opacity 160ms linear;transform:translate(-50%,0)}
 }
+
+/* ---------- viewfinder corners, shared by the sign-in lens and the entrance ---------- */
+.vfbox{position:relative}
+.vfbox>.c{position:absolute;width:22px;height:22px;border:2px solid var(--porcelain);pointer-events:none}
+.vfbox>.tl{left:0;top:0;border-right:0;border-bottom:0}
+.vfbox>.tr{right:0;top:0;border-left:0;border-bottom:0}
+.vfbox>.bl{left:0;bottom:0;border-right:0;border-top:0}
+.vfbox>.br{right:0;bottom:0;border-left:0;border-top:0}
+
+/* ---------- sign in: the lens is looking for someone ---------- */
+.scope{width:148px;height:148px;margin:30px 0 6px 6px;display:grid;place-items:center}
+.scope>.c{width:18px;height:18px;margin:-8px}
+.scope svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.scope .disc{fill:var(--panel);stroke:var(--hair);stroke-width:1.5}
+.scope .a{fill:none;stroke:var(--signal);stroke-width:3.5;stroke-linecap:round;stroke-dasharray:81 365}
+.scope .tipj{fill:var(--signal)}
+.scope .seek{transform-origin:66px 66px;animation:orbit 3.4s linear infinite}
+.scope img{position:relative;display:block;width:44px;height:44px}
+@keyframes orbit{to{transform:rotate(360deg)}}
+
+/* ---------- today's hero: the person, the count, the next step ---------- */
+.hero{position:relative;isolation:isolate;margin:8px -16px 0;padding:14px 16px 20px}
+.hero .hud-row{margin-top:0;padding-right:104px}
+.hero .hud-row .chip{max-width:100%;min-width:0}
+.hero .hud-row .chip>span{overflow:hidden;text-overflow:ellipsis}
+/* The person's lens, with the week's points tagged to it the way a tracked object carries its readout. */
+.hero-lens{position:absolute;right:16px;top:14px;display:block;width:92px;height:92px}
+.hero-tag{position:absolute;right:16px;top:100px;width:92px;display:flex;justify-content:center}
+.hero-tag .chip{min-height:26px;padding:5px 8px;background:var(--graphite);border-color:var(--hair)}
+.hero>.lead{margin-top:20px;max-width:calc(100% - 108px);min-height:44px}
+.hero>.giant{margin-top:14px}
+.hero,.hero .lead,.hero .giant,.hero .support,.hero .support b,.hero .giant em{transition:color 240ms linear 160ms}
+/* A full finger floods the hero with signal, from the lens outward. */
+.flood{position:absolute;inset:0;z-index:-1;border-radius:0 0 24px 24px;background:var(--signal);clip-path:circle(0px at calc(100% - 62px) 56px);transition:clip-path 720ms var(--ease-reveal)}
+.hero.full .flood{clip-path:circle(160% at calc(100% - 62px) 56px)}
+.hero.full,.hero.full .lead,.hero.full .giant,.hero.full .support,.hero.full .support b{color:var(--graphite)}
+.hero.full .giant em{color:var(--porcelain)}
+.hero.full .support{font-weight:500}
+.hero.full .portrait .arc{stroke:var(--graphite)}
+.hero.full .portrait .tip{fill:var(--graphite)}
+.hero.full .portrait .track{stroke:rgba(27,29,32,.22)}
+.hero.full .face::after{box-shadow:inset 0 0 0 1.5px rgba(27,29,32,.55)}
+.hero.full .chip.ghost{color:var(--graphite);border-color:rgba(27,29,32,.45)}
+.hero.full .hero-tag .chip{border-color:var(--graphite)}
+.hero.full :focus-visible{outline-color:var(--graphite)}
+.rollc{display:inline-block}
+.nextbtn{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 12px;align-items:center;width:100%;min-height:62px;margin-top:16px;padding:11px 14px;border:1px solid var(--hair);border-radius:var(--r-input);background:rgba(27,29,32,.72);
+  transition:transform 140ms var(--ease-out),border-color 160ms ease,background-color 160ms ease}
+.nextbtn:active{transform:scale(.985)}
+.nextbtn:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.nextbtn .nx-l{display:inline-flex;align-items:center;gap:7px;font:500 11.5px/1 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--mist)}
+.nextbtn .nx-l .dot{width:7px;height:7px;border-radius:50%;background:var(--signal);animation:blink 1.8s ease-in-out infinite}
+.nextbtn .nx-p{grid-column:2;grid-row:1 / span 2;font:600 15px/1 var(--mono);color:var(--signal);white-space:nowrap}
+.nextbtn .nx-t{grid-column:1;font-weight:600;font-size:16px;line-height:1.25;letter-spacing:-.01em}
+@keyframes blink{50%{opacity:.25}}
+
+/* ---------- the squad: the team as lenses, the podium larger ---------- */
+.squad{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-end;gap:16px 12px;margin-top:22px}
+.squad:empty{display:none}
+.fl{all:unset;box-sizing:border-box;cursor:pointer;display:grid;justify-items:center;gap:6px;text-align:center;border-radius:14px;order:9}
+.fl:focus-visible{outline:2px solid var(--signal);outline-offset:4px}
+.fl .pt{position:relative;display:block}
+.fl .portrait{--p:68px}
+.fl.pod .portrait{--p:96px}
+.fl.p1 .portrait{--p:128px}
+.fl.p1{order:2}.fl.p2{order:1}.fl.p3{order:3}.fl.mine{order:4}.fl.mine.p1{order:2}.fl.mine.p2{order:1}.fl.mine.p3{order:3}
+.fl .vf{inset:-6px}
+.fl.mine .vf{opacity:.9}
+.fl b{display:block;max-width:12ch;font-size:13.5px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fl .chip{min-height:22px;padding:3px 7px;font-size:11px}
+.fl.p1 .chip{border-color:rgba(255,90,54,.6)}
+
+/* ---------- the wall: every rep's day as a live lens ---------- */
+.mhero{display:block}
+.wall{display:flex;gap:4px;margin:18px -16px 0;padding:4px 12px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none}
+.wall::-webkit-scrollbar{display:none}
+.wall:empty{display:none}
+.wl{box-sizing:border-box;flex:none;display:grid;justify-items:center;align-content:start;gap:6px;width:116px;padding:10px 4px;border-radius:16px;text-align:center;text-decoration:none;color:inherit;cursor:pointer;scroll-snap-align:start;
+  transition:background-color 160ms ease,transform 140ms var(--ease-out)}
+.wl:active{transform:scale(.97)}
+.wl:focus-visible{outline:2px solid var(--signal);outline-offset:-2px}
+.wl .portrait{--p:88px}
+.wl b{display:block;max-width:100%;font-size:15px;font-weight:600;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wl .st{display:block;font:500 11px/1.35 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--mist)}
+.wl.flag .st{color:var(--porcelain)}
+.wl.flag .st::before{content:"";display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;background:var(--signal);vertical-align:1px}
+
+/* ---------- the entrance ---------- */
+html.greeting{overflow:hidden}
+.greet{all:unset;box-sizing:border-box;position:fixed;z-index:50;inset:0;display:grid;align-content:center;justify-items:start;padding:28px max(20px,calc(50% - 199px)) 44px;overflow:hidden;cursor:pointer;color:var(--porcelain);font:400 15px/1.45 var(--sans)}
+.greet::before{content:"";position:absolute;inset:0;z-index:-1;background-color:var(--graphite);
+  background-image:radial-gradient(ellipse 90% 50% at 50% 34%,rgba(233,235,236,.09),rgba(233,235,236,0) 72%),linear-gradient(to right,var(--line) 1px,transparent 1px),linear-gradient(to bottom,var(--line) 1px,transparent 1px);
+  background-size:auto,56px 56px,56px 56px;background-position:0 0,16px 0,0 16px;transition:opacity 420ms linear 140ms}
+.g-box{--gb:228px;justify-self:center;display:grid;place-items:center;width:var(--gb);height:var(--gb);margin-bottom:28px}
+.g-box>.c{opacity:0;transition:transform 300ms var(--ease-lock),opacity 140ms linear}
+.g-box>.tl{transform:translate(-26px,-26px)}.g-box>.tr{transform:translate(26px,-26px)}.g-box>.bl{transform:translate(-26px,26px)}.g-box>.br{transform:translate(26px,26px)}
+.greet.go .g-box>.c{opacity:1;transform:none}
+.g-lens{display:block;opacity:0;transform:scale(.9);filter:blur(10px);transition:opacity 260ms linear 120ms,transform 460ms var(--ease-out) 120ms,filter 460ms var(--ease-out) 120ms}
+/* While the entrance holds, the reader keeps passing over the lens. */
+.g-scan{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.g-scan::after{content:"";position:absolute;left:0;right:0;top:0;height:56px;opacity:0;background:linear-gradient(to bottom,rgba(255,90,54,0),rgba(255,90,54,.1) 96%,rgba(255,90,54,.9) 96%,rgba(255,90,54,.9) 100%)}
+.greet.go .g-scan::after{animation:gscan 1.9s var(--ease-move) 900ms infinite}
+.greet.out .g-scan{display:none}
+@keyframes gscan{0%{transform:translateY(-56px);opacity:0}12%{opacity:1}78%{opacity:1}100%{transform:translateY(var(--gb));opacity:0}}
+.g-lens .portrait{--p:188px}
+.greet.go .g-lens{opacity:1;transform:none;filter:blur(0)}
+.g-lead,.g-line,.g-skip{display:block}
+.g-chip,.g-lead,.g-line,.g-skip{opacity:0;transform:translateY(8px);transition:opacity 260ms linear,transform 420ms var(--ease-out)}
+.g-chip{transition-delay:380ms}
+.g-lead{margin-top:18px;transition-delay:480ms}
+.g-line{margin-top:14px;max-width:34ch;font-size:17px;transition-delay:940ms}
+.g-skip{justify-self:end;margin-top:26px;transition-delay:1500ms}
+.greet.go .g-chip,.greet.go .g-lead,.greet.go .g-line,.greet.go .g-skip{opacity:1;transform:none}
+.g-name{display:block;margin-top:6px;clip-path:inset(0 0 100% 0);transform:translateY(100%);transition:clip-path 600ms var(--ease-reveal) 560ms,transform 600ms var(--ease-reveal) 560ms}
+.greet.go .g-name{clip-path:inset(-20% -10% -20% -10%);transform:none}
+.g-name em{display:inline-block}
+.giant.word.xlong{font-size:clamp(36px,11.5vw,56px)}
+.greet.out{pointer-events:none}
+.greet.fade .g-lens{opacity:0;transform:scale(.94);transition:opacity 220ms linear,transform 320ms var(--ease-out)}
+.greet.out::before{opacity:0}
+.greet.out>.chip,.greet.out>.lead,.greet.out>.giant,.greet.out>.support,.greet.out>.label,.greet.out .g-box>.c{opacity:0;transition:opacity 160ms linear}
+
+/* ---------- small rewards ---------- */
+.ptsfloat{position:fixed;z-index:32;pointer-events:none;padding:7px 10px;border-radius:var(--r-hud);background:var(--signal);color:var(--graphite);font:600 16px/1 var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ringfx{position:fixed;z-index:32;pointer-events:none;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;border:2px solid var(--signal)}
+.out[aria-pressed=true] svg.ic{animation:lockin 220ms var(--ease-lock)}
+@keyframes lockin{from{transform:scale(.6)}}
+.nav .log svg.ic{transition:transform 260ms var(--ease-out)}
+.lens .tip,.portrait .tip{transform-box:fill-box;transform-origin:center;transition:transform 180ms var(--ease-lock)}
+#portrait .portrait{--p:112px}
+
+/* ---------- moving between screens ---------- */
+.top{view-transition-name:top}
+::view-transition-old(root){animation:vt-out 110ms linear both}
+::view-transition-new(root){animation:vt-in 260ms var(--ease-out) both}
+::view-transition-group(nav),::view-transition-group(top){animation:none}
+@keyframes vt-out{to{opacity:0}}
+@keyframes vt-in{from{opacity:0;transform:translateY(8px)}}
+
+/* ---------- what answers a pointer ---------- */
+@media (hover:hover) and (pointer:fine){
+  .lens:hover .tip,.fl:hover .portrait .tip,.wl:hover .portrait .tip{transform:scale(1.5)}
+  .rankstrip:hover,.leadopt:hover,.out:hover,.pick:hover{border-color:var(--hair)}
+  .nextbtn:hover{border-color:var(--porcelain);background:rgba(233,235,236,.06)}
+  .wl:hover{background:rgba(233,235,236,.05)}
+  .nav .log:hover svg.ic{transform:rotate(90deg)}
+  .tab:hover,.kudos:hover{color:var(--porcelain)}
+  .kudos:hover{border-color:var(--hair)}
+  .badge:hover .disc{stroke:var(--porcelain)}
+  .fl:hover .face::after,.wl:hover .face::after{box-shadow:inset 0 0 0 1.5px var(--porcelain)}
+}
+
+/* ---------- a wide screen: the hand keeps its column, the day gets the other ---------- */
+@media (min-width:980px){
+  body:not(.mgr):not(.bare) .app{max-width:1080px;padding-bottom:132px}
+  .cols{display:grid;grid-template-columns:minmax(0,430px) minmax(0,1fr);gap:0 72px;align-items:start}
+  .col-b{padding-top:6px}
+  .col-b>.habits{margin-top:14px}
+  .hero{margin:8px -20px 0;padding:18px 20px 22px}
+  .flood{border-radius:24px}
+  .hero-lens,.hero-tag{right:20px}
+  .hero-lens{top:18px}
+  .hero-tag{top:104px}
+  #s-table,#s-profile{max-width:640px;margin:0 auto}
+  .nav{bottom:18px;width:min(540px,calc(100% - 32px));padding:7px 8px 7px 14px;border:1px solid var(--rule);border-radius:999px}
+  .tabs::before{top:-8px}
+  .toast{bottom:112px}
+}
+@media (min-width:980px){
+  .greet{grid-template-columns:auto minmax(0,560px);column-gap:72px;justify-content:center;align-items:center;padding:40px}
+  .g-box{--gb:320px;grid-column:1;grid-row:1 / span 5;margin:0}
+  .g-lens .portrait{--p:264px}
+  .g-chip,.g-lead,.g-name,.g-line,.g-skip{grid-column:2}
+  .g-chip{align-self:end}
+  .g-lead{font-size:26px;margin-top:14px}
+  .giant.g-name{font-size:clamp(96px,10.5vw,168px)}
+  .giant.word.g-name{font-size:clamp(84px,8.4vw,132px)}
+  .giant.word.long.g-name,.giant.word.xlong.g-name{font-size:clamp(64px,6vw,96px)}
+  .g-line{font-size:21px;max-width:30ch}
+  .g-skip{justify-self:start;align-self:start}
+}
+@media (min-width:1000px){
+  .mhero{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:0 48px;align-items:end}
+  .wall{flex-wrap:wrap;justify-content:flex-start;overflow:visible;margin:0;padding:0 0 4px}
+  .wl{width:132px}
+  .wl .portrait{--p:104px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .flood,.race .run,.portrait .arc,.portrait .tipg,.tabs::before,.hero,.hero .lead,.hero .giant,.hero .support{transition:none}
+  .g-box>.c,.g-lens,.g-name,.g-chip,.g-lead,.g-line,.g-skip,.lo-g{transform:none;filter:none;clip-path:none;transition:opacity 160ms linear}
+  .g-scan{display:none}
+  .sweep,.target{display:none}
+}
+.lo-g .hand.mini{width:150px;height:auto}

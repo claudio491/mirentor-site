@@ -7,7 +7,7 @@ import { DICT, makeT, LANGS } from '../team/i18n.js';
 import { KINDS, CHANNELS, RULES } from '../lib/team/rules.mjs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const SCRIPTS = ['team/app.js', 'team/hand.js', 'team/manager.js', 'team/ui.js', 'team/queue.js'];
+const SCRIPTS = ['team/app.js', 'team/hand.js', 'team/manager.js', 'team/ui.js', 'team/queue.js', 'team/fx.js', 'team/moments.js'];
 const flat = (v) => (Array.isArray(v) ? v.join(' ') : v);
 const holes = (v) => [...new Set(flat(v).match(/\{\w+\}/g) || [])].sort();
 

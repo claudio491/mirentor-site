@@ -2,13 +2,15 @@
 // The server answers codes and numbers; every sentence comes from i18n.js through t().
 import { APP_NAME, LANGS } from './i18n.js';
 import { $, $$, h, put, icon, t, setLang, lang, applyStatic, giant, num, ord, wdShort, wdLong, dayMonth, monthName, upper, cap, isoWeek, addDays, clock, hourName, stamp, ago, cityName, joinList,
-  lock, buzz, quiet, countTo, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, once, copyText, grain, reduce, formSheet, setExplain, newId, putFace } from './ui.js';
-import { buildHand, paintHand, miniHand, rowWrist, lens, setLens, levelBone, badgeGlyph, portrait } from './hand.js';
+  lock, buzz, quiet, countTo, recount, ringAt, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, once, copyText, grain, reduce, formSheet, setExplain, newId, putFace, face, dayOf } from './ui.js';
+import { buildHand, paintHand, miniHand, rowWrist, lens, setLens, levelBone, badgeGlyph, portrait, setPortrait, replayHand, drawIn, fingerGlyph, handGlyph, stepsGlyph } from './hand.js';
+import { swap, roll, floatUp, reveal, stagger, lockIn, alive, greet, isGreeting, celebrate } from './fx.js';
+import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare } from './moments.js';
 import { createManager } from './manager.js';
 import { verdict, mine as waitingOf } from './queue.js';
 
 const API = '/equipo/api';
-const KEY = { lang: 'cancha.lang', queue: 'cancha.queue', me: 'cancha.me' };
+const KEY = { lang: 'cancha.lang', queue: 'cancha.queue', me: 'cancha.me', greet: 'cancha.greet' };
 const store = {
   get(k, fallback) { try { const v = localStorage.getItem(k); return v == null ? fallback : JSON.parse(v); } catch { return fallback; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage full or blocked: the app still works online */ } },
@@ -33,7 +35,7 @@ const errText = (e) => { try { return t(`err.${(e && e.code) || 'unknown'}`); } 
 setExplain(errText);
 
 // ---- state ----
-const S = { me: null, sig: '', tab: null, period: 'week', as: null, mgr: false, queue: store.get(KEY.queue, []), seenFeed: null, lastLoad: 0, lastPaint: 0 };
+const S = { me: null, sig: '', tab: null, period: 'week', as: null, mgr: false, queue: store.get(KEY.queue, []), seenFeed: null, lastLoad: 0, lastPaint: 0, arrived: new Set() };
 const SCREENS = ['boot', 'auth', 'setup', 'today', 'table', 'profile', 'team', 'needs', 'reps'];
 const FOLLOWS = new Set(['talk', 'absent', 'call', 'reply', 'meeting']);
 const CHANNELS = { message: ['whatsapp', 'linkedin', 'email', 'sms'], meeting: ['visit', 'call', 'whatsapp'], reply: ['whatsapp', 'linkedin', 'email', 'sms', 'call'], baddata: ['call', 'email'] };
@@ -75,16 +77,60 @@ function renderNav() {
   const nav = $('#nav'), canLog = !S.mgr && !readOnly() && !!S.me.today;
   const tabs = S.mgr ? ['team', 'needs', 'reps'] : ['today', 'table', 'profile'];
   const count = S.mgr ? manager.needsCount() : 0;
-  put(nav, tabs.map((id) => h('button', { class: 'tab', type: 'button', 'data-tab': id, 'aria-label': id === 'needs' && count ? `${t('nav.needs')}: ${count}` : t(`nav.${id}`), 'aria-current': S.tab === id ? 'page' : null, onclick: () => setTab(id) },
-    icon(id), h('span', { text: t(`nav.${id}`) }), id === 'needs' && count ? h('span', { class: 'count num', text: String(count), 'aria-hidden': 'true' }) : null)),
+  put(nav, h('div', { class: 'tabs' }, tabs.map((id) => h('button', { class: 'tab', type: 'button', 'data-tab': id, 'aria-label': id === 'needs' && count ? `${t('nav.needs')}: ${count}` : t(`nav.${id}`), 'aria-current': S.tab === id ? 'page' : null, onclick: () => setTab(id) },
+    icon(id), h('span', { text: t(`nav.${id}`) }), id === 'needs' && count ? h('span', { class: 'count num', text: String(count), 'aria-hidden': 'true' }) : null))),
   canLog ? h('button', { class: 'btn primary log', type: 'button', id: 'logBtn', onclick: openLog }, icon('plus'), t('nav.log')) : null);
   nav.classList.toggle('three', !canLog);
+  markTab();
   nav.hidden = false;
 }
-function setTab(name) {
-  S.tab = name; show(name); hidePop();
-  for (const b of $$('#nav .tab')) { if (b.dataset.tab === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
-  scrollTo({ top: 0 });
+/** The marker over the tabs sits on the open one. */
+function markTab() {
+  const box = $('#nav .tabs');
+  if (box) box.style.setProperty('--i', String(Math.max(0, [...box.children].findIndex((b) => b.dataset.tab === S.tab))));
+}
+function setTab(name, { instant = false } = {}) {
+  const changed = S.tab !== name;
+  S.tab = name;
+  const go = () => {
+    show(name); hidePop();
+    for (const b of $$('#nav .tab')) { if (b.dataset.tab === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
+    markTab();
+    scrollTo({ top: 0 });
+  };
+  if (instant || !changed) { go(); return; }
+  swap(go);
+  const mark = $(`#nav [data-tab="${name}"] svg`);
+  if (mark) lock(mark);
+  // A screen puts itself together the first time it is opened in a visit; after that it is simply there.
+  if (!S.arrived.has(name)) { S.arrived.add(name); setTimeout(() => arrive(name), reduce ? 0 : 90); }
+}
+/** A screen has just arrived: its headline rises, its arcs draw and its rows come in, once. */
+function arrive(name, { fast = false } = {}) {
+  if (reduce || !S.me || S.tab !== name) return;
+  const zero = (nodes, read, write) => { for (const n of nodes) { const v = read(n); write(n, true); void n.getBoundingClientRect(); setTimeout(() => write(n, false, v), 40); } };
+  if (name === 'today' && S.me.today) {
+    reveal($('#todayGiant'));
+    replayHand($('#hand'), { fast });
+    drawIn($('#heroLens'), 140); drawIn($('#lenses'), 280, 90);
+    for (const n of $$('#lenses .vn, #heroPtsN')) recount(n);
+    stagger($$('#habits li'), { delay: 180, step: 50 }); stagger($$('#rsRows .trow'), { delay: 300 });
+  } else if (name === 'table') {
+    reveal($('#tableGiant'));
+    lockIn($$('#squad .fl .pt'), { delay: 60 }); drawIn($('#squad'), 220, 60); drawIn($('#teamgoal'), 420);
+    stagger($$('#tableRows .trow, #restRows .trow'), { delay: 160, step: 45 });
+    zero($$('#tableRows .trow'), (n) => n.style.getPropertyValue('--share'), (n, empty, v) => n.style.setProperty('--share', empty ? '0' : v));
+  } else if (name === 'profile') {
+    reveal($('#profileGiant'));
+    drawIn($('#portrait'), 120);
+    zero($$('#lvl .bone.on'), (n) => n.getAttribute('stroke-dashoffset'), (n, empty, v) => n.setAttribute('stroke-dashoffset', empty ? '100' : v));
+    lockIn($$('#badges .badge svg'), { delay: 220, step: 50 }); stagger($$('#ledger li'), { delay: 320, step: 30, y: 6 });
+  } else if (name === 'team') {
+    reveal($('#teamGiant'));
+    lockIn($$('#wall .wl .pt'), { delay: 80 }); drawIn($('#wall'), 260, 60); drawIn($('#teamLenses'), 320, 90);
+    stagger($$('#teamRows .brow'), { delay: 240, step: 45 });
+  } else if (name === 'needs') { reveal($('#needsGiant')); stagger($$('#needsBody .items li'), { delay: 140, step: 40 }); }
+  else if (name === 'reps') { reveal($('#repsGiant')); stagger($$('#repsBody .items li'), { delay: 140, step: 40 }); }
 }
 function renderAll(animate = false) {
   S.lastPaint = Date.now();
@@ -109,15 +155,20 @@ function renderToday(animate) {
   $('#dateChip').textContent = `${upper(wdShort(today.day))} ${upper(dayMonth(today.day))} · ${upper(t('time.week', { n: isoWeek(today.day) }))}`;
   $('#sampleChip').hidden = !S.me.sample;
   const done = today.habits.filter(Boolean).length, head = $('#todayGiant'), by = hourName(rules.closeBy);
+  // The person leads the screen: their face, with the day as the arc around it. A full finger floods the hero with signal.
+  putFace($('#heroLens'), me, (person) => portrait(person, { share: 0 }));
+  setPortrait($('#heroLens .portrait'), today.isWork ? done / 4 : 0);
+  countTo($('#heroPtsN'), week.points);
+  $('#hero').classList.toggle('full', today.isWork && done === 4);
   if (!today.isWork) {
     $('#todayLead').textContent = t('today.lead.rest', { name: me.first });
-    giant(head, t('today.rest.giant')); head.classList.remove('full');
+    giant(head, t('today.rest.giant'));
     $('#todaySupport').replaceChildren(t('today.rest.support'));
   } else {
     $('#todayLead').textContent = t('today.lead', { name: me.first });
-    const was = head.dataset.n;
-    giant(head, `${t('today.of', { a: done, b: 4 })}.`); head.classList.toggle('full', done === 4); head.dataset.n = done;
-    if (animate && was !== undefined && Number(was) !== done) lock(head);
+    // The count keeps its own node, so only the number that changed moves.
+    if (!$('.gl', head)) head.replaceChildren(h('span', { class: 'gl' }), h('em', { text: '.' }));
+    roll($('.gl', head), t('today.of', { a: done, b: 4 }));
     const miss = [];
     if (!today.habits[0]) miss.push(t('miss.0'));
     if (!today.habits[1]) miss.push(t(today.conversations >= 1 ? 'miss.1.one' : 'miss.1.two'));
@@ -125,9 +176,21 @@ function renderToday(animate) {
     if (!today.habits[3]) miss.push(t('miss.3'));
     $('#todaySupport').replaceChildren(...(miss.length ? bold(t('today.missing', { n: miss.length }), `${joinList(miss)}.`) : bold(t('today.full'), t('today.full.s'))));
   }
+  // The next step, and what it pays.
+  const step = readOnly() ? null : nextStep(today, rules, localMinutes(S.me.serverTime, tz())), nextBtn = $('#nextBtn');
+  nextBtn.hidden = !step || step.habit == null;
+  if (!nextBtn.hidden) {
+    const what = step.code === 'visit' ? t('miss.0') : step.code === 'conversation' ? t(step.left >= 2 ? 'miss.1.two' : 'miss.1.one') : step.code === 'followup' ? t('miss.2') : t('miss.3');
+    const pays = step.pts > 0 ? t('pts.plus', { n: step.pts }) : '';
+    $('#nextText').textContent = cap(what); $('#nextPts').textContent = pays;
+    nextBtn.dataset.step = step.code;
+    nextBtn.setAttribute('aria-label', `${step.code === 'close' ? t('next.aria.close') : t('next.aria', { what })} ${pays}`.trim());
+  }
   const hand = $('#hand');
   if (!hand.childElementCount) buildHand(hand);
-  paintHand(hand, week.days, { wrist: week.anyLog, today: today.day, animate });
+  const open = today.isWork && !today.closed ? today.habits.findIndex((x) => !x) : -1;
+  paintHand(hand, week.days, { wrist: week.anyLog, today: today.day, animate, next: open >= 0 ? open : null, target: $('#handTarget') });
+  $('#handHudT').textContent = t('hand.hud', { a: week.marks, b: week.marksMax });
   $('#handCap').textContent = t('hand.caption', { a: week.marks, b: week.marksMax });
 
   // the weekly goal
@@ -185,13 +248,16 @@ function fingerDetail(hit) {
 
 // ---- the table, on the strip and on its own screen ----
 function newRow(tag) {
-  return () => h(tag, { class: 'trow' }, h('span', { class: 'pos num' }), h('span', { class: 'h' }), h('span', { class: 'who' }, h('b'), h('small')),
-    h('span', { class: 'sc' }, h('span', { class: 'pts num' }, h('span', { class: 'pv' }), h('small')), h('span', { class: 'gap num' })), h('i', { class: 'vf', 'aria-hidden': 'true' }));
+  return () => h(tag, { class: 'trow' }, h('span', { class: 'pos num' }), h('span', { class: 'fc' }), h('span', { class: 'h' }), h('span', { class: 'who' }, h('b'), h('small')),
+    h('span', { class: 'sc' }, h('span', { class: 'pts num' }, h('span', { class: 'pv' }), h('small')), h('span', { class: 'gap num' })),
+    h('i', { class: 'race', 'aria-hidden': 'true' }, h('i', { class: 'run' })), h('i', { class: 'vf', 'aria-hidden': 'true' }));
 }
 function paintRow(row, r, period, lead) {
   const ranked = r.place != null;
   row.classList.toggle('me', !!r.mine); row.classList.toggle('p1', r.place === 1); row.classList.toggle('open', !ranked);
   $('.pos', row).textContent = ranked ? String(r.place) : '·';
+  putFace($('.fc', row), r);
+  row.style.setProperty('--share', String(ranked && period !== 'month' ? raceShare(r.score, lead) : 0));
   $('.h', row).replaceChildren(miniHand(r.hand, rowWrist(r)));
   $('.who b', row).textContent = r.mine ? t('table.you', { name: r.first }) : r.name;
   put($('.who small', row), cityName(r.city), r.isNew ? h('span', { class: 'tag', text: t('table.new') }) : null);
@@ -240,6 +306,7 @@ function renderTable() {
     return h('li', { class: 'trow open' }, h('span', { class: 'pos num', text: '·', 'aria-hidden': 'true' }), h('span', { class: 'h' }, miniHand(r.hand, rowWrist(r))),
       h('span', { class: 'who' }, h('b', { text: r.name }), h('small', {}, cityName(r.city), r.isNew ? h('span', { class: 'tag', text: t('table.new') }) : null)), sc);
   }));
+  renderSquad(T, period);
   // the team's shared number
   const tg = $('#teamgoal');
   if (!tg.childElementCount) tg.append(src(lens('team', ''), () => t('c.source'), () => t('src.team', { target: S.me.team.target, per: Math.round(S.me.team.target / Math.max(1, S.me.team.players)) })), h('p', {}, h('b'), h('span')));
@@ -250,9 +317,34 @@ function renderTable() {
   tg.hidden = !team.players;
 }
 
+/** The team as lenses over the table: the podium larger, the viewer framed. Every arc is the marks of that person's hand,
+ *  which the whole team can see; a place and its points show only where the table shows them. */
+function renderSquad(T, period) {
+  const share = (r) => (r.marksMax ? r.marks / r.marksMax : 0), people = [];
+  for (const r of T.podium) people.push({ ...r, tier: `pod p${r.place}`, share: share(r) });
+  if (T.me && !T.me.onPodium) people.push({ ...T.me, mine: true, tier: T.me.place != null ? 'pod' : '', share: share(T.me) });
+  for (const r of T.rest.slice(0, 9)) people.push({ ...r, tier: '', share: share(r) });
+  const build = () => {
+    const node = h('button', { class: 'fl', type: 'button' }, h('span', { class: 'pt' }, h('span', { class: 'ps' }), h('i', { class: 'vf', 'aria-hidden': 'true' })), h('b'), h('span', { class: 'chip num' }));
+    return src(node, () => t('c.source'), () => t(node.dataset.ranked ? 'src.place' : 'src.marks'));
+  };
+  flipList($('#squad'), people, (r) => r.id, build, (node, r) => {
+    const ranked = r.place != null;
+    node.className = `fl ${r.tier}${r.mine ? ' mine' : ''}`.replace(/\s+/g, ' ').trim();
+    if (ranked) node.dataset.ranked = '1'; else delete node.dataset.ranked;
+    putFace($('.ps', node), r, (person) => portrait(person, { share: 0 }));
+    setPortrait($('.ps .portrait', node), r.share);
+    $('b', node).textContent = r.mine ? t('table.you', { name: r.first }) : r.first;
+    const value = !ranked ? `${num(r.marks)}/${num(r.marksMax)}` : period === 'month' ? t('u.sites', { n: r.sites }) : pts(r.score);
+    $('.chip', node).textContent = ranked ? `${ord(r.place)} · ${period === 'month' ? value : `${num(r.score)} ${t('u.pts')}`}` : value;
+    node.setAttribute('aria-label', ranked ? t('squad.place', { name: r.name, place: ord(r.place), pts: value }) : t('squad.marks', { name: r.name, a: r.marks, b: r.marksMax }));
+  });
+}
+
 // ---- closing the day ----
 function renderCloseCard() {
   const { today, rules } = S.me, btn = $('#closeBtn');
+  $('#closeCard').classList.toggle('light', !today.closed && !readOnly());   // the card that asks for something speaks in porcelain
   if (today.closed) {
     $('#closeH').textContent = t('close.done.title');
     $('#closeP').textContent = t(today.closedOnTime ? 'close.done.p' : 'close.done.late', { time: clock(today.closedAt, tz()), by: hourName(rules.closeBy) });
@@ -297,8 +389,9 @@ function submitClose() {
     if (myQueue().length) { err.textContent = t('close.waiting', { n: myQueue().length }); err.hidden = false; return; }
     try {
       const res = await api('POST', 'close', { tomorrow: $('#fTomorrow').value.trim(), blocker: $('#fBlock').value.trim() });
-      const was = S.me.today.points;
+      const was = S.me.today.points, before = S.me;
       baseReport = res.report; adopt(res.me); paintCloseSheet();
+      playMoments(moments(before, res.me));   // closing can fill the finger: its moment plays when this sheet closes
       if (!reduce) { const line = $('#slackPrev .scan'), height = $('#slackPrev').offsetHeight; line.animate([{ transform: 'translateY(0)', opacity: 1 }, { transform: `translateY(${height}px)`, opacity: 0 }], { duration: 620, easing: 'cubic-bezier(.2,.8,.2,1)' }); }
       renderAll(true);
       const gained = res.me.today.points - was;
@@ -314,9 +407,14 @@ function kudosButton(f) {
   btn.addEventListener('click', () => clap(f, btn));
   return btn;
 }
+/** A teammate as the table knows them: the feed carries only their id and first name. */
+function mate(id, name) {
+  const T = S.me.table.week, row = [...T.podium, ...T.rest, ...(T.me ? [T.me] : [])].find((r) => r.id === id);
+  return { id, name: row ? row.name : name, photo: row ? row.photo : null };
+}
 function feedItem(f, fresh) {
   const clapBtn = kudosButton(f);
-  return h('li', { class: fresh ? 'new' : null }, h('span', {}, h('b', { text: f.name }), ` ${t(`feed.${f.code}`)}`, f.play ? h('q', { text: f.play }) : null,
+  return h('li', { class: fresh ? 'new' : null }, face(mate(f.rep, f.name)), h('span', {}, h('b', { text: f.name }), ` ${t(`feed.${f.code}`)}`, f.play ? h('q', { text: f.play }) : null,
     h('small', { text: `${cityName(f.city)} · ${ago(f.at, S.me.serverTime, tz())}` })),
   h('span', { class: 'side' }, f.pts ? h('span', { class: 'p num', text: `+${num(f.pts)}` }) : null, clapBtn));
 }
@@ -329,7 +427,7 @@ function renderFeed(list, empty, animate) {
 async function clap(f, btn) {
   const on = btn.getAttribute('aria-pressed') !== 'true', n = $('.num', btn);
   btn.setAttribute('aria-pressed', String(on)); n.textContent = String(Math.max(0, Number(n.textContent) + (on ? 1 : -1)));
-  if (on) { buzz(8); lock($('svg', btn)); }
+  if (on) { buzz(8); lock($('svg', btn)); ringAt($('svg', btn)); }
   try { const res = await api('POST', 'kudos', { target: f.id, on }); adopt(res.me); }
   catch (e) { btn.setAttribute('aria-pressed', String(!on)); n.textContent = String(Math.max(0, Number(n.textContent) + (on ? -1 : 1))); toast(errText(e)); }
 }
@@ -368,8 +466,9 @@ function openGoal() {
 function renderProfile() {
   const { me, level, badges, ledger, rules, pending } = S.me;
   if (!level) return;
-  $('#whoChip').textContent = `${me.name} · ${cityName(me.city)}`;
-  putFace($('#portrait'), me, portrait);
+  $('#whoChip').textContent = me.name; $('#whoCity').textContent = cityName(me.city);
+  putFace($('#portrait'), me, (person) => portrait(person, { share: 0 }));
+  setPortrait($('#portrait .portrait'), level.next == null ? 1 : (level.xp - level.floor) / Math.max(1, level.next - level.floor));
   const levelWord = t(`level.${level.name}`);
   giant($('#profileGiant'), `${levelWord}.`);
   $('#profileGiant').classList.toggle('long', levelWord.length >= 10);   // the longest names need a smaller size to stay on one line
@@ -545,6 +644,7 @@ function saveLog() {
   });
 }
 function logged(res, body) {
+  const before = S.me;
   adopt(res.me); renderAll(true);
   const label = t(`kind.${body.kind}`);
   if (res.repeat) toast(t(res.updated ? 'toast.repeat.updated' : 'toast.repeat'));
@@ -556,27 +656,42 @@ function logged(res, body) {
     if (res.streakUp) text += `. ${t('toast.streak', { n: res.me.streak.current })}`;
     if (res.gained > 0 || res.pending > 0) toast(text, res.gained > 0 ? t('pts.plus', { n: res.gained }) : ''); else toast(t('toast.zero'));
   }
+  // Points earned answer where the person is: a ring leaves their lens, the tag locks and the points rise from it.
+  if (!res.repeat && res.gained > 0) { const tag = $('#heroPts'); ringAt($('#heroLens .portrait'), { whole: true }); lock(tag); floatUp(tag, t('pts.plus', { n: res.gained })); }
+  if (res.streakUp) { lock($('#streakChip')); ringAt($('#streakChip .dot')); }
+  const list = res.repeat ? [] : moments(before, res.me, { tookLead: !!res.tookLead });
   const after = () => { if (body.kind === 'meeting' && !res.repeat) askPlay(res.logId); };
-  if (res.tookLead) setTimeout(() => lockOn(after), reduce ? 0 : 760); else setTimeout(after, 1400);
+  setTimeout(() => playMoments(list).then(after), list.length ? (reduce ? 0 : 820) : 1400);
 }
 
-// ---- the one rare moment: taking the lead ----
-function lockOn(done) {
-  const box = $('#lockon'), T = S.me.table.week, back = document.activeElement;
-  $('#loN').textContent = ord(1);
-  $('#loS').textContent = T.behind ? t('lockon.s.behind', { name: T.behind.name, gap: pts(T.behind.pts) }) : t('lockon.s');
-  box.classList.add('on'); box.setAttribute('aria-hidden', 'false'); box.tabIndex = 0; box.focus({ preventScroll: true });
-  buzz([14, 60, 22]);
-  let timer;
-  const off = () => {
-    clearTimeout(timer); box.classList.remove('on'); box.setAttribute('aria-hidden', 'true'); box.tabIndex = -1;
-    box.removeEventListener('click', off); document.removeEventListener('keydown', onKey);
-    if (back && back.focus) back.focus({ preventScroll: true });
-    if (done) setTimeout(done, 300);
-  };
-  const onKey = (e) => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); off(); } };
-  box.addEventListener('click', off); document.addEventListener('keydown', onKey);
-  timer = setTimeout(off, 3600);
+// ---- the moments: taking the lead, a full finger or hand, a new step or level, a badge ----
+/** What a moment shows: a large number or a drawing, a title in two parts and one line under it. */
+function describe(m) {
+  const me = S.me, T = me.table.week;
+  if (m.kind === 'lead') return { n: ord(1), a: t('lockon.title.a'), b: t('lockon.title.b'), sub: T.behind ? t('lockon.s.behind', { name: T.behind.name, gap: pts(T.behind.pts) }) : t('lockon.s') };
+  if (m.kind === 'finger') return { glyph: fingerGlyph(), a: t('cel.finger.a'), b: t('cel.finger.b'), sub: [t('cel.finger.s'), me.streak && me.streak.current > 1 ? t('toast.streak', { n: me.streak.current }) : ''].filter(Boolean).join(' ') };
+  if (m.kind === 'hand') return { glyph: handGlyph(me.week.days, me.week.anyLog), a: t('cel.hand.a'), b: t('cel.hand.b'), sub: t('cel.hand.s') };
+  if (m.kind === 'badge') {
+    const levels = ONE_LEVEL.has(m.code) ? 1 : 3;
+    return { glyph: badgeGlyph(m.code, m.level, levels), a: t('cel.badge.a'), b: `${t(`badge.${m.code}`).toLocaleLowerCase()}.`, sub: `${t(`badge.info.${m.code}`)}${levels > 1 ? ` ${t('cel.badge.level', { n: m.level })}` : ''}` };
+  }
+  const steps = me.rules.levels.find((l) => l.name === m.name).steps;
+  if (m.kind === 'level') return { glyph: stepsGlyph(1, steps.length), a: t('cel.level.a'), b: `${t(`level.${m.name}`)}.`, sub: t('cel.level.s', { pts: pts(m.xp) }) };
+  return { glyph: stepsGlyph(m.step, steps.length), a: t('cel.step.a'), b: t('cel.step.b', { a: m.step }), sub: t('cel.step.s', { level: cap(t(`level.${m.name}`)), a: m.step, b: steps.length, pts: pts(m.xp) }) };
+}
+const waiting = [];
+let playing = false;
+/** Moments play one after another, and never over an open form or the entrance: they wait until the screen is free. */
+async function playMoments(list = []) {
+  waiting.push(...list);
+  if (playing) return;
+  playing = true;
+  try {
+    while (waiting.length && S.me && !readOnly() && !$('dialog[open]') && !isGreeting()) {
+      const d = describe(waiting.shift());
+      await celebrate({ ...d, label: t('cel.aria', { title: `${cap(d.a)} ${d.b}` }) });
+    }
+  } finally { playing = false; }
 }
 
 // ---- logs that wait for signal ----
@@ -605,7 +720,7 @@ async function flush() {
 /** What a view says, leaving out the clock: two reads that match have nothing new to draw. */
 const signature = (me) => JSON.stringify({ ...me, serverTime: null });
 function adopt(me) { S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); if (!readOnly()) store.set(KEY.me, me); }
-function enter(me) {
+function enter(me, { fresh = false } = {}) {
   S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); S.lastPaint = Date.now();
   if (!S.as || me.viewer.role === 'rep') S.as = me.viewer.as;   // a rep's `as` is ignored by the server
   const own = S.as ? me.viewer.lang : me.me.lang;
@@ -613,11 +728,35 @@ function enter(me) {
   S.mgr = !S.as && me.viewer.role !== 'rep';
   document.body.classList.remove('bare'); document.body.classList.toggle('mgr', S.mgr);
   if (!readOnly()) store.set(KEY.me, me);
-  S.seenFeed = null;
+  S.seenFeed = null; waiting.length = 0;
   const first = S.mgr ? 'team' : 'today';
-  if (S.mgr) { manager.load().then(() => { renderAll(false); }).catch((e) => toast(errText(e))); }
-  renderAll(false); setTab(S.tab && $(`#nav [data-tab="${S.tab}"]`) ? S.tab : first);
+  const ready = S.mgr ? manager.load().then(() => { renderAll(false); }).catch((e) => toast(errText(e))) : Promise.resolve();
+  renderAll(false); setTab(S.tab && $(`#nav [data-tab="${S.tab}"]`) ? S.tab : first, { instant: true });
+  // The full entrance plays after signing in and on the first open of a day; after that the screen just puts itself together.
+  const tab = S.tab, day = me.today ? me.today.day : dayOf(me.serverTime, me.me.tz), seen = store.get(KEY.greet, null) || {};
+  const how = S.as ? 'short' : entrance({ fresh, lastDay: seen.day, lastId: seen.id, today: day, id: me.me.id });
+  S.arrived = new Set([tab]);
+  if (how === 'full') { store.set(KEY.greet, { id: me.me.id, day }); welcome(tab, day, ready); }
+  else ready.then(() => arrive(tab, { fast: true }));
   flush();
+}
+/** The entrance: the lens finds the person, says where they stand, and hands them their screen. */
+function welcome(tab, day, ready) {
+  const me = S.me, who = me.me, st = stake(me), today = me.today;
+  const line = st.kind === 'team' ? [t('greet.team.a', { w: st.working, p: st.players }), t('greet.team.b', { c: st.closed })]
+    : st.kind === 'lead' ? [t('greet.lead.a'), st.behind ? t('table.sup.behind', { name: st.behind.name, gap: pts(st.behind.pts) }) : t('greet.lead.b', { pts: pts(st.score) })]
+    : st.kind === 'place' ? [t('greet.place.a', { ord: ord(st.place), n: st.ranked }), !st.gap ? '' : st.gap.name ? t('table.sup.gap.named', { gap: pts(st.gap.pts), name: st.gap.name }) : t('table.sup.gap.next', { gap: pts(st.gap.pts) })]
+    : st.kind === 'new' ? [t('greet.new.a', { d: st.day, n: st.of }), t('greet.new.b')]
+    : [t(`greet.${st.kind}.a`), t(`greet.${st.kind}.b`)];
+  const streak = me.streak && me.streak.current > 0 ? ` · ${upper(t('top.streak'))} ${num(me.streak.current)}` : '';
+  greet({
+    person: who, name: `${who.first}.`, line,
+    share: today ? (today.isWork ? today.habits.filter(Boolean).length / 4 : 0) : (me.team.working ? me.team.closedToday / me.team.working : 0),
+    chip: `${upper(wdShort(day))} ${upper(dayMonth(day))} · ${upper(t('time.week', { n: isoWeek(day) }))}${streak}`,
+    lead: `${t(`greet.${dayPart(localMinutes(me.serverTime, who.tz))}`)},`,
+    land: () => (S.tab === 'today' ? $('#heroLens .portrait') : null),
+    onLeave: () => ready.then(() => arrive(S.tab)),
+  }).then(() => playMoments());
 }
 /** The quiet check while the app is open. The screen is redrawn only when something moved, or every five minutes so
  * the times stay true; redrawing for nothing would swap a button out from under a finger. */
@@ -626,9 +765,11 @@ async function poll() {
     const me = await api('GET', S.as ? `me?as=${encodeURIComponent(S.as)}` : 'me');
     S.lastLoad = Date.now();
     if (signature(me) === S.sig && Date.now() - S.lastPaint < 5 * 60000) return;
+    const before = S.me;
     adopt(me);
     if (S.mgr) await manager.load();
     renderAll(true);
+    if (!S.mgr && !readOnly()) playMoments(moments(before, me));   // something confirmed elsewhere can be a moment here
   } catch (e) { if (e.status === 401) lostSession(); }
 }
 async function refresh(animate = false) {
@@ -650,11 +791,11 @@ async function signOut() {
   store.del(KEY.me); S.tab = null; showAuth();
 }
 /** `as` is whose screens to open as their manager. Left out, the page's own address says it. */
-async function start(as = undefined) {
+async function start(as = undefined, { fresh = false } = {}) {
   const url = new URL(location.href);
   if (url.pathname.replace(/\/$/, '').endsWith('/alta')) return showSetup(url.searchParams.get('t') || '');
   S.as = as === undefined ? url.searchParams.get('as') : as;
-  try { enter(await api('GET', S.as ? `me?as=${encodeURIComponent(S.as)}` : 'me')); }
+  try { enter(await api('GET', S.as ? `me?as=${encodeURIComponent(S.as)}` : 'me'), { fresh }); }
   catch (e) {
     const cached = store.get(KEY.me, null);
     if (e.code === 'offline' && cached && !S.as) { enter(cached); toast(t('err.offline')); }
@@ -676,7 +817,7 @@ function signIn(e) {
   const err = $('#authErr');
   return once($('#authBtn'), async () => {
     err.hidden = true;
-    try { await api('POST', 'login', { handle: $('#aHandle').value, pin: $('#aPin').value }); $('#aPin').value = ''; await start(); }
+    try { await api('POST', 'login', { handle: $('#aHandle').value, pin: $('#aPin').value }); $('#aPin').value = ''; await start(undefined, { fresh: true }); }
     catch (ex) { err.textContent = errText(ex); err.hidden = false; $('#aPin').value = ''; $('#aPin').focus(); }
   });
 }
@@ -697,7 +838,7 @@ async function showSetup(token) {
       err.hidden = true;
       const pin = $('#sPin').value, again = $('#sPin2').value;
       if (pin !== again) { err.textContent = t('setup.mismatch'); err.hidden = false; return; }
-      try { await api('POST', 'setup', { token, pin }); history.replaceState(null, '', '/equipo'); $('#sPin').value = ''; $('#sPin2').value = ''; await start(); }
+      try { await api('POST', 'setup', { token, pin }); history.replaceState(null, '', '/equipo'); $('#sPin').value = ''; $('#sPin2').value = ''; await start(undefined, { fresh: true }); }
       catch (ex) { if (ex.status === 410) expired(); else { err.textContent = errText(ex); err.hidden = false; } }
     });
   };
@@ -719,6 +860,12 @@ function wire() {
   $('#hand').addEventListener('click', (e) => { const hit = e.target.closest('.hit'); if (hit) { e.stopPropagation(); fingerDetail(hit); } });
   $('#hand').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('hit')) { e.preventDefault(); fingerDetail(e.target); } });
   $('#goalBtn').addEventListener('click', openGoal);
+  $('#nextBtn').addEventListener('click', () => ($('#nextBtn').dataset.step === 'close' ? openClose() : openLog()));
+  src($('#handHud'), () => t('hand.aria'), () => t('hand.caption', { a: S.me.week.marks, b: S.me.week.marksMax }));
+  src($('#heroPts'), () => t('c.source'), () => t('src.points'));
+  alive($('#handBox'), $('.handstage'));
+  // A moment that had to wait for a form plays once the form is gone.
+  for (const dlg of $$('dialog.sheet')) dlg.addEventListener('close', () => setTimeout(() => playMoments(), 260));
   $('#rankstrip').addEventListener('click', () => setTab('table'));
   $('#tableSeg').addEventListener('click', (e) => { const b = e.target.closest('button[data-period]'); if (!b) return; S.period = b.dataset.period; quiet(renderTable); });
   $('#closeBtn').addEventListener('click', openClose);

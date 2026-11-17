@@ -6,15 +6,16 @@ import { PEOPLE, PHOTOS } from './demo-data.js';
 import { setPhotoAddress } from '../../team/ui.js';
 
 const EVENTS = 'mirentor.team.demo.events.v1', WHO = 'mirentor.team.demo.who.v1';
+const GREETED = 'cancha.greet';   // where the app keeps whom it welcomed today: cleared here, the entrance plays again
 // The browser's storage may be off (a private window, an embedded page): the copy then lives until the page closes.
 const read = (key) => { try { return localStorage.getItem(key); } catch { return null; } };
 const write = (key, value) => { try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch { /* see above */ } };
 
 const TEXT = {
-  es: { tag: 'Copia de demostración', as: 'Entrar como', reset: 'Empezar de cero', note: 'Lo que registres se guarda solo en este navegador. No es la app en línea.',
+  es: { tag: 'Copia de demostración', as: 'Entrar como', again: 'Ver la entrada', reset: 'Empezar de cero', note: 'Lo que registres se guarda solo en este navegador. No es la app en línea.',
     rep: 'vendedor', manager: 'líder', admin: 'administrador', sure: 'Toca otra vez para borrar lo registrado aquí.',
     link: 'En esta copia el enlace no se abre: esa persona ya puede entrar desde "Entrar como".' },
-  en: { tag: 'Demonstration copy', as: 'Sign in as', reset: 'Start over', note: 'What you log is kept in this browser only. This is not the live app.',
+  en: { tag: 'Demonstration copy', as: 'Sign in as', again: 'Replay the entrance', reset: 'Start over', note: 'What you log is kept in this browser only. This is not the live app.',
     rep: 'rep', manager: 'manager', admin: 'admin', sure: 'Tap again to erase what was logged here.',
     link: 'In this copy the link does not open: that person can already sign in from "Sign in as".' },
 };
@@ -48,12 +49,13 @@ async function main() {
 
   // ---- the bar ----
   const tag = el('span', { class: 'demo-tag' }, el('i'), el('span')), label = el('span'), select = el('select', { id: 'demoWho' });
+  const again = el('button', { type: 'button', class: 'mini-btn', id: 'demoAgain' });
   const reset = el('button', { type: 'button', class: 'mini-btn', id: 'demoReset' }), note = el('span', { class: 'demo-note' });
-  const bar = el('div', { class: 'demo', id: 'demoBar' }, tag, el('label', { class: 'demo-who', for: 'demoWho' }, label, select), reset, note);
+  const bar = el('div', { class: 'demo', id: 'demoBar' }, tag, el('label', { class: 'demo-who', for: 'demoWho' }, label, select), again, reset, note);
   let saidLink = 0;
   const paint = () => {
     const w = words(), current = read(WHO) || leader();
-    tag.lastChild.textContent = w.tag; label.textContent = w.as; reset.textContent = w.reset;
+    tag.lastChild.textContent = w.tag; label.textContent = w.as; again.textContent = w.again; reset.textContent = w.reset;
     note.textContent = reset.classList.contains('armed') ? w.sure : Date.now() - saidLink < 15000 ? w.link : w.note;
     select.setAttribute('aria-label', w.as);
     select.replaceChildren(...server.people().map((p) => { const o = el('option', { value: p.handle }, `${p.name} · ${w[p.role] || p.role}`); o.selected = p.handle === current; return o; }));
@@ -64,10 +66,11 @@ async function main() {
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
   select.addEventListener('change', async () => { await enterAs(select.value); paint(); reenter(); });
+  again.addEventListener('click', () => { write(GREETED, null); reenter(); });
   select.addEventListener('pointerdown', paint);   // people created since the last look are in the list
   reset.addEventListener('click', async () => {
     if (!reset.classList.contains('armed')) { reset.classList.add('armed'); paint(); setTimeout(() => { reset.classList.remove('armed'); paint(); }, 6000); return; }
-    reset.classList.remove('armed'); write(EVENTS, null); write(WHO, null);
+    reset.classList.remove('armed'); write(EVENTS, null); write(WHO, null); write(GREETED, null);
     server = fresh(); await enterAs(leader()); paint(); reenter();
   });
   linked = () => { saidLink = Date.now(); paint(); setTimeout(paint, 15200); };

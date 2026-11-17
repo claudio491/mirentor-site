@@ -144,9 +144,28 @@ export function countTo(node, to, show = num) {
   };
   requestAnimationFrame(tick);
 }
+/** Run a counter again from zero: for a screen that has just arrived. */
+export function recount(node) {
+  const to = Number(node.dataset.v);
+  if (!Number.isFinite(to) || to <= 0) return;
+  node.dataset.v = 0; countTo(node, to);
+}
+/** A ring that leaves an element, the way a joint's ring does: the answer to a tap that counted. */
+export function ringAt(el, { whole = false } = {}) {
+  if (reduce || !el) return;
+  const r = el.getBoundingClientRect();
+  if (!r.width) return;
+  const node = h('i', { class: 'ringfx', 'aria-hidden': 'true' });
+  node.style.left = `${r.left + r.width / 2}px`; node.style.top = `${r.top + r.height / 2}px`;
+  // `whole`: the ring starts at the element's own edge, the way a lens answers; otherwise it leaves a point.
+  if (whole) { node.style.width = `${r.width}px`; node.style.height = `${r.height}px`; node.style.margin = `${-r.height / 2}px 0 0 ${-r.width / 2}px`; }
+  document.body.append(node);
+  node.animate(whole ? [{ transform: 'scale(1)', opacity: 0.9 }, { transform: 'scale(1.5)', opacity: 0 }] : [{ transform: 'scale(.5)', opacity: 0.9 }, { transform: 'scale(2.2)', opacity: 0 }],
+    { duration: whole ? 700 : 520, easing: EASE.track }).onfinish = () => node.remove();
+}
 /** Keyed list: rows keep their element, and a row that changes place moves there instead of jumping. */
 export function flipList(list, items, key, build, update) {
-  const before = new Map([...list.children].map((n) => [n.dataset.key, n.getBoundingClientRect().top]));
+  const before = new Map([...list.children].map((n) => { const r = n.getBoundingClientRect(); return [n.dataset.key, [r.left, r.top]]; }));
   const rows = new Map([...list.children].map((n) => [n.dataset.key, n]));
   const want = new Set(items.map((it) => String(key(it))));
   for (const [k, n] of rows) if (!want.has(k)) { n.remove(); rows.delete(k); }
@@ -160,10 +179,10 @@ export function flipList(list, items, key, build, update) {
   if (isQuiet()) return false;
   let moved = false;
   for (const n of list.children) {
-    const top0 = before.get(n.dataset.key);
-    if (top0 == null) continue;
-    const dy = top0 - n.getBoundingClientRect().top;
-    if (Math.abs(dy) > 1) { moved = true; n.animate([{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }], { duration: 520, easing: EASE.move }); }
+    const was = before.get(n.dataset.key);
+    if (!was) continue;
+    const r = n.getBoundingClientRect(), dx = was[0] - r.left, dy = was[1] - r.top;
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) { moved = true; n.animate([{ transform: `translate(${dx}px,${dy}px)` }, { transform: 'translate(0,0)' }], { duration: 520, easing: EASE.move }); }
   }
   if (moved) scan(list);
   return moved;

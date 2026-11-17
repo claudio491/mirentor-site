@@ -1,7 +1,7 @@
 // manager.js: what a manager sees. Every rep in one view, the things that wait for a decision, and the people who have access.
 // The headline of the team view is a live number (days closed today), and the rows that need attention are framed.
 import { $, h, put, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, dayOf, clock, stamp, ago, cityName, countTo, flipList, toast, src, once, copyText, formSheet, quiet, newId, sameText, face, putFace } from './ui.js';
-import { miniHand, lens, setLens } from './hand.js';
+import { miniHand, lens, setLens, portrait, setPortrait } from './hand.js';
 
 const MONDAY = '2026-11-16';   // any Monday: only used to name the days of the week
 const dayName = (n) => wdShort(addDays(MONDAY, n - 1));
@@ -85,6 +85,20 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
 
     const cities = [...new Set(team.reps.map((r) => r.city).filter(Boolean))].sort();
     if (city !== 'all' && !cities.includes(city)) city = 'all';
+    // The wall: every rep's day as a lens. The arc is today's four habits; a tap opens their screens.
+    const shown = team.reps.filter((r) => city === 'all' || r.city === city);
+    const drawWall = () => flipList($('#wall'), shown, (r) => r.id,
+      () => h('a', { class: 'wl', onclick: openAs }, h('span', { class: 'pt' }), h('b'), h('span', { class: 'st' })),
+      (node, r) => {
+        const done = r.today.habits.filter(Boolean).length, flagged = flagsOf(r).length > 0;
+        const state = !r.today.isWork ? t('mgr.report.rest') : r.today.closed ? t('mgr.report.closed', { time: clock(r.today.closedAt, tzOf(r)) }) : r.today.logs ? t('wall.today', { a: done }) : t('mgr.last.none');
+        node.href = `/equipo?as=${encodeURIComponent(r.id)}`; node.dataset.as = r.id; node.classList.toggle('flag', flagged);
+        node.setAttribute('aria-label', t('wall.open.aria', { name: r.name, state }));
+        putFace($('.pt', node), r, (person) => portrait(person, { share: 0 }));
+        setPortrait($('.pt .portrait', node), r.today.isWork ? done / 4 : 0);
+        $('b', node).textContent = r.first; $('.st', node).textContent = state;
+      });
+    if (animate) drawWall(); else quiet(drawWall);
     const seg = $('#citySeg'); seg.parentElement.hidden = cities.length < 2;
     seg.replaceChildren(...[['all', t('mgr.filter.all')], ...cities.map((c) => [c, cityName(c)])].map(([id, label]) => h('button', { type: 'button', 'aria-pressed': String(city === id), text: label, onclick: () => { city = id; quiet(() => renderTeam(false)); } })));
 
