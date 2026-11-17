@@ -32,7 +32,7 @@ const errText = (e) => { try { return t(`err.${(e && e.code) || 'unknown'}`); } 
 setExplain(errText);
 
 // ---- state ----
-const S = { me: null, tab: null, period: 'week', as: null, mgr: false, queue: store.get(KEY.queue, []), seenFeed: null, lastLoad: 0 };
+const S = { me: null, sig: '', tab: null, period: 'week', as: null, mgr: false, queue: store.get(KEY.queue, []), seenFeed: null, lastLoad: 0, lastPaint: 0 };
 const SCREENS = ['boot', 'auth', 'setup', 'today', 'table', 'profile', 'team', 'needs', 'reps'];
 const FOLLOWS = new Set(['talk', 'absent', 'call', 'reply', 'meeting']);
 const CHANNELS = { message: ['whatsapp', 'linkedin', 'email', 'sms'], meeting: ['visit', 'call', 'whatsapp'], reply: ['whatsapp', 'linkedin', 'email', 'sms', 'call'], baddata: ['call', 'email'] };
@@ -86,6 +86,7 @@ function setTab(name) {
   scrollTo({ top: 0 });
 }
 function renderAll(animate = false) {
+  S.lastPaint = Date.now();
   const run = () => {
     renderTop(); renderNav();
     if (S.mgr) manager.render(animate); else { renderToday(animate); renderTable(); renderProfile(); renderRules(); }
@@ -588,9 +589,11 @@ async function flush() {
 }
 
 // ---- session ----
-function adopt(me) { S.me = me; S.lastLoad = Date.now(); if (!readOnly()) store.set(KEY.me, me); }
+/** What a view says, leaving out the clock: two reads that match have nothing new to draw. */
+const signature = (me) => JSON.stringify({ ...me, serverTime: null });
+function adopt(me) { S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); if (!readOnly()) store.set(KEY.me, me); }
 function enter(me) {
-  S.me = me; S.lastLoad = Date.now();
+  S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); S.lastPaint = Date.now();
   if (!S.as || me.viewer.role === 'rep') S.as = me.viewer.as;   // a rep's `as` is ignored by the server
   const own = S.as ? me.viewer.lang : me.me.lang;
   if (own && own !== lang()) { setLang(own); store.set(KEY.lang, own); applyStatic(); }
@@ -602,6 +605,18 @@ function enter(me) {
   if (S.mgr) { manager.load().then(() => { renderAll(false); }).catch((e) => toast(errText(e))); }
   renderAll(false); setTab(S.tab && $(`#nav [data-tab="${S.tab}"]`) ? S.tab : first);
   flush();
+}
+/** The quiet check while the app is open. The screen is redrawn only when something moved, or every five minutes so
+ * the times stay true; redrawing for nothing would swap a button out from under a finger. */
+async function poll() {
+  try {
+    const me = await api('GET', S.as ? `me?as=${encodeURIComponent(S.as)}` : 'me');
+    S.lastLoad = Date.now();
+    if (signature(me) === S.sig && Date.now() - S.lastPaint < 5 * 60000) return;
+    adopt(me);
+    if (S.mgr) await manager.load();
+    renderAll(true);
+  } catch (e) { if (e.status === 401) lostSession(); }
 }
 async function refresh(animate = false) {
   try {
@@ -689,9 +704,9 @@ function wire() {
   $('#moreOuts').addEventListener('click', () => { L.more = !L.more; keepFields(); renderLog(); });
   $('#saveLog').addEventListener('click', saveLog);
   addEventListener('online', flush);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && S.me) { flush(); if (Date.now() - S.lastLoad > 45000) refresh(true); } });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && S.me) { flush(); if (Date.now() - S.lastLoad > 45000) poll(); } });
   // The table and the feed stay current while the app is open and nobody is in the middle of a form.
-  setInterval(() => { if (S.me && !document.hidden && !$('dialog[open]')) { if (myQueue().length) flush(); else if (Date.now() - S.lastLoad > 45000) refresh(true); } }, 15000);
+  setInterval(() => { if (S.me && !document.hidden && !$('dialog[open]')) { if (myQueue().length) flush(); else if (Date.now() - S.lastLoad > 45000) poll(); } }, 15000);
 }
 
 setLang(store.get(KEY.lang, null) || ((navigator.language || 'es').toLowerCase().startsWith('en') ? 'en' : 'es'));
