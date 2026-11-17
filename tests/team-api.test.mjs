@@ -1,53 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { createServer } from '../server.mjs';
-import { openStore } from '../lib/store.mjs';
-import { createTeam, teamConfig } from '../lib/team/api.mjs';
-
-const ORIGIN = 'https://mirentor.onrender.com';
-const PIN = '482915';
-const MON_10 = Date.parse('2026-11-16T15:00:00Z');   // Monday 10:00 in Panama
-
-async function start({ clock = MON_10, sample = false, dev = false, previewOffsetMs = 0 } = {}) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'team-api-'));
-  if (sample) { mkdirSync(path.join(dir, 'team')); writeFileSync(path.join(dir, 'team', 'SAMPLE'), 'sample data\n'); }
-  const staticDir = path.join(dir, 'static'); mkdirSync(staticDir);
-  writeFileSync(path.join(staticDir, 'index.html'), '<!doctype html><title>t</title><script type="module" src="app.js"></script>');
-  writeFileSync(path.join(staticDir, 'app.js'), 'export const ok = 1;');
-  mkdirSync(path.join(staticDir, 'fonts')); writeFileSync(path.join(staticDir, 'fonts', 'geist-v1.woff2'), Buffer.from([0x77, 0x4f, 0x46, 0x32, 1, 2, 3]));
-  const time = { now: clock };
-  const team = createTeam({ dir, secret: 'test-secret', pushToken: 'push-token', now: () => new Date(time.now), staticDir, origins: [ORIGIN], dev, previewOffsetMs });
-  const srv = createServer({ store: openStore(dir), sheets: null, origins: [ORIGIN], team });
-  await new Promise((r) => srv.listen(0, r));
-  const url = `http://127.0.0.1:${srv.address().port}`;
-  const call = async (method, p, body, { cookie, bearer, origin, raw } = {}) => {
-    const headers = {};
-    if (body !== undefined) headers['content-type'] = 'application/json';
-    if (cookie) headers.cookie = cookie;
-    if (bearer) headers.authorization = `Bearer ${bearer}`;
-    if (origin) headers.origin = origin;
-    const r = await fetch(`${url}${p}`, { method, headers, body: body === undefined ? undefined : raw ? body : JSON.stringify(body), redirect: 'manual' });
-    const text = await r.text(); let json = null; try { json = JSON.parse(text); } catch { /* not JSON */ }
-    return { status: r.status, json, text, headers: r.headers, cookie: (r.headers.get('set-cookie') || '').split(';')[0] || null };
-  };
-  const tokenOf = (setupUrl) => new URL(setupUrl).searchParams.get('t');
-  const admin = async () => {
-    const b = await call('POST', '/equipo/api/bootstrap', { handle: 'jefe', name: 'Jefe Uno' }, { bearer: 'push-token' });
-    const s = await call('POST', '/equipo/api/setup', { token: tokenOf(b.json.setupUrl), pin: PIN });
-    return { cookie: s.cookie, setupUrl: b.json.setupUrl };
-  };
-  const addRep = async (adminCookie, handle, over = {}) => {
-    const r = await call('POST', '/equipo/api/reps', { handle, name: `${handle} Rep`, country: 'PA', city: 'Panama City', workdays: [1, 2, 3, 4, 5], startDate: '2026-10-01', ...over }, { cookie: adminCookie });
-    const s = await call('POST', '/equipo/api/setup', { token: tokenOf(r.json.setupUrl), pin: PIN });
-    return { id: r.json.id, cookie: s.cookie, setupUrl: r.json.setupUrl };
-  };
-  const lines = () => readFileSync(path.join(dir, 'team', 'events.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
-  return { srv, url, call, admin, addRep, tokenOf, lines, dir, time };
-}
-const logBody = (id, over = {}) => ({ id, lead: { name: 'Ferretería El Roble', zone: 'Vía España' }, kind: 'talk', clientAt: new Date(MON_10).toISOString(), ...over });
+import { teamConfig } from '../lib/team/api.mjs';
+import { ORIGIN, PIN, MON_10, start, logBody } from './team-helper.mjs';
 
 test('the first manager is created with the bearer token and sets their own PIN through a link that works once', async (t) => {
   const s = await start(); t.after(() => s.srv.close());
