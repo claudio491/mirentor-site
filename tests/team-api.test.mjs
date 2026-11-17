@@ -37,9 +37,12 @@ test('a person is added with a work email on the company domain that nobody else
   // nothing to hand over: that account opens the board from now on
   assert.equal('setupUrl' in ok.json, false);
   assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: s.as("mario.o'brien@equipo.test") })).status, 200);
-  // teammates see each other's names and numbers, not each other's addresses
-  const seen = await s.call('GET', '/equipo/api/me', undefined, { cookie: s.as("mario.o'brien@equipo.test") });
-  assert.equal(JSON.stringify(seen.json).includes('jefe@equipo.test'), false);
+  // teammates see each other's names and numbers, not each other's addresses: the only address in a person's view is their own
+  await s.addRep(a.cookie, 'jose');
+  const seen = await s.call('GET', '/equipo/api/me', undefined, { cookie: s.as('jose@equipo.test') });
+  const { viewer, ...rest } = seen.json;
+  assert.equal(JSON.stringify(rest).includes('Mario Rep'), true);   // the teammate is there, by name
+  assert.deepEqual([viewer.email, JSON.stringify(rest).includes('@')], ['jose@equipo.test', false]);
 });
 
 test('nobody signed in gets 401, and an account that is not on the team gets 403 with the address it used', async (t) => {
