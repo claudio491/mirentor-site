@@ -8,6 +8,7 @@ import { openStore } from './lib/store.mjs';
 import { sheetsClient } from './lib/sheets.mjs';
 import { syncOne, syncPending } from './lib/sync.mjs';
 import { createDesk } from './lib/desk.mjs';
+import { createSales } from './lib/sales.mjs';
 import { startTeam } from './lib/team/api.mjs';
 
 const MAX_BODY = 16 * 1024;
@@ -29,7 +30,7 @@ const sameToken = (given, want) => {
   return a.length === b.length && timingSafeEqual(a, b);
 };
 
-export function createServer({ store, sheets, origins, limit = 10, visitLimit = 30, desk = null, adminToken = '', team = null, log = console.error }) {
+export function createServer({ store, sheets, origins, limit = 10, visitLimit = 30, desk = null, sales = null, adminToken = '', team = null, log = console.error }) {
   const hits = new Map();
   const visitHits = new Map();
 
@@ -60,10 +61,11 @@ export function createServer({ store, sheets, origins, limit = 10, visitLimit = 
     };
     const { pathname } = new URL(req.url, 'http://x');
 
-    if (req.method === 'GET' && pathname === '/healthz') return send(200, { ok: true, sheets: !!sheets, pending: store.pending().length, dataDir: store.dir, desk: !!desk });
+    if (req.method === 'GET' && pathname === '/healthz') return send(200, { ok: true, sheets: !!sheets, pending: store.pending().length, dataDir: store.dir, desk: !!desk, sales: !!sales });
     if (desk && (await desk(req, res, pathname))) return;
     // The sales team's platform lives under /equipo and answers nothing else.
     if (team && (await team(req, res, pathname))) return;
+    if (sales && (await sales(req, res, pathname))) return;
     // The site's home asks where the visitor is to pick its default language. Nothing is stored.
     if (pathname === '/api/geo') {
       if (!allowed) return send(403, { ok: false });
@@ -140,10 +142,16 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const origins = (process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
   const port = Number(process.env.PORT || 10000);
   const desk = createDesk({ dir: store.dir, password: process.env.DESK_PASSWORD, pushToken: process.env.DESK_PUSH_TOKEN, host: process.env.DESK_HOST });
+  // Sales portal: on with a Google client ID and a session secret. SALES_DEV_LOGIN=1 is for a local run only.
+  const sales = createSales({
+    clientId: process.env.SALES_GOOGLE_CLIENT_ID, secret: process.env.SALES_SESSION_SECRET, host: process.env.SALES_HOST,
+    pushToken: process.env.DESK_PUSH_TOKEN, allow: process.env.SALES_ALLOW, root: process.env.SALES_ROOT || `${store.dir}/sales`,
+    devLogin: process.env.SALES_DEV_LOGIN === '1' && !process.env.RENDER,
+  });
   const adminToken = process.env.VISITS_TOKEN || process.env.DESK_PUSH_TOKEN || '';
   // The sales team platform is off until TEAM_ENABLED=1. It signs sessions with TEAM_SECRET, or with the two desk secrets when
   // that is not set. If it cannot start, the waitlist and the desk start without it.
   const team = startTeam(process.env, store.dir);
-  createServer({ store, sheets, origins, desk, adminToken, team }).listen(port, () => console.log(`waitlist on ${port}, sheets ${sheets ? 'on' : 'off'}, desk ${desk ? 'on' : 'off'}, team ${team ? 'on' : 'off'}, ${store.pending().length} pending`));
+  createServer({ store, sheets, origins, desk, sales, adminToken, team }).listen(port, () => console.log(`waitlist on ${port}, sheets ${sheets ? 'on' : 'off'}, desk ${desk ? 'on' : 'off'}, sales ${sales ? 'on' : 'off'}, team ${team ? 'on' : 'off'}, ${store.pending().length} pending`));
   if (sheets) { syncPending(store, sheets); setInterval(() => syncPending(store, sheets), 60_000); }
 }
