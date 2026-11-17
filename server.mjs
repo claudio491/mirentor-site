@@ -8,6 +8,7 @@ import { openStore } from './lib/store.mjs';
 import { sheetsClient } from './lib/sheets.mjs';
 import { syncOne, syncPending } from './lib/sync.mjs';
 import { createDesk } from './lib/desk.mjs';
+import { createTeam } from './lib/team/api.mjs';
 
 const MAX_BODY = 16 * 1024;
 const WINDOW_MS = 10 * 60 * 1000;
@@ -28,7 +29,7 @@ const sameToken = (given, want) => {
   return a.length === b.length && timingSafeEqual(a, b);
 };
 
-export function createServer({ store, sheets, origins, limit = 10, visitLimit = 30, desk = null, adminToken = '' }) {
+export function createServer({ store, sheets, origins, limit = 10, visitLimit = 30, desk = null, adminToken = '', team = null }) {
   const hits = new Map();
   const visitHits = new Map();
 
@@ -61,6 +62,8 @@ export function createServer({ store, sheets, origins, limit = 10, visitLimit = 
 
     if (req.method === 'GET' && pathname === '/healthz') return send(200, { ok: true, sheets: !!sheets, pending: store.pending().length, dataDir: store.dir, desk: !!desk });
     if (desk && (await desk(req, res, pathname))) return;
+    // The sales team's platform lives under /equipo and answers nothing else.
+    if (team && (await team(req, res, pathname))) return;
     // The site's home asks where the visitor is to pick its default language. Nothing is stored.
     if (pathname === '/api/geo') {
       if (!allowed) return send(403, { ok: false });
@@ -129,6 +132,9 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const port = Number(process.env.PORT || 10000);
   const desk = createDesk({ dir: store.dir, password: process.env.DESK_PASSWORD, pushToken: process.env.DESK_PUSH_TOKEN, host: process.env.DESK_HOST });
   const adminToken = process.env.VISITS_TOKEN || process.env.DESK_PUSH_TOKEN || '';
-  createServer({ store, sheets, origins, desk, adminToken }).listen(port, () => console.log(`waitlist on ${port}, sheets ${sheets ? 'on' : 'off'}, desk ${desk ? 'on' : 'off'}, ${store.pending().length} pending`));
+  // The team platform signs its sessions with TEAM_SECRET, or with the two desk secrets together when that is not set.
+  const teamSecret = process.env.TEAM_SECRET || (process.env.DESK_PASSWORD && process.env.DESK_PUSH_TOKEN ? `${process.env.DESK_PASSWORD}|${process.env.DESK_PUSH_TOKEN}` : '');
+  const team = createTeam({ dir: store.dir, secret: teamSecret, pushToken: process.env.TEAM_PUSH_TOKEN || process.env.DESK_PUSH_TOKEN, origins, publicBase: process.env.TEAM_PUBLIC_BASE || '', dev: process.env.TEAM_DEV === '1' });
+  createServer({ store, sheets, origins, desk, adminToken, team }).listen(port, () => console.log(`waitlist on ${port}, sheets ${sheets ? 'on' : 'off'}, desk ${desk ? 'on' : 'off'}, team ${team ? 'on' : 'off'}, ${store.pending().length} pending`));
   if (sheets) { syncPending(store, sheets); setInterval(() => syncPending(store, sheets), 60_000); }
 }

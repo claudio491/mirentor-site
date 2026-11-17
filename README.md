@@ -30,6 +30,9 @@ Takes the waitlist form from the Mirentor site, keeps every sign-up on disk, and
 | `DESK_PUSH_TOKEN` | bearer token the desk sync uses to push the copy; unset turns `/desk` off |
 | `DESK_HOST` | `desk.mirentor.com`: on that host the desk sits at the root (`/`, `/login`, `/data.json`) |
 | `GOOGLE_SA_JSON` | the service account key, pasted whole. Share the sheet with its `client_email` as Editor. |
+| `TEAM_SECRET` | optional: signs the `/equipo` sessions. Unset, `DESK_PASSWORD` and `DESK_PUSH_TOKEN` together are used; with none of them `/equipo` is off |
+| `TEAM_PUSH_TOKEN` | optional bearer token for the nightly CRM routine and the first manager; unset, `DESK_PUSH_TOKEN` is used |
+| `TEAM_PUBLIC_BASE` | optional: the address reps open (for example `https://www.mirentor.com`), used to build the setup links |
 
 ## Team Desk copy (`/desk`)
 
@@ -45,6 +48,43 @@ A view-only copy of the Prentis Team Desk (the claude.ai artifact) for the team,
 
 The page runs unchanged; a shim stands in for the claude.ai runtime with view-only access. Every `/desk` answer is
 `no-store` and `noindex`. Changing `DESK_PASSWORD` signs everyone out.
+
+## Sales team platform (`/equipo`)
+
+Where the field sales reps log each contact and see their own numbers, and where managers see the team. Spec and rules:
+`docs/superpowers/specs/2026-11-16-mirentor-sales-team-platform-design.md`. The client lives in `team/`.
+
+- One file is the truth: `<DATA_DIR>/team/events.jsonl`, one JSON line per change, replayed on start. Points, marks, streaks
+  and tables are computed from it on every request (`lib/team/score.mjs`, `lib/team/view.mjs`); the season's numbers are in
+  `lib/team/rules.mjs`. A correction is a new line (a void), never an edit.
+- Access: each rep has a handle and a six-digit PIN they choose themselves. A manager creates the rep and gets a link
+  (`/equipo/alta?t=...`) that works once and for 72 hours; the rep opens it and sets the PIN. Only a scrypt hash is kept.
+  Five wrong PINs lock the handle for 15 minutes. A new link signs the rep out and retires the old PIN.
+- Sessions: the `mteam` cookie (30 days, signed, HttpOnly, Secure, SameSite=Lax, path `/equipo`).
+- The answers carry codes and numbers only. Every sentence the rep reads is in `team/i18n.js`, in Spanish and English.
+
+| Who | Routes under `/equipo/api` |
+|---|---|
+| Anyone | `POST login {handle, pin}`, `GET setup?t=`, `POST setup {token, pin}`, `POST logout` |
+| A rep | `GET me`, `GET leads?q=`, `POST log`, `POST close {tomorrow, blocker, preview?}`, `POST goal {k}`, `POST kudos {target, on}`, `POST play {logId, text}`, `POST held {logId}`, `POST lang {lang}` |
+| A manager | `GET me?as=<rep id>` (read only), `GET team`, `POST confirm {logId, what}`, `POST void {logId, reason}`, `POST reps`, `POST reps/<id> {patch}`, `POST reps/<id>/link`, `POST dayoff {scope, date}`, `POST site`, `POST site/<id> {what}`, `POST badge {rep, text}` |
+| The bearer token | `POST bootstrap {handle, name}`, `PUT leads [...]`, `GET export?since=<iso>`, `POST leadmap {pairs}` |
+
+- `POST log {id, lead: {id} or {name, zone}, kind, channel?, tag?, note?, contact?, when?, voicemail?, clientAt}` answers
+  `{repeat, gained, pending, tookLead, streakUp, me}`. The `id` is made on the phone, so a retry never counts twice; the
+  same result on the same business the same day is a repeat too. The time kept is the server's; a phone clock more than
+  10 minutes off marks the log `late` for the manager. After the day is closed it answers `409 day_closed`.
+- `POST close` writes the day's report in the agreed Spanish template and locks the day. `preview: true` returns the
+  report without closing.
+- `POST bootstrap` creates the first manager (role `admin`) and answers their setup link. Called again with the same
+  handle it answers a new link, which is the way back in after a lost PIN. `node tools/team-admin.mjs` wraps it.
+- The nightly CRM routine pushes the lead list with `PUT leads` (`{id, company, city, zone, stage, lastContact, doNotCall}`),
+  reads the day with `GET export` (`logs` with the CRM's channel and outcome, `stages`, `newLeads`, `doNotCall`) and
+  answers each business added in the app with its CRM id through `POST leadmap`. `stages` holds the highest stage the
+  day's logs justify: the routine raises a CRM stage, never lowers it.
+- Writes need `content-type: application/json` and, when the browser sends an `Origin`, one that is this host or in
+  `ALLOWED_ORIGINS`. Bodies stop at 16 KB (`PUT leads` at 4 MB). Every answer is `no-store` and `noindex`; the page
+  ships with a policy that allows scripts, styles and fonts from this origin only.
 
 ## Tests
 
