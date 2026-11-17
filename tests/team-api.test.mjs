@@ -231,6 +231,8 @@ test('the nightly routine pushes leads, reads the day\'s logs and maps new busin
   assert.deepEqual(found.json.leads.map((l) => [l.id, l.name, l.known]), [['PA-0001', 'Ferretería El Roble', true]]);
   const dnc = await s.call('POST', '/equipo/api/log', logBody('cdcd0000', { lead: { id: 'PA-0004' } }), { cookie: m.cookie });
   assert.deepEqual([dnc.status, dnc.json.error], [409, 'do_not_call']);
+  // The rule of the search holds for a request that names an id directly: own city only, and nothing already signed.
+  for (const id of ['PA-0002', 'PA-0003']) { const no = await s.call('POST', '/equipo/api/log', logBody(`cdcd9${id.slice(-3)}`, { lead: { id } }), { cookie: m.cookie }); assert.deepEqual([id, no.status, no.json.error], [id, 400, 'lead']); }
   const known = await s.call('POST', '/equipo/api/log', logBody('cdcd0001', { lead: { id: 'PA-0001' } }), { cookie: m.cookie });
   assert.equal(known.json.gained, 10);
   await s.call('POST', '/equipo/api/log', logBody('cdcd0002', { lead: { name: 'Bodega Nueva', zone: 'Calidonia' }, kind: 'message', channel: 'email' }), { cookie: m.cookie });
