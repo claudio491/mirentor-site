@@ -55,7 +55,7 @@ test('portal: login page, Google sign-in, pages, logout', async () => {
   try {
     let r = await fetch(`${base}/ventas`);
     assert.equal(r.status, 200);
-    assert.match(await r.text(), /g_id_onload[\s\S]*data-login_uri="http:\/\/127\.0\.0\.1:\d+\/ventas\/auth"/);
+    assert.match(await r.text(), /g_id_onload[\s\S]*data-callback="mirentorSignIn"/);
     r = await fetch(`${base}/ventas/rutina`, { redirect: 'manual' });
     assert.equal(r.status, 303, 'pages need a session');
     assert.equal((await fetch(`${base}/other`)).status, 404, 'the rest of the site is untouched');
@@ -95,7 +95,7 @@ test('portal: on its own host it sits at the root', async () => {
     const get = (host) => new Promise((ok, no) => http.get(`${base}/`, { headers: { host, 'x-forwarded-proto': 'https' } }, (res) => {
       let b = ''; res.on('data', (d) => { b += d; }); res.on('end', () => ok({ status: res.statusCode, body: b }));
     }).on('error', no));
-    assert.match((await get('sales.mirentor.com')).body, /data-login_uri="https:\/\/sales\.mirentor\.com\/auth"/);
+    assert.match((await get('sales.mirentor.com')).body, /data-callback="mirentorSignIn"/);
     assert.equal((await get('www.mirentor.com')).status, 404);
   } finally { srv.close(); }
 });
@@ -129,5 +129,21 @@ test('portal: files arrive by PUT with the push token and are then served', asyn
     const r = await fetch(`${base}/ventas/auth`, { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: 'g_csrf_token=a' }, body: 'credential=t&g_csrf_token=a' });
     const page = await fetch(`${base}/ventas/sub/nuevo`, { headers: { cookie: cookieOf(r) } });
     assert.equal(await page.text(), '<p>new</p>');
+  } finally { srv.close(); }
+});
+
+test('portal: the popup login posts JSON with its header and gets the cookie', async () => {
+  const sales = createSales({ clientId: CLIENT, secret: 's', root: root(), verify: async (c) => (c === 'tok' ? good : null), now: () => nowS * 1000 });
+  const srv = await serve(sales);
+  const base = `http://127.0.0.1:${srv.address().port}`;
+  const post = (body, hdr = { 'x-sales-login': '1' }) => fetch(`${base}/ventas/auth`, { method: 'POST', headers: { 'content-type': 'application/json', ...hdr }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await post({ credential: 'tok' }, {})).status, 400, 'no header, no login');
+    const bad = await post({ credential: 'nope' });
+    assert.equal(bad.status, 403);
+    assert.match((await bad.json()).error, /confirmar/);
+    const r = await post({ credential: 'tok' });
+    assert.equal(r.status, 200);
+    assert.match(r.headers.get('set-cookie'), /^msales=/);
   } finally { srv.close(); }
 });
