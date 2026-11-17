@@ -265,7 +265,7 @@ const es = {
   // ---- manager: reps ----
   'reps.lead': 'Vendedores', 'reps.add': 'Crear vendedor', 'reps.add.title': 'vendedor nuevo',
   'reps.form.name': 'Nombre y apellido', 'reps.form.handle': 'Usuario', 'reps.form.handle.hint': 'Minúsculas, sin espacios. Con esto entra.',
-  'reps.form.city': 'Ciudad', 'reps.form.country': 'País', 'reps.form.start': 'Fecha de inicio', 'reps.form.workdays': 'Días de trabajo', 'reps.form.role': 'Rol',
+  'reps.form.city': 'Ciudad', 'reps.form.city.hint': 'Escrita igual que en el CRM. Ej.: Panama City', 'reps.form.country': 'País', 'reps.form.start': 'Fecha de inicio', 'reps.form.workdays': 'Días de trabajo', 'reps.form.role': 'Rol',
   'reps.form.submit': 'Crear y generar enlace', 'reps.form.save': 'Guardar cambios', 'reps.edit.title': 'editar vendedor', 'reps.saved': 'Cambios guardados.',
   'reps.link.title': 'enlace de un solo uso', 'reps.link.p': 'Envíaselo a {name}. Sirve una vez y vence en 72 horas. Con él elige su propio PIN: nadie más lo ve.',
   'reps.link.copy': 'Copiar enlace', 'reps.link.copied': 'Enlace copiado.', 'reps.link.once': 'No se vuelve a mostrar. Si se pierde, genera uno nuevo.',
@@ -536,7 +536,7 @@ const en = {
   // ---- manager: reps ----
   'reps.lead': 'Reps', 'reps.add': 'Create a rep', 'reps.add.title': 'new rep',
   'reps.form.name': 'Full name', 'reps.form.handle': 'Username', 'reps.form.handle.hint': 'Lowercase, no spaces. They sign in with this.',
-  'reps.form.city': 'City', 'reps.form.country': 'Country', 'reps.form.start': 'Start date', 'reps.form.workdays': 'Working days', 'reps.form.role': 'Role',
+  'reps.form.city': 'City', 'reps.form.city.hint': 'Written as in the CRM. E.g. Panama City', 'reps.form.country': 'Country', 'reps.form.start': 'Start date', 'reps.form.workdays': 'Working days', 'reps.form.role': 'Role',
   'reps.form.submit': 'Create and get the link', 'reps.form.save': 'Save changes', 'reps.edit.title': 'edit rep', 'reps.saved': 'Changes saved.',
   'reps.link.title': 'one-time link', 'reps.link.p': 'Send it to {name}. It works once and expires in 72 hours. They choose their own PIN with it: nobody else sees it.',
   'reps.link.copy': 'Copy link', 'reps.link.copied': 'Link copied.', 'reps.link.once': 'It is not shown again. If it gets lost, generate a new one.',

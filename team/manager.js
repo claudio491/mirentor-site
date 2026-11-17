@@ -144,7 +144,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     const today = dayOf(team.serverTime, S.me.me.tz);
     const fields = [{ name: 'name', label: t('reps.form.name'), value: rep ? rep.name : '', max: 80 }];
     if (!rep) fields.push({ name: 'handle', label: t('reps.form.handle'), hint: t('reps.form.handle.hint'), lower: true, max: 40 });
-    fields.push({ name: 'city', label: t('reps.form.city'), value: rep ? rep.city : 'Panama City', max: 60 },
+    fields.push({ name: 'city', label: t('reps.form.city'), hint: t('reps.form.city.hint'), value: rep ? rep.city : 'Panama City', max: 60 },
       { name: 'country', type: 'select', label: t('reps.form.country'), value: rep ? rep.country : 'PA', options: ['PA', 'CO'].map((c) => ({ value: c, label: t(`country.${c}`) })) },
       { name: 'startDate', type: 'date', label: t('reps.form.start'), value: rep ? rep.startDate : today },
       { name: 'workdays', type: 'days', label: t('reps.form.workdays'), value: rep ? rep.workdays : [1, 2, 3, 4, 5], options: [1, 2, 3, 4, 5, 6, 7].map((n) => ({ value: n, label: dayName(n) })) });

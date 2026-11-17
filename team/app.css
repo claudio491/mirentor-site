@@ -110,6 +110,8 @@ svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;st
 .field input::placeholder,.field textarea::placeholder{color:#8d949a}
 .field input:focus-visible,.field textarea:focus-visible,.field select:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
 .field .hint{color:var(--mist);font-size:13px}
+fieldset.field{border:0;padding:0;margin-left:0;margin-right:0;min-width:0}
+fieldset.field legend{padding:0;margin-bottom:6px}
 .field input.pin{font:600 24px/1 var(--mono);letter-spacing:.42em;text-align:center;padding-right:0}
 .field input[type=search]{-webkit-appearance:none;appearance:none}
 .formerr{margin-top:12px;padding:10px 12px;border-left:2px solid var(--signal);background:rgba(255,90,54,.08);font-size:14px;border-radius:0 6px 6px 0}
