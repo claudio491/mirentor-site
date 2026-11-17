@@ -24,6 +24,9 @@ export const h = (tag, attrs, ...kids) => fill(document.createElement(tag), attr
 export const put = (node, ...kids) => { node.replaceChildren(...kids.flat(3).filter((k) => k != null && k !== false)); return node; };
 /** The same for SVG. */
 export const s = (tag, attrs, ...kids) => fill(document.createElementNS(SVG, tag), attrs, kids);
+let photoAddress = (person) => `/equipo/api/photo/${encodeURIComponent(person.id)}?v=${encodeURIComponent(person.photo)}`;
+/** Where a person's photo is read from: the app's own server, unless a copy that runs without one says otherwise. */
+export function setPhotoAddress(fn) { photoAddress = fn; }
 /** A person's face in a round lens: their photo when there is one, their initials when not. The name is always
  *  written next to it, so the face itself says nothing to a screen reader. */
 export function face(person, cls = '') {
@@ -32,7 +35,7 @@ export function face(person, cls = '') {
   const node = h('span', { class: cls ? `face ${cls}` : 'face', 'aria-hidden': 'true' });
   if (!person.photo) { node.append(initials()); return node; }
   // The address carries the photo's version, so a new photo is a new address and an old one can stay on the phone.
-  const img = h('img', { src: `/equipo/api/photo/${encodeURIComponent(person.id)}?v=${encodeURIComponent(person.photo)}`, alt: '', decoding: 'async',
+  const img = h('img', { src: photoAddress(person), alt: '', decoding: 'async',
     onerror: () => node.replaceChildren(initials()) });
   node.append(img);
   return node;

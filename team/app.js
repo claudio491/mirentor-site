@@ -649,10 +649,11 @@ async function signOut() {
   try { await api('POST', 'logout', {}); } catch { /* signing out of this phone works even without signal: the next call will ask for the PIN */ }
   store.del(KEY.me); S.tab = null; showAuth();
 }
-async function start() {
+/** `as` is whose screens to open as their manager. Left out, the page's own address says it. */
+async function start(as = undefined) {
   const url = new URL(location.href);
   if (url.pathname.replace(/\/$/, '').endsWith('/alta')) return showSetup(url.searchParams.get('t') || '');
-  S.as = url.searchParams.get('as');
+  S.as = as === undefined ? url.searchParams.get('as') : as;
   try { enter(await api('GET', S.as ? `me?as=${encodeURIComponent(S.as)}` : 'me')); }
   catch (e) {
     const cached = store.get(KEY.me, null);
@@ -661,6 +662,14 @@ async function start() {
     else showAuth(errText(e));
   }
   return undefined;
+}
+/** Open a rep's screens as their manager, or come back to the team, without loading the page again. */
+async function viewAs(id = null) {
+  const url = new URL(location.href);
+  if (id) url.searchParams.set('as', id); else url.searchParams.delete('as');
+  try { history.pushState(null, '', url); } catch { /* a page shown inside another one may not change its address: the view changes all the same */ }
+  S.tab = null; window.scrollTo(0, 0);
+  await start(id);
 }
 function signIn(e) {
   e.preventDefault();
@@ -695,10 +704,13 @@ async function showSetup(token) {
 }
 
 // ---- wiring ----
-const manager = createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut });
+const manager = createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs });
 function wire() {
   initPop(); initSheets();
-  $('#home').addEventListener('click', (e) => { if (!S.me || S.as) return; e.preventDefault(); setTab(S.mgr ? 'team' : 'today'); });
+  $('#home').addEventListener('click', (e) => { if (!S.me) return; e.preventDefault(); if (S.as) viewAs(null); else setTab(S.mgr ? 'team' : 'today'); });
+  $('#asExit').addEventListener('click', (e) => { e.preventDefault(); viewAs(null); });
+  // Back and forward move between the team and a rep's screens, as the address says.
+  addEventListener('popstate', () => { S.tab = null; start(); });
   $('#langSeg').addEventListener('click', (e) => { const b = e.target.closest('button[data-lang]'); if (b) switchLang(b.dataset.lang); });
   src($('#streakChip'), () => t('top.streak'), () => { const st = S.me.streak; return t('src.streak', { spares: st.spares, max: S.me.rules.spares, best: t('u.days', { n: st.best }) }); });
   $('#queueChip').addEventListener('click', flush);

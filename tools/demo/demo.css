@@ -1,0 +1,8 @@
+/* The bar of the demonstration copy. It sits above the app and is not part of it. */
+.demo{position:relative;z-index:2;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--rule);font-size:14px}
+.demo-tag{display:inline-flex;align-items:center;gap:7px;font:500 12px/1 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--porcelain);white-space:nowrap}
+.demo-tag i{width:7px;height:7px;border-radius:50%;background:var(--signal);flex:none}
+.demo-who{display:inline-flex;align-items:center;gap:8px;color:var(--mist);min-width:0}
+.demo-who select{min-height:36px;max-width:100%;border:1px solid var(--hair);border-radius:var(--r-input);background:var(--graphite);color:var(--porcelain);padding:6px 10px;font:inherit}
+.demo-who select:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.demo-note{flex:1 1 240px;min-width:0;color:var(--mist);font-size:13px;line-height:1.35}

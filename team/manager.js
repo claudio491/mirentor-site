@@ -6,11 +6,13 @@ import { miniHand, lens, setLens } from './hand.js';
 const MONDAY = '2026-11-16';   // any Monday: only used to name the days of the week
 const dayName = (n) => wdShort(addDays(MONDAY, n - 1));
 
-export function createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut }) {
+export function createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs }) {
   let team = null, city = 'all';
   const tzOf = (rep) => (rep && rep.tz) || S.me.me.tz;
   const repById = (id) => team.reps.find((r) => r.id === id) || team.others.find((r) => r.id === id);
   const isAdmin = () => S.me.viewer.role === 'admin';
+  /** A link to a rep's screens opens them in place. With a modifier key it stays a plain link, for a new tab. */
+  const openAs = (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); viewAs(e.currentTarget.dataset.as); };
 
   async function load() { team = await api('GET', 'team'); }
   const needsCount = () => (team ? team.needs.confirm.length + team.needs.silent.length + team.needs.late.length + team.needs.pace.length : 0);
@@ -43,7 +45,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     return h('li', { class: 'brow' }, h('span', { class: 'pos num' }),
       h('span', { class: 'who' }, h('span', { class: 'fc' }), h('span', { class: 'wt' }, h('b'), h('small'), h('span', { class: 'flags' }))), h('span', { class: 'h' }),
       h('span', { class: 'cells' }, COLS.map((c) => h('span', { class: `m r c-${c}` }, h('span', { class: 'cell-l' }), h('span', { class: 'cv num' })))),
-      h('span', { class: 'act' }, h('a', { class: 'mini-btn' })), h('i', { class: 'vf', 'aria-hidden': 'true' }));
+      h('span', { class: 'act' }, h('a', { class: 'mini-btn', onclick: openAs })), h('i', { class: 'vf', 'aria-hidden': 'true' }));
   }
   function paintRow(row, r) {
     const zone = tzOf(r), g = team.goals, flags = flagsOf(r), w = r.week.counts;
@@ -65,7 +67,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     const rep = r.today.isWork ? (r.today.closed ? t('mgr.report.closed', { time: clock(r.today.closedAt, zone) }) : t('mgr.report.open')) : t('mgr.report.rest');
     set('report', t('col.report'), rep); $('.c-report .cv', row).classList.toggle('ok', !!r.today.closed);
     set('last', t('col.last'), r.today.lastLogAt ? ago(r.today.lastLogAt, team.serverTime, zone) : t('mgr.last.none'));
-    const link = $('.act a', row); link.href = `/equipo?as=${encodeURIComponent(r.id)}`; link.textContent = t('mgr.viewas.row'); link.setAttribute('aria-label', t('mgr.viewas', { name: r.first }));
+    const link = $('.act a', row); link.href = `/equipo?as=${encodeURIComponent(r.id)}`; link.dataset.as = r.id; link.textContent = t('mgr.viewas.row'); link.setAttribute('aria-label', t('mgr.viewas', { name: r.first }));
   }
   function renderTeam(animate) {
     const tn = team.team, day = dayOf(team.serverTime, S.me.me.tz);
@@ -197,7 +199,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     return h('li', {},
       h('span', { class: 'pers' }, face(r), h('span', { class: 'pt' }, h('b', { text: r.name }), h('small', { text: `${r.handle} · ${isPlayer ? '' : `${t(`role.${r.role}`)} · `}${cityName(r.city)} · ${t('reps.start', { date: dayMonth(r.startDate) })} · ${days}` }), h('small', { text: status }), leads)),
       h('span', { class: 'acts' },
-        isPlayer ? h('a', { class: 'mini-btn', href: `/equipo?as=${encodeURIComponent(r.id)}`, text: t('mgr.viewas', { name: r.first }) }) : null,
+        isPlayer ? h('a', { class: 'mini-btn', href: `/equipo?as=${encodeURIComponent(r.id)}`, 'data-as': r.id, onclick: openAs, text: t('mgr.viewas', { name: r.first }) }) : null,
         canTouch && r.role === 'rep' ? h('button', { class: 'mini-btn', type: 'button', text: t('reps.edit'), onclick: () => repForm(r) }) : null,
         canTouch && !self && r.active ? h('button', { class: 'mini-btn', type: 'button', text: t('reps.newlink'), onclick: (e) => newLink(e.currentTarget, r) }) : null,
         canTouch && !self ? h('button', { class: 'mini-btn', type: 'button', text: t(r.active ? 'reps.deactivate' : 'reps.activate'), onclick: (e) => act(e.currentTarget, () => api('POST', `reps/${encodeURIComponent(r.id)}`, { patch: { active: !r.active } }), 'reps.saved') }) : null));

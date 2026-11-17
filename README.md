@@ -123,6 +123,11 @@ Where the field sales reps log each contact and see their own numbers, and where
   `tools/team-roster.mjs`; git ignores that folder, and it must stay out of the repository). The same command then
   shows those people and their photos in real time with no activity, because nothing is made up, and no screen says
   sample. `--sample` brings the fictional sample back.
+- To show it from anywhere before it is online: `node tools/team-demo.mjs <out-dir>` packs the app and the team's own
+  server code into one page that needs no service (`artifact.html` for an artifact, `index.html` to open locally).
+  The server code runs inside the browser on stand-ins for Node (`tools/demo/`), the people come from the same roster
+  file, and what a viewer logs stays in that browser. Everybody signs in with one public PIN from a bar on top, so
+  this copy is for demonstration only. The page carries the roster's names and photos: keep it out of the repository.
 - Writes need `content-type: application/json` and, when the browser sends an `Origin`, one that is this host or in
   `ALLOWED_ORIGINS`. Bodies stop at 16 KB (`PUT leads` at 4 MB). Every answer is `no-store` and `noindex`; the page
   ships with a policy that allows scripts, styles and fonts from this origin only.
