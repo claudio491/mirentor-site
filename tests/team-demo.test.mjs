@@ -88,3 +88,36 @@ test('inside the page, the team\'s own server code lets the viewer be anyone on 
   assert.equal(JSON.parse((await again.call('GET', 'me')).body).week.points, 8);
   assert.equal((await again.signIn('tres')).status, 200);
 });
+
+test('a copy opened before keeps what was logged in it, and takes what the team list has gained since', async () => {
+  const req = await load(build().script);
+  const { startServer } = req('tools/demo/server.js');
+  const before = req('tools/demo/demo-data.js').PEOPLE;   // as an earlier build carried them: no addresses
+  let kept = '';
+  const first = startServer({ people: before, onSave: (text) => { kept = text; } });
+  await first.signIn('uno');
+  await first.call('POST', 'log', { id: 'demo-log-00000002', lead: { name: 'Ferretería de prueba', zone: 'Centro' }, kind: 'talk', clientAt: new Date().toISOString() });
+
+  // the next build knows everyone's address, one photo more, and a new teammate
+  const now = [...before.map((p) => ({ ...p, email: `${p.handle}@mirentor.com` })), { id: 'r_cuatro', handle: 'cuatro', name: 'Persona Cuatro', role: 'rep', city: 'Panama City', country: 'PA', email: 'cuatro@mirentor.com', photo: null }];
+  let again = '';
+  const s = startServer({ people: now, saved: kept, onSave: (text) => { again = text; } });
+  assert.deepEqual(s.people().map((p) => p.handle).sort(), ['cuatro', 'dos', 'guia', 'uno']);
+  await s.signIn('uno');
+  assert.equal(JSON.parse((await s.call('GET', 'me')).body).week.points, 8);   // what was logged is still there
+  await s.signIn('guia');
+  const team = JSON.parse((await s.call('GET', 'team')).body);
+  assert.deepEqual([...team.reps, ...team.others].map((r) => [r.handle, r.email]).sort(), [['cuatro', 'cuatro@mirentor.com'], ['dos', 'dos@mirentor.com'], ['guia', 'guia@mirentor.com'], ['uno', 'uno@mirentor.com']]);
+  assert.equal(again.length > kept.length, true);   // the catching up is kept, so it happens once
+
+  // opened a third time, nothing more is added
+  const third = startServer({ people: now, saved: again, onSave: (text) => { again = text; } });
+  const size = again.length;
+  await third.signIn('guia');
+  assert.equal(again.length, size);
+  // an address someone else took inside the copy is left alone
+  const clash = startServer({ people: [...now, { id: 'r_cinco', handle: 'cinco', name: 'Persona Cinco', role: 'rep', email: 'uno@mirentor.com' }], saved: again, onSave: () => {} });
+  await clash.signIn('guia');
+  const five = [...JSON.parse((await clash.call('GET', 'team')).body).reps].find((r) => r.handle === 'cinco');
+  assert.deepEqual([five.name, five.email], ['Persona Cinco', '']);
+});

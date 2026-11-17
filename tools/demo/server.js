@@ -15,17 +15,25 @@ const DIR = '/demo', LOG = '/demo/team/events.jsonl', BASE = '/equipo';
 export function startServer({ people = [], saved = '', onSave = () => {}, now = () => new Date() } = {}) {
   files.watch(() => {}); files.wipe();
   if (saved) files.preload(LOG, saved);
-  else {
-    const store = openTeamStore(DIR, { now: () => now().toISOString(), log: () => {} }), t = now().toISOString();
-    for (const p of people) {
-      store.append({ type: 'rep.created', id: p.id, handle: p.handle, ...(p.email ? { email: p.email } : {}), name: p.name, role: p.role || 'rep', country: p.country || 'PA', city: p.city || '', tz: p.tz || 'America/Panama',
-        workdays: [1, 2, 3, 4, 5], ...(p.startDate ? { startDate: p.startDate } : {}), lang: 'es', t });
-      if (p.photo) store.append({ type: 'rep.photo', id: p.id, ext: 'jpg', v: p.photo, t });
-    }
+  // A copy opened before goes on from its own log, and the list may have gained since then: a teammate, the address
+  // someone signs in with, a photo. The log takes those in, once, and nothing done in the copy is touched: an address
+  // or a name changed there stays as it was left.
+  const store = openTeamStore(DIR, { now: () => now().toISOString(), log: () => {} }), t = now().toISOString(), { state } = store;
+  let added = 0;
+  const put = (event) => { store.append({ ...event, t }); added += 1; };
+  for (const p of people) {
+    const known = state.reps.get(p.id), email = p.email && !state.emails.has(p.email) ? p.email : '';
+    if (!known && state.handles.has(p.handle)) continue;   // someone made in the copy already goes by that name
+    if (!known) {
+      put({ type: 'rep.created', id: p.id, handle: p.handle, ...(email ? { email } : {}), name: p.name, role: p.role || 'rep', country: p.country || 'PA', city: p.city || '', tz: p.tz || 'America/Panama',
+        workdays: [1, 2, 3, 4, 5], ...(p.startDate ? { startDate: p.startDate } : {}), lang: 'es' });
+    } else if (email && !known.email) put({ type: 'rep.updated', id: p.id, patch: { email } });
+    const has = state.reps.get(p.id).photo;
+    if (p.photo && (!has || has.v !== p.photo)) put({ type: 'rep.photo', id: p.id, ext: 'jpg', v: p.photo });
   }
   const keep = () => onSave(files.readFileSync(LOG, 'utf8'));
   files.watch((path) => { if (path === LOG) keep(); });
-  if (!saved) keep();
+  if (!saved || added) keep();
 
   let who = '';   // the id of whoever the viewer chose to be
   const team = createTeam({ dir: DIR, base: BASE, identify: () => (who ? { id: who } : null), pushToken: '', now, staticDir: '/none', dev: true, log: () => {} });
