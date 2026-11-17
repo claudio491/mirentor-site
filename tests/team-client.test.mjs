@@ -1,0 +1,100 @@
+// The client has no build step and no framework, so these checks stand in for a compiler:
+// every sentence exists in both languages, nothing the browser's policy forbids is in the page, and no markup is built from strings.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { DICT, makeT, LANGS } from '../team/i18n.js';
+import { KINDS, CHANNELS, RULES } from '../lib/team/rules.mjs';
+
+const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+const SCRIPTS = ['team/app.js', 'team/hand.js', 'team/manager.js', 'team/ui.js'];
+const flat = (v) => (Array.isArray(v) ? v.join(' ') : v);
+const holes = (v) => [...new Set(flat(v).match(/\{\w+\}/g) || [])].sort();
+
+test('Spanish and English have exactly the same keys, the same blanks and the same plural shape', () => {
+  assert.deepEqual(LANGS, ['es', 'en']);
+  assert.deepEqual(Object.keys(DICT.es).sort(), Object.keys(DICT.en).sort());
+  for (const k of Object.keys(DICT.es)) {
+    assert.deepEqual(holes(DICT.es[k]), holes(DICT.en[k]), `blanks differ in ${k}`);
+    assert.equal(Array.isArray(DICT.es[k]), Array.isArray(DICT.en[k]), `plural shape differs in ${k}`);
+    for (const lang of LANGS) assert.ok(flat(DICT[lang][k]).trim().length > 0, `${lang}.${k} is empty`);
+  }
+});
+
+test('no em dash anywhere a person reads, and the fixed vocabulary holds', () => {
+  for (const lang of LANGS) for (const [k, v] of Object.entries(DICT[lang])) assert.equal(/[—―]| – /.test(flat(v)), false, `${lang}.${k} has a dash`);
+  // One word per thing: the score is "puntos / points", the hand's joints are "marcas / marks".
+  for (const [k, v] of Object.entries(DICT.es)) assert.equal(/\bXP\b|\bpuntaje\b/i.test(flat(v)), false, `es.${k} names the score another way`);
+  for (const [k, v] of Object.entries(DICT.en)) assert.equal(/\bXP\b|\bscore points\b/i.test(flat(v)), false, `en.${k} names the score another way`);
+});
+
+test('every key the scripts ask for exists', () => {
+  const es = DICT.es;
+  for (const file of SCRIPTS) {
+    const src = read(file);
+    for (const m of src.matchAll(/\bt\(\s*'([^']+)'/g)) assert.ok(m[1] in es, `${file} uses a missing key: ${m[1]}`);
+    // Families built from a code: t(`feed.${code}`) needs at least one key with that prefix.
+    for (const m of src.matchAll(/\bt\(\s*`([a-zA-Z.]+)\$\{/g)) assert.ok(Object.keys(es).some((k) => k.startsWith(m[1])), `${file} uses a missing family: ${m[1]}`);
+  }
+  const page = read('team/index.html');
+  for (const m of page.matchAll(/data-t(?:-aria|-ph)?="([^"]+)"/g)) assert.ok(m[1] in es, `index.html uses a missing key: ${m[1]}`);
+});
+
+test('every code the server can send has its words', () => {
+  const need = [];
+  for (const k of Object.keys(KINDS)) need.push(`kind.${k}`);
+  for (const c of Object.keys(CHANNELS)) need.push(`ch.${c}`);
+  for (const l of RULES.levels) need.push(`level.${l.name}`);
+  const codes = ['visit', 'conversation', 'followup', 'message', 'reply', 'meeting_booked', 'meeting_held', 'contract_sent', 'contract_signed', 'site_signed', 'site_installed', 'site_first_hour', 'day_closed'];
+  for (const c of codes) need.push(`led.${c}`, `ledsrc.${c}`);
+  for (const c of ['talk', 'absent', 'call', 'reply', 'meeting', 'contract', 'meeting_held', 'contract_sent', 'contract_signed', 'site_signed', 'site_installed', 'site_first_hour', 'day_closed', 'badge']) need.push(`feed.${c}`);
+  for (const c of ['first_log', 'first_meeting', 'streak', 'full_hand', 'visits', 'first_site_live']) need.push(`badge.${c}`, `badge.info.${c}`);
+  for (const c of ['meeting', 'waitlist', 'not_now', 'not_fit', 'not_interested', 'do_not_call']) need.push(`tag.${c}`);
+  for (let i = 0; i < 4; i += 1) need.push(`habit.${i}`, `habit.${i}.s`, `habitname.${i}`);
+  // Every refusal the API can answer.
+  const api = read('lib/team/api.mjs');
+  const errors = new Set([...api.matchAll(/fail\(\d{3}, '([a-z_]+)'/g)].map((m) => m[1]));
+  assert.ok(errors.size > 20, 'the API refusals were not found');
+  for (const e of errors) need.push(`err.${e}`);
+  for (const k of need) for (const lang of LANGS) assert.ok(k in DICT[lang], `${lang} is missing ${k}`);
+});
+
+test('t fills the blanks, picks the plural and never returns a bare key', () => {
+  const es = makeT('es'), en = makeT('en');
+  assert.equal(es('today.of', { a: 1, b: 4 }), '1 de 4');
+  assert.equal(en('today.of', { a: 1, b: 4 }), '1 of 4');
+  assert.equal(es('u.points', { n: 1 }), '1 punto');
+  assert.equal(es('u.points', { n: 12 }), '12 puntos');
+  assert.equal(en('u.points', { n: 1 }), '1 point');
+  assert.equal(es('u.points', { n: 1240 }), '1,240 puntos');
+  assert.throws(() => es('no.such.key'), /no\.such\.key/);
+});
+
+test('the page obeys its own policy: no inline script, no inline style, no handler attributes', () => {
+  const page = read('team/index.html');
+  assert.equal(/<script(?![^>]*\ssrc=)[^>]*>/i.test(page), false, 'inline script');
+  assert.equal(/\sstyle\s*=/i.test(page), false, 'style attribute');
+  assert.equal(/<style[\s>]/i.test(page), false, 'style element');
+  assert.equal(/\son[a-z]+\s*=/i.test(page), false, 'handler attribute');
+  assert.match(page, /<script type="module" src="\/equipo\/app\.js"><\/script>/);
+  assert.match(page, /<meta name="robots" content="noindex, ?nofollow">/);
+  for (const m of page.matchAll(/(?:src|href)="(\/equipo\/[^"#?]+)"/g)) assert.ok(existsSync(new URL(`../team/${m[1].slice('/equipo/'.length)}`, import.meta.url)), `missing file ${m[1]}`);
+});
+
+test('the scripts never build markup from strings', () => {
+  for (const file of SCRIPTS) {
+    const src = read(file);
+    assert.equal(/innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function/.test(src), false, `${file} builds markup or code from a string`);
+    assert.equal(/\.style\.cssText|setAttribute\('style'/.test(src), false, `${file} writes a style attribute`);
+  }
+});
+
+test('the stylesheet keeps the motion rules', () => {
+  const css = read('team/app.css');
+  assert.equal(/transition:\s*all\b/.test(css), false, 'transition: all');
+  assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)/);
+  assert.equal(/scale\(0\)/.test(css), false, 'scale(0)');
+  for (const m of css.matchAll(/url\(([^)]+)\)/g)) { const f = m[1].replace(/["']/g, ''); if (!f.startsWith('data:')) assert.ok(existsSync(new URL(`../team/${f}`, import.meta.url)), `missing ${f}`); }
+  // Data is never set under 13 px: the only smaller sizes allowed are the mono labels.
+  for (const m of css.matchAll(/font(?:-size)?:[^;}]*?(\d+(?:\.\d+)?)px/g)) assert.ok(Number(m[1]) >= 11, `a ${m[1]}px font`);
+});

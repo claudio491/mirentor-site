@@ -11,14 +11,15 @@ const ORIGIN = 'https://mirentor.onrender.com';
 const PIN = '482915';
 const MON_10 = Date.parse('2026-11-16T15:00:00Z');   // Monday 10:00 in Panama
 
-async function start({ clock = MON_10 } = {}) {
+async function start({ clock = MON_10, sample = false, dev = false } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), 'team-api-'));
+  if (sample) { mkdirSync(path.join(dir, 'team')); writeFileSync(path.join(dir, 'team', 'SAMPLE'), 'sample data\n'); }
   const staticDir = path.join(dir, 'static'); mkdirSync(staticDir);
   writeFileSync(path.join(staticDir, 'index.html'), '<!doctype html><title>t</title><script type="module" src="app.js"></script>');
   writeFileSync(path.join(staticDir, 'app.js'), 'export const ok = 1;');
   mkdirSync(path.join(staticDir, 'fonts')); writeFileSync(path.join(staticDir, 'fonts', 'geist-v1.woff2'), Buffer.from([0x77, 0x4f, 0x46, 0x32, 1, 2, 3]));
   const time = { now: clock };
-  const team = createTeam({ dir, secret: 'test-secret', pushToken: 'push-token', now: () => new Date(time.now), staticDir, origins: [ORIGIN] });
+  const team = createTeam({ dir, secret: 'test-secret', pushToken: 'push-token', now: () => new Date(time.now), staticDir, origins: [ORIGIN], dev });
   const srv = createServer({ store: openStore(dir), sheets: null, origins: [ORIGIN], team });
   await new Promise((r) => srv.listen(0, r));
   const url = `http://127.0.0.1:${srv.address().port}`;
@@ -149,6 +150,9 @@ test('closing the day writes the agreed report, locks the day and cannot be done
   assert.equal(pre.json.report, done.json.report);
   assert.deepEqual([done.json.me.today.closed, done.json.me.today.habits[3], done.json.me.today.points], [true, true, 10]);
   assert.equal((await s.call('POST', '/equipo/api/close', { tomorrow: '', blocker: '' }, { cookie: m.cookie })).status, 409);
+  const again = await s.call('POST', '/equipo/api/close', { preview: true }, { cookie: m.cookie });
+  assert.deepEqual([again.status, again.json.closed, again.json.report], [200, true, done.json.report]);   // the closed report can be read again, to copy it
+  assert.equal(pre.json.closed, false);
   const after = await s.call('POST', '/equipo/api/log', logBody('eeee0002', { lead: { name: 'Otro Negocio', zone: 'Z' } }), { cookie: m.cookie });
   assert.deepEqual([after.status, after.json.error], [409, 'day_closed']);
 });
@@ -173,6 +177,7 @@ test('a manager confirms a meeting and a contract, voids a log and gives a day o
   assert.equal((await s.call('POST', '/equipo/api/dayoff', { scope: 'PA', date: '2026-11-17' }, { cookie: a.cookie })).status, 200);
   const as = await s.call('GET', `/equipo/api/me?as=${m.id}`, undefined, { cookie: a.cookie });
   assert.deepEqual([as.json.me.handle, as.json.viewer.role, as.json.week.days[1].kind], ['mario', 'admin', 'rest']);
+  assert.deepEqual([as.json.viewer.lang, as.json.viewer.first, as.json.viewer.as], ['es', 'Jefe', m.id]);
   assert.equal((await s.call('GET', `/equipo/api/me?as=${m.id}`, undefined, { cookie: m.cookie })).json.viewer.as, null);
 });
 
@@ -192,6 +197,8 @@ test('a new setup link signs the rep out and the old PIN stops working', async (
 test('goal, applause, plays and language are the rep\'s own to set', async (t) => {
   const s = await start({ clock: MON_10 }); t.after(() => s.srv.close());
   const a = await s.admin(); const m = await s.addRep(a.cookie, 'mario'); const j = await s.addRep(a.cookie, 'jose');
+  const g0 = (await s.call('GET', '/equipo/api/me', undefined, { cookie: m.cookie })).json;
+  assert.deepEqual([g0.goalPick.which, g0.goalPick.week, g0.goalPick.options], ['this', '2026-11-16', [3, 4, 5]]);
   assert.equal((await s.call('POST', '/equipo/api/goal', { k: 5 }, { cookie: m.cookie })).json.me.goal.picked, 5);
   assert.equal((await s.call('POST', '/equipo/api/goal', { k: 9 }, { cookie: m.cookie })).status, 400);
   await s.call('POST', '/equipo/api/log', logBody('abab0001'), { cookie: m.cookie });
@@ -204,6 +211,10 @@ test('goal, applause, plays and language are the rep\'s own to set', async (t) =
   assert.equal((await s.call('POST', '/equipo/api/lang', { lang: 'fr' }, { cookie: m.cookie })).status, 400);
   s.time.now += 2 * 24 * 3600 * 1000;   // Wednesday: the week's goal is settled
   assert.deepEqual([(await s.call('POST', '/equipo/api/goal', { k: 3 }, { cookie: m.cookie })).status, (await s.call('POST', '/equipo/api/goal', { k: 3 }, { cookie: m.cookie })).json.error], [409, 'goal_locked']);
+  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: m.cookie })).json.goalPick, null);
+  s.time.now += 2 * 24 * 3600 * 1000;   // Friday: next week's goal opens
+  const fri = await s.call('POST', '/equipo/api/goal', { k: 4 }, { cookie: m.cookie });
+  assert.deepEqual([fri.status, fri.json.me.goalPick.which, fri.json.me.goalPick.week, fri.json.me.goalPick.picked, fri.json.me.goal.picked], [200, 'next', '2026-11-23', 4, 5]);
 });
 
 test('the nightly routine pushes leads, reads the day\'s logs and maps new businesses', async (t) => {
@@ -294,4 +305,16 @@ test('the rest of the service is untouched while the team module is on', async (
   assert.equal(wl.status, 400);
   assert.equal((await s.call('GET', '/desk')).status, 404);
   assert.equal((await s.call('GET', '/equipox')).status, 404);
+});
+
+test('a folder of sample data says so on every view, and a local preview signs in over plain http', async (t) => {
+  const s = await start({ sample: true, dev: true }); t.after(() => s.srv.close());
+  const b = await s.call('POST', '/equipo/api/bootstrap', { handle: 'jefe', name: 'Jefe Uno' }, { bearer: 'push-token' });
+  const set = await s.call('POST', '/equipo/api/setup', { token: s.tokenOf(b.json.setupUrl), pin: PIN });
+  assert.equal(/Secure/.test(set.headers.get('set-cookie')), false);
+  assert.match(set.headers.get('set-cookie'), /HttpOnly; SameSite=Lax/);
+  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: set.cookie })).json.sample, true);
+  const real = await start(); t.after(() => real.srv.close());
+  const a = await real.admin();
+  assert.equal((await real.call('GET', '/equipo/api/me', undefined, { cookie: a.cookie })).json.sample, false);
 });
