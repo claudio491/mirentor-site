@@ -57,6 +57,7 @@ button.chip:active{transform:scale(.97)}
 .giant em{font-style:normal;color:var(--signal)}
 .giant.full{color:var(--signal)}
 .giant.word{font-size:clamp(56px,17vw,84px)}
+.giant.word.long{font-size:clamp(48px,16.4vw,74px)}
 .support{color:var(--mist);font-size:16px;line-height:1.36;max-width:36ch}
 .support b{color:var(--porcelain);font-weight:500}
 .src{all:unset;position:relative;cursor:pointer;border-bottom:1px dotted rgba(233,235,236,.4)}
@@ -167,6 +168,19 @@ fieldset.field legend{padding:0;margin-bottom:6px}
 
 /* ---------- lenses ---------- */
 .lenses{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:22px}
+/* faces: a person's photo in a lens with the hairline, or their initials */
+.face{position:relative;flex:none;display:inline-grid;place-items:center;width:40px;height:40px;border-radius:50%;overflow:hidden;background:var(--panel)}
+.face::after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--hair);pointer-events:none}
+.face img{width:100%;height:100%;object-fit:cover;display:block}
+.face .ini{font-weight:600;font-size:14px;line-height:1;letter-spacing:.02em;color:var(--mist)}
+.portrait{position:relative;flex:none;display:block;width:92px;height:92px}
+.portrait svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.portrait .face{position:absolute;inset:13px;width:auto;height:auto}
+.portrait .face .ini{font-size:22px;letter-spacing:-.02em}
+.portrait .arc{fill:none;stroke:var(--signal);stroke-width:3.5;stroke-linecap:round}
+.portrait .tip{fill:var(--signal)}
+.who-row{gap:14px}
+.who-row #portrait{display:block;flex:none}
 .lens{all:unset;box-sizing:border-box;cursor:pointer;display:grid;justify-items:center;gap:6px;text-align:center;padding:4px 0 2px;border-radius:12px}
 .lens:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
 .lens .g{position:relative;width:92px;height:92px}
@@ -396,6 +410,9 @@ body.bare .toast{bottom:calc(24px + env(safe-area-inset-bottom))}
 .brow .pos{font-weight:700;font-size:24px;line-height:1;letter-spacing:-.04em;color:var(--mist);font-variant-numeric:tabular-nums}
 .brow .pos.none{font:500 13px/1.25 var(--sans);letter-spacing:0;display:block}
 .brow.p1 .pos{color:var(--signal)}
+.brow .who{display:flex;align-items:center;gap:10px;min-width:0}
+.brow .who .fc{flex:none;display:block;width:40px;height:40px}
+.brow .who .wt{min-width:0}
 .brow .who b{display:block;font-weight:600;font-size:16px;letter-spacing:-.01em}
 .brow .who small{display:block;font-size:13px;color:var(--mist)}
 .brow .flags{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
@@ -427,6 +444,8 @@ body.bare .toast{bottom:calc(24px + env(safe-area-inset-bottom))}
 .items li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--rule)}
 .items li b{font-weight:600;display:block}
 .items li small{display:block;color:var(--mist);font-size:13.5px;line-height:1.45}
+.items .pers{display:flex;align-items:center;gap:12px;min-width:0}
+.items .pers .pt{min-width:0}
 .items li small.warn{color:var(--porcelain)}
 .items li small.warn::before{content:"";display:inline-block;width:7px;height:7px;margin-right:8px;border-radius:50%;background:var(--signal);vertical-align:1px}
 .items .acts{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}

@@ -1,7 +1,7 @@
 // hand.js: the drawings that carry the numbers. The week is a tracked hand of 21 keypoints: the wrist plus five fingers
 // of four joints. Each finger is a day and each joint is one habit, from the base: visit, conversations, follow-up, closing.
 // A joint lights when its own habit is done, and a bone lights only between two lit points, so a gap shows what was missed.
-import { h, s, t, put, lock, reduce, EASE, buzz, upper, wdShort, wdLong, num } from './ui.js';
+import { h, s, t, put, lock, reduce, EASE, buzz, upper, wdShort, wdLong, num, face } from './ui.js';
 
 const WRIST = [160, 322];
 const FINGERS = [
@@ -89,6 +89,14 @@ export const rowWrist = (row) => row.marks > row.hand.reduce((a, d) => a + (d.ki
 
 // ---- lenses: a round gauge with the recording arc ----
 const R = 40, C = 2 * Math.PI * R, SPAN = 0.75;
+/** Whose profile this is: the person's face in the lens, with the recording arc ending in a joint. */
+export function portrait(person) {
+  const start = -100, sweep = 115, end = ((start + sweep) * Math.PI) / 180;   // from just left of the top, clockwise
+  return h('span', { class: 'portrait' }, face(person),
+    s('svg', { viewBox: '0 0 92 92', 'aria-hidden': 'true', focusable: 'false' },
+      s('circle', { class: 'arc', cx: 46, cy: 46, r: R, 'stroke-dasharray': `${((C * sweep) / 360).toFixed(1)} ${C.toFixed(1)}`, transform: `rotate(${start} 46 46)` }),
+      s('circle', { class: 'tip', cx: (46 + R * Math.cos(end)).toFixed(2), cy: (46 + R * Math.sin(end)).toFixed(2), r: 4.2 })));
+}
 export function lens(id, label) {
   const dash = `${(C * SPAN).toFixed(1)} ${C.toFixed(1)}`;
   return h('button', { class: 'lens', type: 'button', 'data-lens': id },

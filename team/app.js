@@ -2,8 +2,8 @@
 // The server answers codes and numbers; every sentence comes from i18n.js through t().
 import { APP_NAME, LANGS } from './i18n.js';
 import { $, $$, h, put, icon, t, setLang, lang, applyStatic, giant, num, ord, wdShort, wdLong, dayMonth, monthName, upper, cap, isoWeek, addDays, clock, hourName, stamp, ago, cityName, joinList,
-  lock, buzz, quiet, countTo, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, once, copyText, grain, reduce, formSheet, setExplain, newId } from './ui.js';
-import { buildHand, paintHand, miniHand, rowWrist, lens, setLens, levelBone, badgeGlyph } from './hand.js';
+  lock, buzz, quiet, countTo, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, once, copyText, grain, reduce, formSheet, setExplain, newId, putFace } from './ui.js';
+import { buildHand, paintHand, miniHand, rowWrist, lens, setLens, levelBone, badgeGlyph, portrait } from './hand.js';
 import { createManager } from './manager.js';
 import { verdict, mine as waitingOf } from './queue.js';
 
@@ -369,7 +369,10 @@ function renderProfile() {
   const { me, level, badges, ledger, rules, pending } = S.me;
   if (!level) return;
   $('#whoChip').textContent = `${me.name} · ${cityName(me.city)}`;
-  giant($('#profileGiant'), `${t(`level.${level.name}`)}.`);
+  putFace($('#portrait'), me, portrait);
+  const levelWord = t(`level.${level.name}`);
+  giant($('#profileGiant'), `${levelWord}.`);
+  $('#profileGiant').classList.toggle('long', levelWord.length >= 10);   // the longest names need a smaller size to stay on one line
   const idx = rules.levels.findIndex((l) => l.name === level.name), steps = rules.levels[idx].steps, after = rules.levels[idx + 1];
   const life = src(h('button', { class: 'src num', type: 'button', text: num(level.xp) }), () => t('c.source'), () => t('src.life'));
   const next = level.next == null ? t('profile.top') : level.step < steps.length ? t('profile.next.step', { n: level.next - level.xp, s: level.step + 1 }) : t('profile.next.level', { n: level.next - level.xp, level: t(`level.${after.name}`) });

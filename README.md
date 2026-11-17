@@ -68,9 +68,10 @@ Where the field sales reps log each contact and see their own numbers, and where
 | Who | Routes under `/equipo/api` |
 |---|---|
 | Anyone | `POST login {handle, pin}`, `GET setup?t=`, `POST setup {token, pin}`, `POST logout` |
+| Anyone signed in | `GET photo/<person id>` |
 | A rep | `GET me`, `GET leads?q=`, `POST log`, `POST close {tomorrow, blocker, preview?}`, `POST goal {k}`, `POST kudos {target, on}`, `POST play {logId, text}`, `POST held {logId}`, `POST lang {lang}` |
 | A manager | `GET me?as=<rep id>` (read only), `GET team`, `POST confirm {logId, what, undo?}`, `POST void {logId, reason}`, `POST reopen {rep, day}`, `POST reps`, `POST reps/<id> {patch}`, `POST reps/<id>/link`, `POST dayoff {scope, date}`, `POST site {id?, rep, lead}`, `POST site/<id> {what}`, `POST badge {rep, text}` |
-| The bearer token | `POST bootstrap {handle, name}`, `PUT leads [...]` (`?force=1`), `GET export?since=<iso>`, `POST leadmap {pairs}` |
+| The bearer token | `POST bootstrap {handle, name}`, `PUT leads [...]` (`?force=1`), `GET export?since=<iso>`, `POST leadmap {pairs}`, `PUT photo/<person id> {type, data}`, `DELETE photo/<person id>` |
 
 - `POST log {id, lead: {id} or {name, zone}, kind, channel?, tag?, note?, contact?, when?, voicemail?, clientAt}` answers
   `{repeat, updated, gained, pending, tookLead, streakUp, me}`. The `id` is made on the phone, so a retry never counts
@@ -87,6 +88,11 @@ Where the field sales reps log each contact and see their own numbers, and where
   over the part earns nothing and a late confirmation answers `409 expired`.
 - `POST site` records a signed site. The form makes the `id` (`s_...`), so sending it twice is one site.
   `POST site/<id>` takes `what` as `installed`, `first_hour` or `void`; a voided site pays nothing.
+- A person's photo shows in their profile, in the manager's table and in the list of people; without one the app
+  shows their initials. `PUT photo/<person id>` takes `{type, data}`: `type` is `image/jpeg`, `image/png` or
+  `image/webp` and `data` is the file in base64, up to 400 KB. The kind is read from the file's first bytes and must
+  match `type`. The file lives in `<DATA_DIR>/team/photos/`; the event log keeps who has a photo and its version, and
+  the version is part of the photo's address. `DELETE photo/<person id>` takes it down.
 - Working days are Monday to Friday: the hand has five fingers, and other days sent to `POST reps` are dropped.
 - `POST bootstrap` creates the first manager (role `admin`) and answers their setup link. Once an admin has a PIN it
   answers `409 bootstrap_closed`. With `TEAM_BOOTSTRAP=1` it answers a new link for the same handle again, which is
@@ -113,6 +119,10 @@ Where the field sales reps log each contact and see their own numbers, and where
   `data-sample/sample-pin.txt`, which git ignores), and sets the clock to Thursday
   3:00 pm in Panama so the week is half lived (`--day=5` picks another day, `--now` uses the real time). Every screen
   is labeled as sample data. `node tools/team-seed.mjs <empty-folder>` writes the same sample without starting a server.
+- To look at it with the actual team instead: write the people in `data-sample/team.json` (the format is at the top of
+  `tools/team-roster.mjs`; git ignores that folder, and it must stay out of the repository). The same command then
+  shows those people and their photos in real time with no activity, because nothing is made up, and no screen says
+  sample. `--sample` brings the fictional sample back.
 - Writes need `content-type: application/json` and, when the browser sends an `Origin`, one that is this host or in
   `ALLOWED_ORIGINS`. Bodies stop at 16 KB (`PUT leads` at 4 MB). Every answer is `no-store` and `noindex`; the page
   ships with a policy that allows scripts, styles and fonts from this origin only.

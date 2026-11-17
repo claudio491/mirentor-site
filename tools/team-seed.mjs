@@ -86,7 +86,8 @@ export function resetSamplePins(dir, pin = freshPin()) {
   return pin;
 }
 
-export function seed(dir, { now = new Date() } = {}) {
+/** `names` shows a sample person under another label, by handle: { andrea: 'Vendedor A' }. The week of work stays the same. */
+export function seed(dir, { now = new Date(), names = {} } = {}) {
   const events = path.join(dir, 'team', 'events.jsonl');
   if (existsSync(events) && readFileSync(events, 'utf8').trim()) throw new Error(`${events} already holds events: the seed only fills an empty folder`);
   mkdirSync(path.join(dir, 'team'), { recursive: true });
@@ -97,7 +98,7 @@ export function seed(dir, { now = new Date() } = {}) {
 
   for (const r of SAMPLE_REPS) {
     const start = r.isNew ? addDays(today, -5) : addDays(today, -60), t = at(start, '08:00');
-    out.push({ type: 'rep.created', id: r.id, handle: r.handle, name: r.name, role: r.role, country: 'PA', city: r.city, tz: TZ, workdays: [1, 2, 3, 4, 5], startDate: start, lang: 'es', t });
+    out.push({ type: 'rep.created', id: r.id, handle: r.handle, name: (typeof names[r.handle] === 'string' && names[r.handle].trim()) || r.name, role: r.role, country: 'PA', city: r.city, tz: TZ, workdays: [1, 2, 3, 4, 5], startDate: start, lang: 'es', t });
     out.push({ type: 'rep.pin', id: r.id, ...hashPin(pin), t: at(start, '08:05') });
   }
   const id = (handle) => `r_sample_${handle}`;

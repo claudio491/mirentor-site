@@ -1,6 +1,6 @@
 // manager.js: what a manager sees. Every rep in one view, the things that wait for a decision, and the people who have access.
 // The headline of the team view is a live number (days closed today), and the rows that need attention are framed.
-import { $, h, put, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, dayOf, clock, stamp, ago, cityName, countTo, flipList, toast, src, once, copyText, formSheet, quiet, newId, sameText } from './ui.js';
+import { $, h, put, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, dayOf, clock, stamp, ago, cityName, countTo, flipList, toast, src, once, copyText, formSheet, quiet, newId, sameText, face, putFace } from './ui.js';
 import { miniHand, lens, setLens } from './hand.js';
 
 const MONDAY = '2026-11-16';   // any Monday: only used to name the days of the week
@@ -41,7 +41,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
   const COLS = ['visits', 'convs', 'meetings', 'contracts', 'points', 'streak', 'report', 'last'];
   function newRow() {
     return h('li', { class: 'brow' }, h('span', { class: 'pos num' }),
-      h('span', { class: 'who' }, h('b'), h('small'), h('span', { class: 'flags' })), h('span', { class: 'h' }),
+      h('span', { class: 'who' }, h('span', { class: 'fc' }), h('span', { class: 'wt' }, h('b'), h('small'), h('span', { class: 'flags' }))), h('span', { class: 'h' }),
       h('span', { class: 'cells' }, COLS.map((c) => h('span', { class: `m r c-${c}` }, h('span', { class: 'cell-l' }), h('span', { class: 'cv num' })))),
       h('span', { class: 'act' }, h('a', { class: 'mini-btn' })), h('i', { class: 'vf', 'aria-hidden': 'true' }));
   }
@@ -50,6 +50,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     row.classList.toggle('p1', r.place === 1); row.classList.toggle('flagged', flags.length > 0);
     const pos = $('.pos', row); pos.textContent = r.place ? ord(r.place) : t('mgr.noplace'); pos.classList.toggle('none', !r.place);
     $('.who b', row).textContent = r.name;
+    putFace($('.fc', row), r);
     $('.who small', row).replaceChildren(cityName(r.city), r.isNew ? ` · ${t('table.new')}` : '');
     $('.flags', row).replaceChildren(...flags.map((f) => h('span', { class: 'chip', text: f })));
     $('.h', row).replaceChildren(miniHand(r.week.days, r.week.marks > r.week.days.reduce((a, d) => a + d.marks, 0)));
@@ -194,7 +195,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     // How many businesses of the list this rep can pick. None means the city is written another way than in the list.
     const leads = !isPlayer || !team.leadCount || !r.active ? null : r.leadsInCity ? h('small', { text: t('reps.leads', { n: r.leadsInCity }) }) : h('small', { class: 'warn', text: t('reps.leads.none') });
     return h('li', {},
-      h('span', {}, h('b', { text: r.name }), h('small', { text: `${r.handle} · ${isPlayer ? '' : `${t(`role.${r.role}`)} · `}${cityName(r.city)} · ${t('reps.start', { date: dayMonth(r.startDate) })} · ${days}` }), h('small', { text: status }), leads),
+      h('span', { class: 'pers' }, face(r), h('span', { class: 'pt' }, h('b', { text: r.name }), h('small', { text: `${r.handle} · ${isPlayer ? '' : `${t(`role.${r.role}`)} · `}${cityName(r.city)} · ${t('reps.start', { date: dayMonth(r.startDate) })} · ${days}` }), h('small', { text: status }), leads)),
       h('span', { class: 'acts' },
         isPlayer ? h('a', { class: 'mini-btn', href: `/equipo?as=${encodeURIComponent(r.id)}`, text: t('mgr.viewas', { name: r.first }) }) : null,
         canTouch && r.role === 'rep' ? h('button', { class: 'mini-btn', type: 'button', text: t('reps.edit'), onclick: () => repForm(r) }) : null,

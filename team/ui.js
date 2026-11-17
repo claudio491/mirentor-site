@@ -24,6 +24,24 @@ export const h = (tag, attrs, ...kids) => fill(document.createElement(tag), attr
 export const put = (node, ...kids) => { node.replaceChildren(...kids.flat(3).filter((k) => k != null && k !== false)); return node; };
 /** The same for SVG. */
 export const s = (tag, attrs, ...kids) => fill(document.createElementNS(SVG, tag), attrs, kids);
+/** A person's face in a round lens: their photo when there is one, their initials when not. The name is always
+ *  written next to it, so the face itself says nothing to a screen reader. */
+export function face(person, cls = '') {
+  const letters = String(person.name || '').trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0)).join('').toUpperCase();
+  const initials = () => h('span', { class: 'ini', text: letters });
+  const node = h('span', { class: cls ? `face ${cls}` : 'face', 'aria-hidden': 'true' });
+  if (!person.photo) { node.append(initials()); return node; }
+  // The address carries the photo's version, so a new photo is a new address and an old one can stay on the phone.
+  const img = h('img', { src: `/equipo/api/photo/${encodeURIComponent(person.id)}?v=${encodeURIComponent(person.photo)}`, alt: '', decoding: 'async',
+    onerror: () => node.replaceChildren(initials()) });
+  node.append(img);
+  return node;
+}
+/** Put a face in its slot only when the person or the photo changed: a repaint must not make the picture blink. */
+export function putFace(slot, person, make = face) {
+  const key = `${person.id}:${person.photo || ''}`;
+  if (slot.dataset.key !== key) { slot.dataset.key = key; slot.replaceChildren(make(person)); }
+}
 /** An icon from the sprite in index.html. */
 export const icon = (name, cls = 'ic') => s('svg', { class: cls, viewBox: '0 0 24 24', 'aria-hidden': 'true', focusable: 'false' }, s('use', { href: `#i-${name}` }));
 
