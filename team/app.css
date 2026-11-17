@@ -114,7 +114,9 @@ fieldset.field{border:0;padding:0;margin-left:0;margin-right:0;min-width:0}
 fieldset.field legend{padding:0;margin-bottom:6px}
 .field input.pin{font:600 24px/1 var(--mono);letter-spacing:.42em;text-align:center;padding-right:0}
 .field input[type=search]{-webkit-appearance:none;appearance:none}
-.formerr{margin-top:12px;padding:10px 12px;border-left:2px solid var(--signal);background:rgba(255,90,54,.08);font-size:14px;border-radius:0 6px 6px 0}
+/* A refusal reads like the system's own readout: a hairline frame and the signal dot of the HUD chips. */
+.formerr{display:flex;gap:9px;align-items:baseline;margin-top:12px;padding:10px 12px;border:1px solid rgba(255,90,54,.55);border-radius:var(--r-input);background:rgba(255,90,54,.08);font-size:14px;line-height:1.4}
+.formerr::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--signal);transform:translateY(-1px)}
 .form .btn{margin-top:18px}
 .checks{display:flex;flex-wrap:wrap;gap:8px}
 .check{position:relative;display:inline-flex}
