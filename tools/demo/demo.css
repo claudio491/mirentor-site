@@ -1,4 +1,6 @@
 /* The bar of the demonstration copy. It sits above the app and is not part of it. */
+/* An artifact's shell sets a light scheme on :root. The app is dark, so its form controls and scrollbars say so here. */
+:root{color-scheme:dark}
 .demo{position:relative;z-index:2;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--rule);font-size:14px}
 .demo-tag{display:inline-flex;align-items:center;gap:7px;font:500 12px/1 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--porcelain);white-space:nowrap}
 .demo-tag i{width:7px;height:7px;border-radius:50%;background:var(--signal);flex:none}
