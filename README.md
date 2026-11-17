@@ -88,7 +88,8 @@ Where the field sales reps log each contact and see their own numbers, and where
   node, never from a string of markup; `tests/team-client.test.mjs` checks that, and that both languages carry the same keys.
 - A log that cannot be sent waits on the phone (the top bar says how many) and goes out again with the same `id`.
 - To look at it on this machine: `node tools/team-dev.mjs 8772`, then open `http://localhost:8772/equipo`. Each start
-  writes fictional people and businesses to a temp folder, prints the PIN for that run, and sets the clock to Thursday
+  writes fictional people and businesses to a temp folder, prints the PIN for that run (and leaves it in
+  `data-sample/sample-pin.txt`, which git ignores), and sets the clock to Thursday
   3:00 pm in Panama so the week is half lived (`--day=5` picks another day, `--now` uses the real time). Every screen
   is labeled as sample data. `node tools/team-seed.mjs <empty-folder>` writes the same sample without starting a server.
 - Writes need `content-type: application/json` and, when the browser sends an `Origin`, one that is this host or in

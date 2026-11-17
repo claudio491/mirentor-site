@@ -4,12 +4,14 @@
 // The preview clock starts on the Thursday of this week at 3:00 pm in Panama, so the week on screen is half lived:
 // full days, gaps, things waiting for the manager. --day=5 moves it to that day of the week (1 is Monday), for example
 // to see the Friday when next week's goal can be picked. Pass --now to use the real time instead.
-// The PIN for the sample people is made on every start and printed here; it is kept nowhere else.
+// The PIN for the sample people is made on every start. It is printed here and written to data-sample/sample-pin.txt
+// (a folder git ignores), so whoever opens the preview can read it without it being passed around.
 import { randomBytes } from 'node:crypto';
 import http from 'node:http';
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createServer } from '../server.mjs';
 import { openStore } from '../lib/store.mjs';
 import { createTeam } from '../lib/team/api.mjs';
@@ -31,4 +33,9 @@ http.createServer((req, res) => { if (req.url === '/') res.writeHead(302, { loca
   console.log(`preview clock: ${clock().toISOString()}${real ? '' : ` (3:00 pm in Panama on day ${weekday} of this week, 1 is Monday; --now uses the real time)`}`);
   console.log(`sample people: ${SAMPLE_REPS.map((r) => `${r.handle} (${r.role})`).join(', ')}`);
   console.log(`PIN for this run: ${pin}`);
+  const note = fileURLToPath(new URL('../data-sample/sample-pin.txt', import.meta.url));
+  mkdirSync(path.dirname(note), { recursive: true });
+  writeFileSync(note, [`Sample preview: http://localhost:${port}/equipo`, `People: ${SAMPLE_REPS.map((r) => `${r.handle} (${r.role})`).join(', ')}`, `PIN for the preview started at ${new Date().toISOString()}: ${pin}`,
+    'Every person and business in the preview is fictional. A new PIN is made on every start.', ''].join('\n'));
+  console.log(`the PIN is also in ${note}`);
 });
