@@ -56,11 +56,14 @@ test('the roster only fills an empty folder, and names the line it cannot use be
   bad([PEOPLE[0], { ...PEOPLE[1], handle: 'uno' }], /line 2.*handle/);   // the same handle twice
 });
 
-test('the sample people can be shown under other labels, with the same week of work', () => {
+test('the sample people can be shown under other labels and usernames, with the same week of work', () => {
   const plain = fresh('team-seed-'), labeled = fresh('team-seed-');
   const a = seed(plain, { now: NOW });
-  const b = seed(labeled, { now: NOW, names: { andrea: 'Vendedor A', lider: 'Líder' } });
+  const b = seed(labeled, { now: NOW, names: { andrea: 'Vendedor A', lider: 'Líder' }, handles: { andrea: 'vendedor.a', nadia: 'Con Espacio' } });
   assert.equal(a.events, b.events);
   const { state } = openTeamStore(labeled);
-  assert.deepEqual(['andrea', 'omar', 'lider'].map((hd) => state.reps.get(state.handles.get(hd)).name), ['Vendedor A', 'Omar Rivas', 'Líder']);
+  assert.deepEqual(['vendedor.a', 'omar', 'lider'].map((hd) => state.reps.get(state.handles.get(hd)).name), ['Vendedor A', 'Omar Rivas', 'Líder']);
+  assert.equal(state.handles.get('vendedor.a'), 'r_sample_andrea');   // the person is the same one, so their week comes along
+  assert.equal(state.handles.has('andrea'), false);
+  assert.equal(state.handles.get('nadia'), 'r_sample_nadia');   // a username that could not sign in is not taken
 });
