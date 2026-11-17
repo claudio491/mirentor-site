@@ -46,7 +46,10 @@ body.bare .app{padding-bottom:40px}
 .chip.ghost{color:var(--mist);background:transparent}
 .chip b{font-weight:600}
 button.chip{position:relative;cursor:pointer;min-height:36px;transition:transform 140ms var(--ease-out),border-color 160ms ease}
-button.chip::after,.link::after,.kudos::after,.mini-btn::after{content:"";position:absolute;inset:-6px -4px}
+button.chip::after,.kudos::after,.mini-btn::after{content:"";position:absolute;inset:-6px -4px}
+/* Text links and numbers that open their source are short: the tap area reaches 44 px around them. */
+.link::after,.src::after{content:"";position:absolute;inset:-12px -6px}
+.src::after{inset:-12px}
 button.chip:active{transform:scale(.97)}
 .label{font:500 11.5px/1.2 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--mist)}
 .lead{font-size:19px;font-weight:500;letter-spacing:-.02em;line-height:1.15}
@@ -56,7 +59,7 @@ button.chip:active{transform:scale(.97)}
 .giant.word{font-size:clamp(56px,17vw,84px)}
 .support{color:var(--mist);font-size:16px;line-height:1.36;max-width:36ch}
 .support b{color:var(--porcelain);font-weight:500}
-.src{all:unset;cursor:pointer;border-bottom:1px dotted rgba(233,235,236,.4)}
+.src{all:unset;position:relative;cursor:pointer;border-bottom:1px dotted rgba(233,235,236,.4)}
 .src:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
 .link{all:unset;position:relative;cursor:pointer;color:var(--porcelain);border-bottom:1px solid var(--hair)}
 .link:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
@@ -96,7 +99,7 @@ svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;st
 .seg button{all:unset;box-sizing:border-box;cursor:pointer;min-height:44px;display:inline-flex;align-items:center;padding:0 16px;font-weight:500;font-size:14px;color:var(--mist);white-space:nowrap;transition:background-color 160ms ease,color 160ms ease}
 .seg button[aria-pressed=true]{background:var(--porcelain);color:var(--graphite)}
 .seg button:focus-visible{outline:2px solid var(--signal);outline-offset:-2px}
-.seg.lang button{min-height:36px;padding:0 11px;font:500 12px/1 var(--mono);letter-spacing:.07em}
+.seg.lang button{min-height:44px;min-width:44px;justify-content:center;padding:0 12px;font:500 12px/1 var(--mono);letter-spacing:.07em}
 .seg.lang{position:relative}
 .seg.scroll{overflow-x:auto;scrollbar-width:none}
 
@@ -387,7 +390,7 @@ body.bare .toast{bottom:calc(24px + env(safe-area-inset-bottom))}
 .bt-h span.r,.brow .r{text-align:right}
 .brow{position:relative;padding:11px 12px;border-top:1px solid var(--rule);min-height:68px}
 .brow .pos{font-weight:700;font-size:24px;line-height:1;letter-spacing:-.04em;color:var(--mist);font-variant-numeric:tabular-nums}
-.brow .pos.none{font:500 12px/1.25 var(--mono);letter-spacing:0;display:block}
+.brow .pos.none{font:500 13px/1.25 var(--sans);letter-spacing:0;display:block}
 .brow.p1 .pos{color:var(--signal)}
 .brow .who b{display:block;font-weight:600;font-size:16px;letter-spacing:-.01em}
 .brow .who small{display:block;font-size:13px;color:var(--mist)}
