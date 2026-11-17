@@ -522,6 +522,7 @@ function saveLog() {
   for (const k of ['contact', 'when', 'note']) if (L[k]) body[k] = L[k];
   return once($('#saveLog'), async () => {
     closeSheet($('#logSheet')); setTab('today');
+    toast(`${t('c.saving')}…`);   // on a slow signal the tap is answered at once; the result replaces this line
     try { const res = await api('POST', 'log', body); setTimeout(() => logged(res, body), reduce ? 0 : 260); }
     catch (e) {
       if (e.code === 'offline') { S.queue.push({ rep: S.me.me.id, body }); store.set(KEY.queue, S.queue); renderTop(); toast(t('toast.queued')); }
