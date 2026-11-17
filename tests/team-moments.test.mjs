@@ -1,7 +1,7 @@
 // What deserves a moment on screen is decided in team/moments.js, apart from the screens, so it is tested without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, changedChars, tableNote, firstDays, untouched, anyLog } from '../team/moments.js';
+import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, changedChars, tableNote, firstDays, untouched, anyLog, shortNames } from '../team/moments.js';
 
 const RULES = { points: { visit: 3, conversation: 5, followup: 2, dayClosedOnTime: 2 }, habits: { visits: 1, conversations: 2, followups: 1 }, closeBy: '19:00' };
 const today = (over = {}) => ({ day: '2026-11-17', isWork: true, habits: [false, false, false, false], visits: 0, conversations: 0, followups: 0, closed: false, ...over });
@@ -134,4 +134,18 @@ test('a day is untouched until something is logged in it, whatever the habits sa
   assert.equal(untouched(null), false);
   // the card that closes the day asks only once there is something to close, on a day off too
   assert.deepEqual([anyLog(today(zero)), anyLog(today({ ...zero, isWork: false, replies: 1 })), anyLog(null)], [false, true, false]);
+});
+
+test('people who share a first name are told apart on a lens, with as little as it takes', () => {
+  const label = (...names) => [...shortNames(names.map((name, i) => ({ id: `r${i}`, name }))).values()];
+  assert.deepEqual(label('José Molina', 'Mario Campos', 'Mateo Paredes'), ['José', 'Mario', 'Mateo']);
+  // the same first name: the initial of what follows tells them apart
+  assert.deepEqual(label('José Molina', 'José Pérez', 'Mario Campos'), ['José M.', 'José P.', 'Mario']);
+  // a label like "Vendedor A" already ends in its letter
+  assert.deepEqual(label('Vendedor A', 'Vendedor B'), ['Vendedor A', 'Vendedor B']);
+  // the same first name and the same initial: only the whole name tells them apart
+  assert.deepEqual(label('José Molina', 'José Medina'), ['José Molina', 'José Medina']);
+  // nothing more to show, or nothing at all
+  assert.deepEqual(label('Ana', 'Ana', '  Luz   María  '), ['Ana', 'Ana', 'Luz']);
+  assert.deepEqual(label(''), ['']);
 });

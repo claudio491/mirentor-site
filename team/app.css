@@ -607,7 +607,7 @@ dialog.sheet.closing::backdrop{opacity:0}
 .fl.p1{order:2}.fl.p2{order:1}.fl.p3{order:3}.fl.mine{order:4}.fl.mine.p1{order:2}.fl.mine.p2{order:1}.fl.mine.p3{order:3}
 .fl .vf{inset:-6px}
 .fl.mine .vf{opacity:.9}
-.fl b{display:block;max-width:12ch;font-size:13.5px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fl b{display:block;max-width:16ch;font-size:13.5px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fl .chip{min-height:22px;padding:3px 7px;font-size:11px}
 .fl.p1 .chip{border-color:rgba(255,90,54,.6)}
 

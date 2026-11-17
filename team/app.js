@@ -5,7 +5,7 @@ import { $, $$, h, put, icon, t, setLang, lang, applyStatic, giant, num, ord, wd
   lock, buzz, quiet, countTo, recount, ringAt, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, once, copyText, grain, reduce, formSheet, setExplain, newId, putFace, face, dayOf } from './ui.js';
 import { buildHand, paintHand, miniHand, rowWrist, lens, setLens, levelBone, badgeGlyph, portrait, setPortrait, replayHand, drawIn, fingerGlyph, handGlyph, stepsGlyph, daysBone } from './hand.js';
 import { swap, roll, floatUp, flyDot, reveal, stagger, lockIn, alive, greet, isGreeting, celebrate } from './fx.js';
-import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, tableNote, firstDays, untouched, anyLog } from './moments.js';
+import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, tableNote, firstDays, untouched, anyLog, shortNames } from './moments.js';
 import { createManager } from './manager.js';
 import { verdict, mine as waitingOf } from './queue.js';
 
@@ -354,6 +354,7 @@ function renderSquad(T, period) {
   for (const r of T.podium) people.push({ ...r, tier: `pod p${r.place}`, share: share(r) });
   if (T.me && !T.me.onPodium) people.push({ ...T.me, mine: true, tier: T.me.place != null ? 'pod' : '', share: share(T.me) });
   for (const r of T.rest.slice(0, 9)) people.push({ ...r, tier: '', share: share(r) });
+  const names = shortNames(people);   // two people with the same first name are told apart
   const build = () => {
     const node = h('button', { class: 'fl', type: 'button' }, h('span', { class: 'pt' }, h('span', { class: 'ps' }), h('i', { class: 'vf', 'aria-hidden': 'true' })), h('b'), h('span', { class: 'chip num' }));
     return src(node, () => t('c.source'), () => t(node.dataset.ranked ? 'src.place' : 'src.marks'));
@@ -364,7 +365,7 @@ function renderSquad(T, period) {
     if (ranked) node.dataset.ranked = '1'; else delete node.dataset.ranked;
     putFace($('.ps', node), r, (person) => portrait(person, { share: 0 }));
     setPortrait($('.ps .portrait', node), r.share);
-    $('b', node).textContent = r.mine ? t('table.you', { name: r.first }) : r.first;
+    $('b', node).textContent = r.mine ? t('table.you', { name: names.get(r.id) }) : names.get(r.id);
     const value = !ranked ? `${num(r.marks)}/${num(r.marksMax)}` : period === 'month' ? t('u.sites', { n: r.sites }) : pts(r.score);
     $('.chip', node).textContent = ranked ? `${ord(r.place)} · ${period === 'month' ? value : `${num(r.score)} ${t('u.pts')}`}` : value;
     node.setAttribute('aria-label', ranked ? t('squad.place', { name: r.name, place: ord(r.place), pts: value }) : t('squad.marks', { name: r.name, a: r.marks, b: r.marksMax }));

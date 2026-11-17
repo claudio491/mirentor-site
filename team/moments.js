@@ -100,3 +100,14 @@ export function changedChars(from, to) {
   if (a.length !== b.length) return [...b].map(() => true);
   return [...b].map((ch, i) => ch !== a[i]);
 }
+
+/** A short label per person for a lens: the first name, and only when two share it, what it takes to tell them apart
+ *  (the next word's initial, or the whole name). Answers a Map from id to label. */
+export function shortNames(people) {
+  const words = (p) => String(p.name || '').trim().split(/\s+/).filter(Boolean);
+  const first = (p) => words(p)[0] || '';
+  const more = (p) => { const w = words(p); return w.length < 2 ? first(p) : `${w[0]} ${w[1].length === 1 ? w[1] : `${w[1][0]}.`}`; };
+  const tally = (list, key) => list.reduce((m, p) => m.set(key(p), (m.get(key(p)) || 0) + 1), new Map());
+  const firsts = tally(people, first), mores = tally(people.filter((p) => firsts.get(first(p)) > 1), more);
+  return new Map(people.map((p) => [p.id, firsts.get(first(p)) <= 1 ? first(p) : mores.get(more(p)) <= 1 ? more(p) : words(p).join(' ')]));
+}

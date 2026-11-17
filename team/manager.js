@@ -2,6 +2,7 @@
 // The headline of the team view is a live number (days closed today), and the rows that need attention are framed.
 import { $, h, put, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, dayOf, clock, stamp, ago, cityName, countTo, flipList, toast, src, once, copyText, formSheet, quiet, newId, sameText, face, putFace } from './ui.js';
 import { miniHand, lens, setLens, portrait, setPortrait } from './hand.js';
+import { shortNames } from './moments.js';
 
 const MONDAY = '2026-11-16';   // any Monday: only used to name the days of the week
 const dayName = (n) => wdShort(addDays(MONDAY, n - 1));
@@ -88,7 +89,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     const cities = [...new Set(team.reps.map((r) => r.city).filter(Boolean))].sort();
     if (city !== 'all' && !cities.includes(city)) city = 'all';
     // The wall: every rep's day as a lens. The arc is today's four habits; a tap opens their screens.
-    const shown = team.reps.filter((r) => city === 'all' || r.city === city);
+    const shown = team.reps.filter((r) => city === 'all' || r.city === city), names = shortNames(shown);
     const drawWall = () => flipList($('#wall'), shown, (r) => r.id,
       () => h('a', { class: 'wl', onclick: openAs }, h('span', { class: 'pt' }), h('b'), h('span', { class: 'st' })),
       (node, r) => {
@@ -98,7 +99,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
         node.setAttribute('aria-label', t('wall.open.aria', { name: r.name, state }));
         putFace($('.pt', node), r, (person) => portrait(person, { share: 0 }));
         setPortrait($('.pt .portrait', node), r.today.isWork ? done / 4 : 0);
-        $('b', node).textContent = r.first; $('.st', node).textContent = state;
+        $('b', node).textContent = names.get(r.id); $('.st', node).textContent = state;
       });
     if (animate) drawWall(); else quiet(drawWall);
     const seg = $('#citySeg'); seg.parentElement.hidden = cities.length < 2;
