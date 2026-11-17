@@ -17,7 +17,7 @@ const es = {
   'u.sites': ['{n} sitio', '{n} sitios'], 'u.meetings': ['{n} reunión', '{n} reuniones'], 'u.habits': 'hábitos', 'u.fingers': 'dedos',
   'city.Panama City': 'Ciudad de Panamá', 'city.Colon': 'Colón', 'city.Medellin': 'Medellín', 'city.Bogota': 'Bogotá', 'city.Cali': 'Cali', 'city.David': 'David',
   'country.PA': 'Panamá', 'country.CO': 'Colombia',
-  'time.now': 'ahora', 'time.min': 'hace {n} min', 'time.h': 'hace {n} h', 'time.yesterday': 'ayer', 'time.week': 'Semana {n}',
+  'time.now': 'ahora', 'time.min': 'hace {n} min', 'time.h': 'hace {n} h', 'time.yesterday': 'ayer', 'time.week': 'Semana {n}', 'time.range': '{a} al {b}',
 
   // ---- errors: one line per refusal the server can answer ----
   'err.offline': 'Sin señal. Revisa tu conexión y vuelve a intentar.',
@@ -105,7 +105,7 @@ const es = {
   'goal.sheet.locked': 'La meta de esta semana ya quedó fija. Del viernes al domingo eliges la de la próxima.',
   'goal.opt.0': 'Base', 'goal.opt.1': 'Reto', 'goal.opt.2': 'Tope',
   'goal.opt.s': ['{n} día con los cuatro hábitos', '{n} días con los cuatro hábitos'],
-  'goal.suggested': 'Sugerida', 'goal.saved': 'Vas por {goal}.', 'goal.next.picked': 'Próxima semana: {goal}.',
+  'goal.suggested': 'Sugerida', 'goal.pick.next': 'Elegir la de la próxima semana', 'goal.saved': 'Vas por {goal}.', 'goal.next.picked': 'Próxima semana: {goal}.',
 
   // ---- lenses and sources ----
   'lens.meetings': 'Reuniones', 'lens.contract': 'Contrato', 'lens.points': 'Puntos', 'lens.team': 'Equipo', 'lens.aria': '{label}: {value}',
@@ -288,7 +288,7 @@ const en = {
   'u.sites': ['{n} site', '{n} sites'], 'u.meetings': ['{n} meeting', '{n} meetings'], 'u.habits': 'habits', 'u.fingers': 'fingers',
   'city.Panama City': 'Panama City', 'city.Colon': 'Colón', 'city.Medellin': 'Medellín', 'city.Bogota': 'Bogotá', 'city.Cali': 'Cali', 'city.David': 'David',
   'country.PA': 'Panama', 'country.CO': 'Colombia',
-  'time.now': 'just now', 'time.min': '{n} min ago', 'time.h': '{n} h ago', 'time.yesterday': 'yesterday', 'time.week': 'Week {n}',
+  'time.now': 'just now', 'time.min': '{n} min ago', 'time.h': '{n} h ago', 'time.yesterday': 'yesterday', 'time.week': 'Week {n}', 'time.range': '{a} to {b}',
 
   // ---- errors ----
   'err.offline': 'No signal. Check your connection and try again.',
@@ -376,7 +376,7 @@ const en = {
   'goal.sheet.locked': 'This week\'s goal is set. From Friday to Sunday you choose next week\'s.',
   'goal.opt.0': 'Base', 'goal.opt.1': 'Stretch', 'goal.opt.2': 'Top',
   'goal.opt.s': ['{n} day with all four habits', '{n} days with all four habits'],
-  'goal.suggested': 'Suggested', 'goal.saved': 'You are going for {goal}.', 'goal.next.picked': 'Next week: {goal}.',
+  'goal.suggested': 'Suggested', 'goal.pick.next': 'Choose next week\'s', 'goal.saved': 'You are going for {goal}.', 'goal.next.picked': 'Next week: {goal}.',
 
   // ---- lenses and sources ----
   'lens.meetings': 'Meetings', 'lens.contract': 'Contract', 'lens.points': 'Points', 'lens.team': 'Team', 'lens.aria': '{label}: {value}',

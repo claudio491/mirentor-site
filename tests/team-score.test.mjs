@@ -226,3 +226,11 @@ test('levels follow lifetime points', () => {
   const s = build([rep('a'), log('a', '2026-11-09', '10:00', 'talk'), log('a', MON, '10:00', 'talk', 'L2')]);
   assert.equal(lifetime(s, 'a', ctx()), 16);
 });
+
+test('the days before a rep started are rest days: a first week is not a week of missed fingers', () => {
+  const s = build([rep('a', { startDate: '2026-11-19' }), log('a', '2026-11-19', '10:00', 'talk')]);
+  const w = weekOf(s, 'a', MON, ctx('2026-11-19'));
+  assert.deepEqual(w.days.map((d) => d.kind), ['rest', 'rest', 'rest', 'work', 'future']);
+  assert.deepEqual([w.workFingers, w.marksMax, w.marks], [2, 9, 2]);
+  assert.deepEqual(goalOf(s, 'a', MON, ctx('2026-11-19')).options, [1, 2]);
+});

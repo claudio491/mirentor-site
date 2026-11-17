@@ -1,7 +1,7 @@
 // app.js: the rep's side of the sales team platform, and the shell both sides share.
 // The server answers codes and numbers; every sentence comes from i18n.js through t().
 import { APP_NAME, LANGS } from './i18n.js';
-import { $, $$, h, icon, t, setLang, lang, applyStatic, num, ord, wdShort, wdLong, dayMonth, monthName, upper, cap, isoWeek, addDays, clock, hourName, stamp, ago, cityName, joinList,
+import { $, $$, h, put, icon, t, setLang, lang, applyStatic, giant, num, ord, wdShort, wdLong, dayMonth, monthName, upper, cap, isoWeek, addDays, clock, hourName, stamp, ago, cityName, joinList,
   lock, buzz, quiet, countTo, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, once, copyText, grain, reduce, formSheet, setExplain } from './ui.js';
 import { buildHand, paintHand, miniHand, rowWrist, lens, setLens, levelBone, badgeGlyph } from './hand.js';
 import { createManager } from './manager.js';
@@ -49,10 +49,6 @@ const pts = (n) => t('u.points', { n });
 const unitWord = (key, n) => t(key, { n }).replace(num(n), '').trim();
 
 function show(name) { for (const n of SCREENS) $(`#s-${n}`).hidden = n !== name; }
-/** Giant type ends in a signal full stop, like the brand's headlines. */
-function giant(node, text) {
-  if (text.endsWith('.')) node.replaceChildren(text.slice(0, -1), h('em', { text: '.' })); else node.textContent = text;
-}
 /** A sentence with one part set apart: t(key) is split around the blank named `mark`. */
 function withEm(node, key, vars, mark, tail = '') {
   const [a, b = ''] = t(key, { ...vars, [mark]: '\u0001' }).split('\u0001');
@@ -66,8 +62,9 @@ function renderTop() {
   const st = S.me && S.me.streak, chip = $('#streakChip');
   chip.hidden = !st;
   if (st) { countTo($('#streakN'), st.current); chip.setAttribute('aria-label', t('top.streak.aria', { n: t('u.days', { n: st.current }) })); }
-  $('#queueChip').hidden = !S.queue.length;
-  $('#queueN').textContent = t('top.queue', { n: S.queue.length });
+  const waiting = myQueue().length;
+  $('#queueChip').hidden = !waiting;
+  $('#queueN').textContent = t('top.queue', { n: waiting });
   $('#queueChip').setAttribute('aria-label', t('top.queue.aria'));
   for (const b of $$('#langSeg button')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang()));
   $('#asBar').hidden = !S.as;
@@ -77,7 +74,7 @@ function renderNav() {
   const nav = $('#nav'), canLog = !S.mgr && !readOnly() && !!S.me.today;
   const tabs = S.mgr ? ['team', 'needs', 'reps'] : ['today', 'table', 'profile'];
   const count = S.mgr ? manager.needsCount() : 0;
-  nav.replaceChildren(...tabs.map((id) => h('button', { class: 'tab', type: 'button', 'data-tab': id, 'aria-current': S.tab === id ? 'page' : null, onclick: () => setTab(id) },
+  put(nav, tabs.map((id) => h('button', { class: 'tab', type: 'button', 'data-tab': id, 'aria-current': S.tab === id ? 'page' : null, onclick: () => setTab(id) },
     icon(id), h('span', { text: t(`nav.${id}`) }), id === 'needs' && count ? h('span', { class: 'count num', text: String(count) }) : null)),
   canLog ? h('button', { class: 'btn primary log', type: 'button', id: 'logBtn', onclick: openLog }, icon('plus'), t('nav.log')) : null);
   nav.classList.toggle('three', !canLog);
@@ -138,6 +135,7 @@ function renderToday(animate) {
     $('#goalText').replaceChildren(...bold(t('goal.line', { goal: goalName(goal.picked, week.workFingers) }), goal.reached ? t('goal.reached') : t('goal.progress', { a: goal.fullFingers, b: goal.picked })),
       goalPick && goalPick.which === 'next' && !goalPick.isDefault ? ` ${t('goal.next.picked', { goal: goalName(goalPick.picked, goalPick.options.at(-1)) })}` : '');
     $('#goalBtn').hidden = readOnly() || !goalPick;
+    $('#goalBtn').textContent = t(goalPick && goalPick.which === 'next' ? 'goal.pick.next' : 'c.change');
   }
 
   // the four habits
@@ -194,7 +192,7 @@ function paintRow(row, r, period, lead) {
   $('.pos', row).textContent = ranked ? String(r.place) : '·';
   $('.h', row).replaceChildren(miniHand(r.hand, rowWrist(r)));
   $('.who b', row).textContent = r.mine ? t('table.you', { name: r.first }) : r.name;
-  $('.who small', row).replaceChildren(cityName(r.city), r.isNew ? h('span', { class: 'tag', text: t('table.new') }) : null);
+  put($('.who small', row), cityName(r.city), r.isNew ? h('span', { class: 'tag', text: t('table.new') }) : null);
   const pv = $('.pv', row), unit = $('.pts small', row), gap = $('.gap', row);
   if (!ranked) { delete pv.dataset.v; pv.textContent = num(r.marks); unit.textContent = `/${num(r.marksMax)}`; gap.textContent = t('u.marks'); }
   else if (period === 'month') { delete pv.dataset.v; pv.textContent = num(r.sites); unit.textContent = unitWord('u.sites', r.sites); gap.textContent = t('u.meetings', { n: r.meetings }); }
@@ -216,7 +214,7 @@ function renderRank() {
 function renderTable() {
   const { table, team } = S.me, T = table[S.period], mine = T.me, period = S.period;
   const day = S.me.today ? S.me.today.day : S.me.serverTime.slice(0, 10), ws = S.me.week ? S.me.week.start : addDays(day, -((new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7));
-  $('#weekChip').textContent = `${upper(t('time.week', { n: isoWeek(day) }))} · ${upper(dayMonth(ws))} · ${upper(dayMonth(addDays(ws, 6)))}`;
+  $('#weekChip').textContent = `${upper(t('time.week', { n: isoWeek(day) }))} · ${upper(t('time.range', { a: dayMonth(ws), b: dayMonth(addDays(ws, 6)) }))}`;
   $('#tableLead').textContent = period === 'day' ? t('table.lead.day', { date: dayMonth(day) }) : period === 'month' ? t('table.lead.month', { month: cap(monthName(day)) }) : t('table.lead.week', { date: dayMonth(ws) });
   for (const b of $$('#tableSeg button')) b.setAttribute('aria-pressed', String(b.dataset.period === period));
   const head = $('#tableGiant'), sup = $('#tableSupport');
@@ -302,15 +300,19 @@ function submitClose() {
 }
 
 // ---- the feed and the plays ----
+function kudosButton(f) {
+  const btn = h('button', { class: 'kudos', type: 'button', 'aria-pressed': String(!!f.clapped), 'aria-label': t('kudos.aria', { name: f.name }), disabled: f.mine || readOnly() }, icon('clap'), h('span', { class: 'num', text: String(f.kudos) }));
+  btn.addEventListener('click', () => clap(f, btn));
+  return btn;
+}
 function feedItem(f, fresh) {
-  const clapBtn = h('button', { class: 'kudos', type: 'button', 'aria-pressed': String(!!f.clapped), 'aria-label': t('kudos.aria', { name: f.name }), disabled: f.mine || readOnly() }, icon('clap'), h('span', { class: 'num', text: String(f.kudos) }));
-  clapBtn.addEventListener('click', () => clap(f, clapBtn));
+  const clapBtn = kudosButton(f);
   return h('li', { class: fresh ? 'new' : null }, h('span', {}, h('b', { text: f.name }), ` ${t(`feed.${f.code}`)}`, f.play ? h('q', { text: f.play }) : null,
     h('small', { text: `${cityName(f.city)} · ${ago(f.at, S.me.serverTime, tz())}` })),
   h('span', { class: 'side' }, f.pts ? h('span', { class: 'p', text: t('pts.plus', { n: f.pts }).replace(` ${t('u.pts')}`, '') }) : null, clapBtn));
 }
 function renderFeed(list, empty, animate) {
-  const items = S.me.feed.slice(0, 12), seen = S.seenFeed;
+  const items = S.me.feed.slice(0, 10), seen = S.seenFeed;
   list.replaceChildren(...items.map((f) => feedItem(f, animate && !!seen && !seen.has(f.id))));
   S.seenFeed = new Set(S.me.feed.map((f) => f.id));
   empty.hidden = items.length > 0;
@@ -328,6 +330,7 @@ function renderPlay() {
   if (!f) return;
   $('#playQ').textContent = f.play;
   $('#playBy').textContent = `${f.name} · ${cityName(f.city)} · ${t(`feed.${f.code}`)}`;
+  put($('#playK'), kudosButton(f));
 }
 function askPlay(logId) {
   formSheet({ title: t('play.ask.title'), intro: t('play.ask.p'), submit: t('play.ask.send'), skip: t('play.ask.skip'),
@@ -520,7 +523,7 @@ function saveLog() {
     closeSheet($('#logSheet')); setTab('today');
     try { const res = await api('POST', 'log', body); setTimeout(() => logged(res, body), reduce ? 0 : 260); }
     catch (e) {
-      if (e.code === 'offline') { S.queue.push(body); store.set(KEY.queue, S.queue); renderTop(); toast(t('toast.queued')); }
+      if (e.code === 'offline') { S.queue.push({ rep: S.me.me.id, body }); store.set(KEY.queue, S.queue); renderTop(); toast(t('toast.queued')); }
       else if (e.status === 401) lostSession();
       else toast(errText(e));
     }
@@ -562,20 +565,22 @@ function lockOn(done) {
 }
 
 // ---- logs that wait for signal ----
+/** A phone can be shared: each waiting log remembers whose it is, and only its owner sends it. */
+function myQueue() { return S.me ? S.queue.filter((q) => q && q.rep === S.me.me.id && q.body) : []; }
 let flushing = false;
 async function flush() {
-  if (flushing || !S.queue.length || !S.me || readOnly()) return;
+  if (flushing || !S.me || readOnly() || !myQueue().length) return;
   flushing = true;
   let sent = 0;
   try {
-    while (S.queue.length) {
-      try { await api('POST', 'log', S.queue[0]); sent += 1; }
+    for (const item of myQueue()) {
+      try { await api('POST', 'log', item.body); sent += 1; }
       catch (e) {
         if (e.code === 'offline') break;
         if (e.status === 401) { lostSession(); break; }
         toast(t('toast.dropped', { why: errText(e) }));   // refused for good: it leaves the queue with the reason shown
       }
-      S.queue.shift(); store.set(KEY.queue, S.queue);
+      S.queue = S.queue.filter((q) => q !== item); store.set(KEY.queue, S.queue);
     }
   } finally { flushing = false; }
   renderTop();
@@ -662,7 +667,7 @@ async function showSetup(token) {
 }
 
 // ---- wiring ----
-const manager = createManager({ api, S, t, errText, refresh, renderAll, feedItem, renderFeed, adopt, readOnly });
+const manager = createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut });
 function wire() {
   initPop(); initSheets();
   $('#home').addEventListener('click', (e) => { if (!S.me || S.as) return; e.preventDefault(); setTab(S.mgr ? 'team' : 'today'); });
@@ -686,7 +691,7 @@ function wire() {
   addEventListener('online', flush);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && S.me) { flush(); if (Date.now() - S.lastLoad > 45000) refresh(true); } });
   // The table and the feed stay current while the app is open and nobody is in the middle of a form.
-  setInterval(() => { if (S.me && !document.hidden && !$('dialog[open]')) { if (S.queue.length) flush(); else if (Date.now() - S.lastLoad > 45000) refresh(true); } }, 15000);
+  setInterval(() => { if (S.me && !document.hidden && !$('dialog[open]')) { if (myQueue().length) flush(); else if (Date.now() - S.lastLoad > 45000) refresh(true); } }, 15000);
 }
 
 setLang(store.get(KEY.lang, null) || ((navigator.language || 'es').toLowerCase().startsWith('en') ? 'en' : 'es'));

@@ -1,12 +1,12 @@
 // manager.js: what a manager sees. Every rep in one view, the things that wait for a decision, and the people who have access.
 // The headline of the team view is a live number (days closed today), and the rows that need attention are framed.
-import { $, h, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, dayOf, clock, stamp, ago, cityName, countTo, flipList, toast, src, once, copyText, formSheet, quiet } from './ui.js';
+import { $, h, put, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, dayOf, clock, stamp, ago, cityName, countTo, flipList, toast, src, once, copyText, formSheet, quiet } from './ui.js';
 import { miniHand, lens, setLens } from './hand.js';
 
 const MONDAY = '2026-11-16';   // any Monday: only used to name the days of the week
 const dayName = (n) => wdShort(addDays(MONDAY, n - 1));
 
-export function createManager({ api, S, errText, refresh, renderAll, renderFeed }) {
+export function createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut }) {
   let team = null, city = 'all';
   const tzOf = (rep) => (rep && rep.tz) || S.me.me.tz;
   const repById = (id) => team.reps.find((r) => r.id === id) || team.others.find((r) => r.id === id);
@@ -87,8 +87,10 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed 
   }
 
   // ---- needs me ----
-  const group = (titleKey, items, emptyKey, extra = null) => h('section', { class: 'group' },
-    h('h2', {}, t(titleKey), items.length ? [' ', h('span', { class: 'count num', text: String(items.length) })] : null),
+  /** A date typed in a date field, as a person reads it: jue 19 nov. Anything else is shown as typed. */
+  const niceDay = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? `${wdShort(v)} ${dayMonth(v)}` : v);
+  const group = (titleKey, items, emptyKey, extra = null, counted = true) => h('section', { class: 'group' },
+    h('h2', {}, t(titleKey), counted && items.length ? [' ', h('span', { class: 'count num', text: String(items.length) })] : null),
     items.length ? h('ul', { class: 'items' }, items) : h('p', { class: 'note', text: t(emptyKey) }), extra);
   const copyBtn = (text) => h('button', { class: 'mini-btn', type: 'button', text: t('needs.msg.copy'), onclick: async () => toast(t((await copyText(text)) ? 'c.copied' : 'close.copy.fail')) });
   function voidLog(logId) {
@@ -107,7 +109,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed 
     head.classList.toggle('word', !total);
     const confirm = n.confirm.map((x) => h('li', {},
       h('span', {}, h('b', { text: t(`needs.what.${x.what}`, { lead: x.lead.name }) }), h('small', { text: `${x.name} · ${stamp(x.at, tzOf(repById(x.rep)))}` }),
-        x.held ? h('small', { text: t('needs.held') }) : null, x.when ? h('small', { text: t('needs.when', { when: x.when }) }) : null, x.contact ? h('small', { text: t('needs.contact', { contact: x.contact }) }) : null),
+        x.held ? h('small', { text: t('needs.held') }) : null, x.when ? h('small', { text: t('needs.when', { when: niceDay(x.when) }) }) : null, x.contact ? h('small', { text: t('needs.contact', { contact: x.contact }) }) : null),
       h('span', { class: 'acts' },
         h('button', { class: 'mini-btn primary', type: 'button', text: t(`needs.btn.${x.what}`), onclick: (e) => act(e.currentTarget, () => api('POST', 'confirm', { logId: x.logId, what: x.what }), 'needs.confirmed') }),
         h('button', { class: 'mini-btn', type: 'button', text: t('needs.btn.void'), onclick: () => voidLog(x.logId) }))));
@@ -129,7 +131,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed 
       fields: [{ name: 'rep', type: 'select', label: t('needs.sites.rep'), options: team.reps.map((r) => ({ value: r.id, label: r.name })) }, { name: 'name', label: t('needs.sites.name') }],
       onSubmit: async (v) => { team = await api('POST', 'site', { rep: v.rep, lead: { name: v.name } }); toast(t('needs.sites.added')); await refresh(false); } }) });
     $('#needsBody').replaceChildren(
-      h('div', {}, group('needs.confirm.title', confirm, 'needs.confirm.empty'), group('needs.late.title', late, 'needs.late.empty'), group('needs.sites.title', sites, 'needs.sites.empty', h('p', { class: 'note' }, addSite))),
+      h('div', {}, group('needs.confirm.title', confirm, 'needs.confirm.empty'), group('needs.late.title', late, 'needs.late.empty'), group('needs.sites.title', sites, 'needs.sites.empty', h('p', { class: 'note' }, addSite), false)),
       h('div', {}, group('needs.silent.title', silent, 'needs.silent.empty'), group('needs.pace.title', pace, 'needs.pace.empty'), (silent.length || pace.length) ? h('p', { class: 'note', text: t('needs.msg.note') }) : null));
   }
 
@@ -181,9 +183,11 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed 
   }
   function renderReps() {
     $('#repsGiant').replaceChildren(num(team.reps.length), h('em', { text: '.' }));
-    $('#repsBody').replaceChildren(
+    put($('#repsBody'),
       team.reps.length ? h('ul', { class: 'items' }, team.reps.map((r) => repItem(r, true))) : h('p', { class: 'note', text: t('mgr.none') }),
-      team.others.length ? h('section', { class: 'group' }, h('h2', { text: t('reps.others') }), h('ul', { class: 'items' }, team.others.map((r) => repItem(r, false)))) : null);
+      team.others.length ? h('section', { class: 'group' }, h('h2', { text: t('reps.others') }), h('ul', { class: 'items' }, team.others.map((r) => repItem(r, false)))) : null,
+      h('section', { class: 'group' }, h('h2', { text: t('profile.settings') }), h('div', { class: 'settings' },
+        h('div', { class: 'line' }, h('span', { text: t('profile.user', { handle: S.me.me.handle }) }), h('button', { class: 'mini-btn', type: 'button', text: t('profile.signout'), onclick: signOut })))));
   }
 
   function render(animate = false) {

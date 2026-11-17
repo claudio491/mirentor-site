@@ -11,7 +11,7 @@ const ORIGIN = 'https://mirentor.onrender.com';
 const PIN = '482915';
 const MON_10 = Date.parse('2026-11-16T15:00:00Z');   // Monday 10:00 in Panama
 
-async function start({ clock = MON_10, sample = false, dev = false } = {}) {
+async function start({ clock = MON_10, sample = false, dev = false, previewOffsetMs = 0 } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), 'team-api-'));
   if (sample) { mkdirSync(path.join(dir, 'team')); writeFileSync(path.join(dir, 'team', 'SAMPLE'), 'sample data\n'); }
   const staticDir = path.join(dir, 'static'); mkdirSync(staticDir);
@@ -19,7 +19,7 @@ async function start({ clock = MON_10, sample = false, dev = false } = {}) {
   writeFileSync(path.join(staticDir, 'app.js'), 'export const ok = 1;');
   mkdirSync(path.join(staticDir, 'fonts')); writeFileSync(path.join(staticDir, 'fonts', 'geist-v1.woff2'), Buffer.from([0x77, 0x4f, 0x46, 0x32, 1, 2, 3]));
   const time = { now: clock };
-  const team = createTeam({ dir, secret: 'test-secret', pushToken: 'push-token', now: () => new Date(time.now), staticDir, origins: [ORIGIN], dev });
+  const team = createTeam({ dir, secret: 'test-secret', pushToken: 'push-token', now: () => new Date(time.now), staticDir, origins: [ORIGIN], dev, previewOffsetMs });
   const srv = createServer({ store: openStore(dir), sheets: null, origins: [ORIGIN], team });
   await new Promise((r) => srv.listen(0, r));
   const url = `http://127.0.0.1:${srv.address().port}`;
@@ -317,4 +317,16 @@ test('a folder of sample data says so on every view, and a local preview signs i
   const real = await start(); t.after(() => real.srv.close());
   const a = await real.admin();
   assert.equal((await real.call('GET', '/equipo/api/me', undefined, { cookie: a.cookie })).json.sample, false);
+});
+
+test('a preview whose clock runs days away from the real one does not flag every log as late', async (t) => {
+  const offset = 3 * 24 * 3600 * 1000, real = MON_10 - offset;   // the phone says Friday morning, the preview says Monday
+  const s = await start({ sample: true, dev: true, previewOffsetMs: offset }); t.after(() => s.srv.close());
+  const b = await s.call('POST', '/equipo/api/bootstrap', { handle: 'jefe', name: 'Jefe Uno' }, { bearer: 'push-token' });
+  const a = await s.call('POST', '/equipo/api/setup', { token: s.tokenOf(b.json.setupUrl), pin: PIN });
+  const m = await s.addRep(a.cookie, 'mario');
+  await s.call('POST', '/equipo/api/log', logBody('face0001', { clientAt: new Date(real).toISOString() }), { cookie: m.cookie });
+  await s.call('POST', '/equipo/api/log', logBody('face0002', { clientAt: new Date(real - 3 * 3600 * 1000).toISOString(), lead: { name: 'Otro Negocio', zone: 'Z' } }), { cookie: m.cookie });
+  const logs = s.lines().filter((e) => e.type === 'log');
+  assert.deepEqual(logs.map((e) => [e.late === true, e.clientAt]), [[false, new Date(MON_10).toISOString()], [true, new Date(MON_10 - 3 * 3600 * 1000).toISOString()]]);
 });

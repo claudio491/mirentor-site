@@ -1,7 +1,7 @@
 // hand.js: the drawings that carry the numbers. The week is a tracked hand of 21 keypoints: the wrist plus five fingers
 // of four joints. Each finger is a day and each joint is one habit, from the base: visit, conversations, follow-up, closing.
 // A joint lights when its own habit is done, and a bone lights only between two lit points, so a gap shows what was missed.
-import { h, s, t, lock, reduce, EASE, buzz, upper, wdShort, wdLong, num } from './ui.js';
+import { h, s, t, put, lock, reduce, EASE, buzz, upper, wdShort, wdLong, num } from './ui.js';
 
 const WRIST = [160, 322];
 const FINGERS = [
@@ -107,7 +107,7 @@ export function setLens(node, value, max, unit = '') {
   node.querySelector('.arc').setAttribute('stroke-dashoffset', (C * SPAN * (1 - p)).toFixed(1));
   node.querySelector('.tipg').style.transform = `rotate(${135 + 270 * p}deg)`;
   const tail = max ? `/${num(max)}` : unit;
-  node.querySelector('.v').replaceChildren(h('span', { text: num(value) }), tail ? h('small', { text: tail }) : null);
+  put(node.querySelector('.v'), h('span', { text: num(value) }), tail ? h('small', { text: tail }) : null);
   node.setAttribute('aria-label', t('lens.aria', { label: node.querySelector('.l').textContent, value: `${num(value)}${max ? ` / ${num(max)}` : ` ${unit}`}`.trim() }));
 }
 
@@ -133,7 +133,7 @@ export function levelBone(level, steps, nextFloor) {
 const SIDES = { first_log: 3, first_meeting: 4, streak: 5, full_hand: 6, visits: 7, first_site_live: 8 };
 export function badgeGlyph(code, level, levels) {
   const k = SIDES[code] || 5, Rr = 21, pts = Array.from({ length: k }, (_, j) => { const a = -Math.PI / 2 + j * 2 * Math.PI / k; return [36 + Rr * Math.cos(a), 36 + Rr * Math.sin(a)]; });
-  const step = k % 2 ? 2 : 3;
+  const step = k % 2 ? 2 : k % 3 === 0 ? 1 : 3;   // a single stroke that visits every joint
   const path = `${pts.map((_, j) => pts[(j * step) % k]).map((p, j) => `${j ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join('')}Z`;
   const share = levels > 0 ? level / levels : 0, litCount = Math.round(k * share);
   return s('svg', { viewBox: '0 0 72 72', 'aria-hidden': 'true', focusable: 'false' },

@@ -82,6 +82,14 @@ Where the field sales reps log each contact and see their own numbers, and where
   reads the day with `GET export` (`logs` with the CRM's channel and outcome, `stages`, `newLeads`, `doNotCall`) and
   answers each business added in the app with its CRM id through `POST leadmap`. `stages` holds the highest stage the
   day's logs justify: the routine raises a CRM stage, never lowers it.
+- The client is plain files in `team/`, with no build step: `index.html`, `app.css`, `app.js` (the rep's screens and the
+  shell), `manager.js`, `hand.js` (the hand, the lenses, the level), `ui.js` and `i18n.js`. Elements are built node by
+  node, never from a string of markup; `tests/team-client.test.mjs` checks that, and that both languages carry the same keys.
+- A log that cannot be sent waits on the phone (the top bar says how many) and goes out again with the same `id`.
+- To look at it on this machine: `node tools/team-dev.mjs 8772`, then open `http://localhost:8772/equipo`. Each start
+  writes fictional people and businesses to a temp folder, prints the PIN for that run, and sets the clock to Thursday
+  3:00 pm in Panama so the week is half lived (`--day=5` picks another day, `--now` uses the real time). Every screen
+  is labeled as sample data. `node tools/team-seed.mjs <empty-folder>` writes the same sample without starting a server.
 - Writes need `content-type: application/json` and, when the browser sends an `Origin`, one that is this host or in
   `ALLOWED_ORIGINS`. Bodies stop at 16 KB (`PUT leads` at 4 MB). Every answer is `no-store` and `noindex`; the page
   ships with a policy that allows scripts, styles and fonts from this origin only.

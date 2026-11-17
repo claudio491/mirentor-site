@@ -20,6 +20,8 @@ function fill(node, attrs, kids) {
 }
 /** h('button', { class: 'btn', onclick }, 'Guardar'): an HTML element. Strings become text, never markup. */
 export const h = (tag, attrs, ...kids) => fill(document.createElement(tag), attrs, kids);
+/** Replace a node's children. Unlike replaceChildren, a missing child (null, false) is skipped instead of written as text. */
+export const put = (node, ...kids) => { node.replaceChildren(...kids.flat(3).filter((k) => k != null && k !== false)); return node; };
 /** The same for SVG. */
 export const s = (tag, attrs, ...kids) => fill(document.createElementNS(SVG, tag), attrs, kids);
 /** An icon from the sprite in index.html. */
@@ -32,8 +34,12 @@ export const lang = () => LANG;
 export const t = (key, vars) => T(key, vars);
 const locale = () => LOCALE[LANG];
 /** Fill the fixed labels of the page: data-t (text), data-t-aria (aria-label), data-t-ph (placeholder). */
+/** Giant type ends in a signal full stop, like the brand's headlines. */
+export function giant(node, text) {
+  if (text.endsWith('.')) node.replaceChildren(text.slice(0, -1), h('em', { text: '.' })); else node.textContent = text;
+}
 export function applyStatic(root = document) {
-  for (const n of $$('[data-t]', root)) n.textContent = T(n.dataset.t);
+  for (const n of $$('[data-t]', root)) { if (n.classList.contains('giant')) giant(n, T(n.dataset.t)); else n.textContent = T(n.dataset.t); }
   for (const n of $$('[data-t-aria]', root)) n.setAttribute('aria-label', T(n.dataset.tAria));
   for (const n of $$('[data-t-ph]', root)) n.setAttribute('placeholder', T(n.dataset.tPh));
 }
@@ -235,9 +241,9 @@ function fieldNode(f) {
       h('div', { class: 'checks' }, f.options.map((o) => h('label', { class: 'check' }, h('input', { type: 'checkbox', value: o.value, checked: (f.value || []).includes(o.value) }), h('span', { text: o.label })))));
   }
   let input;
-  if (f.type === 'select') input = h('select', { id, name: f.name }, f.options.map((o) => h('option', { value: o.value, selected: String(o.value) === String(f.value ?? ''), text: o.label })));
-  else if (f.type === 'textarea') { input = h('textarea', { id, name: f.name, rows: 3, maxlength: f.max || 280, placeholder: f.placeholder }); input.value = f.value || ''; }
-  else { input = h('input', { id, name: f.name, type: f.type || 'text', maxlength: f.max || 120, placeholder: f.placeholder, autocomplete: 'off', autocapitalize: f.lower ? 'none' : null, spellcheck: f.lower ? 'false' : null }); input.value = f.value || ''; }
+  if (f.type === 'select') input = h('select', { id, name: f.name, 'aria-label': f.label }, f.options.map((o) => h('option', { value: o.value, selected: String(o.value) === String(f.value ?? ''), text: o.label })));
+  else if (f.type === 'textarea') { input = h('textarea', { id, name: f.name, 'aria-label': f.label, rows: 3, maxlength: f.max || 280, placeholder: f.placeholder }); input.value = f.value || ''; }
+  else { input = h('input', { id, name: f.name, 'aria-label': f.label, type: f.type || 'text', maxlength: f.max || 120, placeholder: f.placeholder, autocomplete: 'off', autocapitalize: f.lower ? 'none' : null, spellcheck: f.lower ? 'false' : null }); input.value = f.value || ''; }
   return h('label', { class: 'field', 'data-name': f.name, 'data-type': f.type || 'text' }, h('span', { class: 'label', text: f.label }), input, f.hint ? h('span', { class: 'hint', text: f.hint }) : null);
 }
 /** Open the form sheet. onSubmit(values) may return true to keep it open; a thrown error is shown in the form. */

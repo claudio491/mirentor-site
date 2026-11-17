@@ -11,7 +11,7 @@ import { hashPin, validPin } from '../lib/team/auth.mjs';
 import { channelOf, weekStart, monthStart, addDays, localDay } from '../lib/team/rules.mjs';
 
 const TZ = 'America/Panama', UTC_OFFSET_H = 5;   // Panama is UTC-5 all year
-const at = (day, hhmm) => { const [hh, mm] = hhmm.split(':').map(Number); return new Date(Date.parse(`${day}T00:00:00Z`) + ((hh + UTC_OFFSET_H) * 60 + mm) * 60000).toISOString(); };
+export const at = (day, hhmm) => { const [hh, mm] = hhmm.split(':').map(Number); return new Date(Date.parse(`${day}T00:00:00Z`) + ((hh + UTC_OFFSET_H) * 60 + mm) * 60000).toISOString(); };
 
 export const SAMPLE_REPS = [
   { id: 'r_sample_andrea', handle: 'andrea', name: 'Andrea Quintero', city: 'Panama City', role: 'rep' },
