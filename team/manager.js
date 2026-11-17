@@ -50,11 +50,13 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
   function paintRow(row, r) {
     const zone = tzOf(r), g = team.goals, flags = flagsOf(r), w = r.week.counts;
     row.classList.toggle('p1', r.place === 1); row.classList.toggle('flagged', flags.length > 0);
+    row.classList.toggle('blank', !r.week.points && !r.week.marks && !r.today.logs);   // nothing this week: the cells would be ten zeros
     const pos = $('.pos', row); pos.textContent = r.place ? ord(r.place) : t('mgr.noplace'); pos.classList.toggle('none', !r.place);
     $('.who b', row).textContent = r.name;
     putFace($('.fc', row), r);
-    $('.who small', row).replaceChildren(cityName(r.city), r.isNew ? ` · ${t('table.new')}` : '');
-    $('.flags', row).replaceChildren(...flags.map((f) => h('span', { class: 'chip', text: f })));
+    $('.who small', row).replaceChildren(cityName(r.city));
+    // "new" is a fact about the rep, not something to attend to: it is a plain tag before the flags.
+    $('.flags', row).replaceChildren(...(r.isNew ? [h('span', { class: 'tag', text: t('table.new') })] : []), ...flags.map((f) => h('span', { class: 'chip', text: f })));
     $('.h', row).replaceChildren(miniHand(r.week.days, r.week.marks > r.week.days.reduce((a, d) => a + d.marks, 0)));
     const set = (col, label, nodes) => { const cell = $(`.c-${col}`, row); $('.cell-l', cell).textContent = label; $('.cv', cell).replaceChildren(...[nodes].flat()); };
     const frac = (a, b) => [num(a), h('small', { text: `/${num(b)}` })];

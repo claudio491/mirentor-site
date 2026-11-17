@@ -108,9 +108,15 @@ Where the field sales reps log each contact and see their own numbers, and where
 - A line of `events.jsonl` that cannot be applied is skipped on start and named in the service log. If the module
   cannot start at all, the waitlist and the desk start without it.
 - The client is plain files in `team/`, with no build step: `index.html`, `app.css`, `app.js` (the rep's screens and the
-  shell), `manager.js`, `hand.js` (the hand, the lenses, the level), `ui.js`, `queue.js` and `i18n.js`. Elements are
-  built node by node, never from a string of markup; `tests/team-client.test.mjs` checks that, and that both languages
-  carry the same keys.
+  shell), `manager.js`, `hand.js` (the hand, the lenses, the level), `fx.js` (the entrance, the moment box, the small
+  rewards), `moments.js`, `ui.js`, `queue.js` and `i18n.js`. Elements are built node by node, never from a string of
+  markup; `tests/team-client.test.mjs` checks that, and that both languages carry the same keys.
+- Motion has three tiers. The entrance (the lens finds the person and says where they stand) plays after signing in
+  and on the first open of a day. A moment (a full finger or hand, a new step or level, a badge, taking the lead)
+  takes the screen once, waits for an open form to close, and at most two play in a row. Everything else is short
+  feedback: a number that locks, a ring, points that rise. What deserves which is decided in `team/moments.js`,
+  apart from the screens, and tested in `tests/team-moments.test.mjs`. With reduced motion every screen shows its
+  final state and the loops are off.
 - A log that cannot be sent (no signal, a service that is restarting, a session that ended) waits on the phone (the
   top bar says how many) and goes out again with the same `id`. Only a refusal the server explains drops it, with the
   reason on screen; `team/queue.js` holds that rule. The day cannot be closed while logs wait.

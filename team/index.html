@@ -23,6 +23,7 @@
   <symbol id="i-team" viewBox="0 0 24 24"><path d="M4 19V9M12 19V5M20 19v-7"/><circle class="j" cx="4" cy="8.5" r="1.9"/><circle class="j" cx="12" cy="4.5" r="1.9"/><circle class="j" cx="20" cy="11.5" r="1.9"/></symbol>
   <symbol id="i-needs" viewBox="0 0 24 24"><path d="M5 6h14v12H5z"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/><circle class="j" cx="15.5" cy="9.6" r="1.9"/></symbol>
   <symbol id="i-reps" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3"/><path d="M3.5 19c.9-3.2 3-4.7 5.5-4.7s4.6 1.5 5.5 4.7M16 5.6a3 3 0 0 1 0 5.8M17.5 14.6c1.6.6 2.6 2 3.1 4.4"/><circle class="j" cx="9" cy="8.5" r="1.7"/></symbol>
+  <symbol id="i-go" viewBox="0 0 24 24"><path d="M4 12h12.5"/><path d="M12 7l5 5-5 5"/><circle class="j" cx="19.6" cy="12" r="1.9"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
   <symbol id="i-talk" viewBox="0 0 24 24"><path d="M5 20V5h9v15M3 20h13"/><path d="M17.5 8h3.5M17.5 11.5h2.5"/><circle class="j" cx="11" cy="12.5" r="1.7"/></symbol>
@@ -87,13 +88,13 @@
       <div class="col-a">
         <header class="hero" id="hero">
           <i class="flood" aria-hidden="true"></i>
-          <div class="hud-row"><span class="chip"><i class="dot"></i><span id="dateChip"></span></span><span class="chip ghost" id="sampleChip" hidden data-t="c.sample"></span></div>
+          <div class="hud-row"><span class="chip"><i class="dot"></i><span id="dateChip"></span></span><span class="chip ghost num" id="countChip" hidden></span><span class="chip ghost" id="sampleChip" hidden data-t="c.sample"></span></div>
           <span class="hero-lens" id="heroLens"></span>
           <span class="hero-tag"><button class="chip num" type="button" id="heroPts"><i class="dot"></i><b id="heroPtsN"></b> <span data-t="u.pts"></span></button></span>
           <p class="lead" id="todayLead"></p>
           <h1 class="giant" id="todayGiant"></h1>
           <p class="support" id="todaySupport"></p>
-          <button class="nextbtn" type="button" id="nextBtn" hidden><span class="nx-l"><i class="dot"></i><span data-t="next.label"></span></span><b class="nx-p num" id="nextPts"></b><span class="nx-t" id="nextText"></span></button>
+          <button class="nextbtn" type="button" id="nextBtn" hidden><span class="nx-l"><i class="dot"></i><span data-t="next.label"></span></span><b class="nx-p num" id="nextPts"></b><span class="nx-t" id="nextText"></span><svg class="ic nx-go" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-go"/></svg></button>
         </header>
         <figure class="handwrap">
           <div class="handstage">
@@ -113,6 +114,7 @@
         <div class="lenses" id="lenses"></div>
         <button class="rankstrip" type="button" id="rankstrip" data-t-aria="rank.open.aria">
           <span class="rs-h"><b id="rsTitle"></b><span class="label" data-t="rank.open"></span></span>
+          <span class="rs-days" id="rsDays" hidden></span>
           <span class="tower" id="rsRows"></span>
         </button>
         <section class="card" id="closeCard" aria-labelledby="closeH">
@@ -129,43 +131,57 @@
         <h2 class="sec-h" data-t="feed.title"></h2>
         <ul class="feed" id="feed"></ul>
         <p class="note" id="feedEmpty" hidden data-t="feed.empty"></p>
+        <div class="feed-zero" id="feedZero" hidden><span class="stack" id="feedFaces" aria-hidden="true"></span><p data-t="feed.empty"></p><button class="btn" type="button" id="feedLog" data-t="nav.log"></button></div>
       </div>
     </div>
   </section>
 
   <!-- TABLE -->
   <section class="screen" id="s-table" hidden aria-labelledby="tableGiant">
-    <div class="hud-row"><span class="chip"><i class="dot"></i><span id="weekChip"></span></span></div>
-    <p class="lead" id="tableLead"></p>
-    <h1 class="giant" id="tableGiant"></h1>
-    <p class="support" id="tableSupport"></p>
-    <div class="squad" id="squad" role="group" data-t-aria="squad.aria"></div>
-    <div class="hud-row gap">
-      <div class="seg" role="group" id="tableSeg" data-t-aria="table.period.aria">
-        <button type="button" data-period="week" aria-pressed="true" data-t="table.week"></button><button type="button" data-period="day" aria-pressed="false" data-t="table.day"></button><button type="button" data-period="month" aria-pressed="false" data-t="table.month"></button>
+    <div class="cols">
+      <div class="col-a">
+        <div class="hud-row"><span class="chip"><i class="dot"></i><span id="weekChip"></span></span></div>
+        <p class="lead" id="tableLead"></p>
+        <h1 class="giant" id="tableGiant"></h1>
+        <p class="support" id="tableSupport"></p>
+        <div class="squad" id="squad" role="group" data-t-aria="squad.aria"></div>
+      </div>
+      <div class="col-b">
+        <div class="hud-row gap">
+          <div class="seg" role="group" id="tableSeg" data-t-aria="table.period.aria">
+            <button type="button" data-period="week" aria-pressed="true" data-t="table.week"></button><button type="button" data-period="day" aria-pressed="false" data-t="table.day"></button><button type="button" data-period="month" aria-pressed="false" data-t="table.month"></button>
+          </div>
+        </div>
+        <ol class="tower" id="tableRows"></ol>
+        <p class="note" id="tableEmpty" hidden></p>
+        <p class="label rest-h" id="restLabel" data-t="table.rest"></p>
+        <ul class="tower" id="restRows"></ul>
+        <div class="teamgoal" id="teamgoal"></div>
+        <p class="note"><span data-t="table.note"></span> <button class="link" type="button" data-open="rulesSheet" data-t="profile.rules"></button></p>
       </div>
     </div>
-    <ol class="tower" id="tableRows"></ol>
-    <p class="note" id="tableEmpty" hidden data-t="table.empty"></p>
-    <p class="label rest-h" id="restLabel" data-t="table.rest"></p>
-    <ul class="tower" id="restRows"></ul>
-    <div class="teamgoal" id="teamgoal"></div>
-    <p class="note"><span data-t="table.note"></span> <button class="link" type="button" data-open="rulesSheet" data-t="profile.rules"></button></p>
   </section>
 
   <!-- PROFILE -->
   <section class="screen" id="s-profile" hidden aria-labelledby="profileGiant">
-    <div class="hud-row who-row"><span id="portrait"></span><span class="who-tags"><span class="chip"><i class="dot"></i><span id="whoChip"></span></span><span class="chip ghost" id="whoCity"></span></span></div>
-    <p class="lead" data-t="profile.lead"></p>
-    <h1 class="giant word" id="profileGiant"></h1>
-    <div class="lvl" id="lvl"></div>
-    <h2 class="sec-h" data-t="profile.badges"></h2>
-    <div class="badges" id="badges"></div>
-    <h2 class="sec-h" data-t="profile.ledger"></h2>
-    <ul class="rows" id="ledger"></ul>
-    <p class="note" id="ledgerEmpty" hidden data-t="profile.ledger.empty"></p>
-    <h2 class="sec-h" data-t="profile.settings"></h2>
-    <div class="settings" id="settings"></div>
+    <div class="cols">
+      <div class="col-a">
+        <div class="hud-row who-row"><span id="portrait"></span><span class="who-tags"><span class="chip"><i class="dot"></i><span id="whoChip"></span></span><span class="chip ghost" id="whoCity"></span></span></div>
+        <p class="lead" data-t="profile.lead"></p>
+        <h1 class="giant word" id="profileGiant"></h1>
+        <div class="lvl" id="lvl"></div>
+      </div>
+      <div class="col-b">
+        <h2 class="sec-h" data-t="profile.badges"></h2>
+        <div class="badges" id="badges"></div>
+        <h2 class="sec-h" data-t="profile.ledger"></h2>
+        <ul class="rows" id="ledger"></ul>
+        <p class="note" id="ledgerEmpty" hidden data-t="profile.ledger.empty"></p>
+        <button class="link more" type="button" id="ledgerMore" hidden></button>
+        <h2 class="sec-h" data-t="profile.settings"></h2>
+        <div class="settings" id="settings"></div>
+      </div>
+    </div>
   </section>
 
   <!-- MANAGER: THE TEAM -->
@@ -300,10 +316,11 @@
 <div class="pop" id="pop" role="status" aria-live="polite"></div>
 <button class="lockon" type="button" id="lockon" tabindex="-1" aria-hidden="true">
   <span class="lo-box"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
-    <svg class="lo-ring" viewBox="0 0 214 214" aria-hidden="true" focusable="false"><g transform="rotate(-70 107 107)"><circle class="a" cx="107" cy="107" r="101"/><g class="tipg"><circle class="tipj" cx="208" cy="107" r="7.5"/></g></g></svg>
+    <svg class="lo-ring" viewBox="0 0 214 214" aria-hidden="true" focusable="false"><g transform="rotate(-70 107 107)"><circle class="a" cx="107" cy="107" r="101"/><g class="tipg"><circle class="tipr" cx="208" cy="107" r="7.5"/><circle class="tipj" cx="208" cy="107" r="7.5"/></g></g></svg>
     <b class="n" id="loN"></b><span class="lo-g" id="loG"></span></span>
   <span class="t"><span id="loA"></span> <em id="loB"></em></span>
   <span class="s" id="loS"></span>
+  <span class="label lo-skip" data-t="cel.skip"></span>
 </button>
 <!-- THE ENTRANCE: the system finds you before it shows you your day -->
 <button class="greet" type="button" id="greet" hidden>

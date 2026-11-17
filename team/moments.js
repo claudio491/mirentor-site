@@ -58,6 +58,25 @@ export function moments(before, after, { tookLead = false } = {}) {
 
 const days = (a, b) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86400000);
 
+/** Which day of their first days a new rep is on, or null for anyone else. */
+export function firstDays(view) {
+  if (!view.today || !view.me.isNew) return null;
+  return { day: Math.min(NEW_REP_DAYS, Math.max(1, days(view.me.startDate, view.today.day) + 1)), of: NEW_REP_DAYS };
+}
+
+/** Whether anything was logged in a day. */
+export const anyLog = (today) => !!today && !!(today.visits || today.conversations || today.followups || today.messages || today.replies || today.meetings);
+/** A working day nobody has logged in yet: the screen then invites a start instead of counting zero. */
+export const untouched = (today) => !!today && today.isWork && !today.closed && !anyLog(today);
+
+/** Why a table has no places: 'ranked' when it has them, 'new' when everyone on it is in their first days (they may
+ *  have points, so nothing may say they have none), 'empty' when nobody has scored. */
+export function tableNote(T) {
+  if (T.ranked > 0) return 'ranked';
+  const people = [...(T.me ? [T.me] : []), ...(T.rest || [])];
+  return people.length > 0 && people.every((p) => p.isNew) ? 'new' : 'empty';
+}
+
 /** The one fact a person is greeted with: what is at stake for them today. */
 export function stake(view) {
   if (!view.today) return { kind: 'team', working: view.team.working, players: view.team.players, closed: view.team.closedToday };
@@ -66,7 +85,7 @@ export function stake(view) {
   const T = view.table.week, mine = T.me;
   if (mine && mine.place === 1) return { kind: 'lead', score: mine.score, behind: T.behind ? { name: T.behind.name, pts: T.behind.pts } : null };
   if (mine && mine.place != null) return { kind: 'place', place: mine.place, ranked: T.ranked, gap: T.gap ? { pts: T.gap.pts, name: T.gap.aheadOnPodium ? T.gap.aheadName : null } : null };
-  if (view.me.isNew) return { kind: 'new', day: Math.min(NEW_REP_DAYS, Math.max(1, days(view.me.startDate, view.today.day) + 1)), of: NEW_REP_DAYS };
+  if (view.me.isNew) return { kind: 'new', ...firstDays(view) };
   return { kind: T.ranked === 0 ? 'zero' : 'nopts' };
 }
 

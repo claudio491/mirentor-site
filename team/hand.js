@@ -152,7 +152,8 @@ export function portrait(person, { share = null } = {}) {
 }
 export function setPortrait(node, share) {
   const p = Math.max(0, Math.min(1, Number(share) || 0));
-  node.querySelector('.arc').setAttribute('stroke-dashoffset', (C * (1 - p)).toFixed(1));
+  // Under a sliver the arc would only smear its own joint: the joint alone says "just started".
+  node.querySelector('.arc').setAttribute('stroke-dashoffset', (C * (1 - (p < 0.06 ? 0 : p))).toFixed(1));
   node.querySelector('.tipg').style.transform = `rotate(${(360 * p).toFixed(1)}deg)`;
 }
 /** Arcs draw themselves in from empty: for a screen that has just arrived. Each one starts `step` ms after the last. */
@@ -253,5 +254,13 @@ export function stepsGlyph(lit, total) {
     joints.slice(0, lit).forEach((j, i) => j.animate([{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 220, delay: 280 + i * 170, easing: EASE.lock, fill: 'backwards' }));
     bones.forEach((b, i) => b.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], { duration: 260, delay: 360 + i * 170, easing: EASE.track, fill: 'backwards' }));
   }
+  return svg;
+}
+/** A new rep's first days as a row of joints: the days gone by are filled, today carries the signal ring. */
+export function daysBone(day, of, label) {
+  const x0 = 9, gap = (300 - 2 * x0) / (of - 1), y = 11, xs = Array.from({ length: of }, (_, i) => x0 + i * gap);
+  const svg = s('svg', { class: 'dbone', viewBox: '0 0 300 22', role: 'img', 'aria-label': label });
+  svg.append(s('line', { class: 'rail', x1: xs[0], y1: y, x2: xs[of - 1], y2: y }), s('line', { class: 'gone', x1: xs[0], y1: y, x2: xs[day - 1], y2: y }),
+    ...xs.map((x, i) => s('circle', { class: `dj${i < day - 1 ? ' on' : i === day - 1 ? ' now' : ''}`, cx: x.toFixed(1), cy: y, r: i === day - 1 ? 5.4 : 4.2 })));
   return svg;
 }

@@ -3,9 +3,9 @@
 import { APP_NAME, LANGS } from './i18n.js';
 import { $, $$, h, put, icon, t, setLang, lang, applyStatic, giant, num, ord, wdShort, wdLong, dayMonth, monthName, upper, cap, isoWeek, addDays, clock, hourName, stamp, ago, cityName, joinList,
   lock, buzz, quiet, countTo, recount, ringAt, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, once, copyText, grain, reduce, formSheet, setExplain, newId, putFace, face, dayOf } from './ui.js';
-import { buildHand, paintHand, miniHand, rowWrist, lens, setLens, levelBone, badgeGlyph, portrait, setPortrait, replayHand, drawIn, fingerGlyph, handGlyph, stepsGlyph } from './hand.js';
-import { swap, roll, floatUp, reveal, stagger, lockIn, alive, greet, isGreeting, celebrate } from './fx.js';
-import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare } from './moments.js';
+import { buildHand, paintHand, miniHand, rowWrist, lens, setLens, levelBone, badgeGlyph, portrait, setPortrait, replayHand, drawIn, fingerGlyph, handGlyph, stepsGlyph, daysBone } from './hand.js';
+import { swap, roll, floatUp, flyDot, reveal, stagger, lockIn, alive, greet, isGreeting, celebrate } from './fx.js';
+import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, tableNote, firstDays, untouched, anyLog } from './moments.js';
 import { createManager } from './manager.js';
 import { verdict, mine as waitingOf } from './queue.js';
 
@@ -35,7 +35,7 @@ const errText = (e) => { try { return t(`err.${(e && e.code) || 'unknown'}`); } 
 setExplain(errText);
 
 // ---- state ----
-const S = { me: null, sig: '', tab: null, period: 'week', as: null, mgr: false, queue: store.get(KEY.queue, []), seenFeed: null, lastLoad: 0, lastPaint: 0, arrived: new Set() };
+const S = { me: null, sig: '', tab: null, period: 'week', as: null, mgr: false, queue: store.get(KEY.queue, []), seenFeed: null, lastLoad: 0, lastPaint: 0, arrived: new Set(), ledgerAll: false };
 const SCREENS = ['boot', 'auth', 'setup', 'today', 'table', 'profile', 'team', 'needs', 'reps'];
 const FOLLOWS = new Set(['talk', 'absent', 'call', 'reply', 'meeting']);
 const CHANNELS = { message: ['whatsapp', 'linkedin', 'email', 'sms'], meeting: ['visit', 'call', 'whatsapp'], reply: ['whatsapp', 'linkedin', 'email', 'sms', 'call'], baddata: ['call', 'email'] };
@@ -63,8 +63,12 @@ const bold = (strong, rest = '') => [h('b', { text: strong }), rest ? ` ${rest}`
 function renderTop() {
   $('#brandName').textContent = APP_NAME;
   const st = S.me && S.me.streak, chip = $('#streakChip');
-  chip.hidden = !st;
-  if (st) { countTo($('#streakN'), st.current); chip.setAttribute('aria-label', t('top.streak.aria', { n: t('u.days', { n: st.current }) })); }
+  chip.hidden = !st || st.current === 0;
+  if (st) {
+    countTo($('#streakN'), st.current); chip.setAttribute('aria-label', t('top.streak.aria', { n: t('u.days', { n: st.current }) }));
+    const day = S.me.today;
+    chip.classList.toggle('open', !!day && day.isWork && day.conversations < 1);   // today has not earned its place in the streak yet
+  }
   const waiting = myQueue().length;
   $('#queueChip').hidden = !waiting;
   $('#queueN').textContent = t('top.queue', { n: waiting });
@@ -92,9 +96,11 @@ function markTab() {
 function setTab(name, { instant = false } = {}) {
   const changed = S.tab !== name;
   S.tab = name;
+  // The screen shown is always the last one asked for: two quick taps may run this twice, in either order.
   const go = () => {
-    show(name); hidePop();
-    for (const b of $$('#nav .tab')) { if (b.dataset.tab === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
+    const open = S.tab;
+    show(open); hidePop();
+    for (const b of $$('#nav .tab')) { if (b.dataset.tab === open) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
     markTab();
     scrollTo({ top: 0 });
   };
@@ -106,13 +112,14 @@ function setTab(name, { instant = false } = {}) {
   if (!S.arrived.has(name)) { S.arrived.add(name); setTimeout(() => arrive(name), reduce ? 0 : 90); }
 }
 /** A screen has just arrived: its headline rises, its arcs draw and its rows come in, once. */
-function arrive(name, { fast = false } = {}) {
+function arrive(name, { fast = false, landed = false } = {}) {
   if (reduce || !S.me || S.tab !== name) return;
   const zero = (nodes, read, write) => { for (const n of nodes) { const v = read(n); write(n, true); void n.getBoundingClientRect(); setTimeout(() => write(n, false, v), 40); } };
   if (name === 'today' && S.me.today) {
     reveal($('#todayGiant'));
     replayHand($('#hand'), { fast });
-    drawIn($('#heroLens'), 140); drawIn($('#lenses'), 280, 90);
+    if (!landed) drawIn($('#heroLens'), 140);   // after the entrance the lens lands already drawn
+    drawIn($('#lenses'), 280, 90);
     for (const n of $$('#lenses .vn, #heroPtsN')) recount(n);
     stagger($$('#habits li'), { delay: 180, step: 50 }); stagger($$('#rsRows .trow'), { delay: 300 });
   } else if (name === 'table') {
@@ -158,17 +165,27 @@ function renderToday(animate) {
   // The person leads the screen: their face, with the day as the arc around it. A full finger floods the hero with signal.
   putFace($('#heroLens'), me, (person) => portrait(person, { share: 0 }));
   setPortrait($('#heroLens .portrait'), today.isWork ? done / 4 : 0);
-  countTo($('#heroPtsN'), week.points);
+  countTo($('#heroPtsN'), week.points); $('#heroPts').hidden = week.points === 0;
   $('#hero').classList.toggle('full', today.isWork && done === 4);
+  // A working day with nothing logged leads with the start, not with a zero: the count waits in a chip.
+  const idle = untouched(today);
+  $('#countChip').hidden = !idle; $('#countChip').textContent = t('today.of', { a: 0, b: 4 });
+  $('#hero').classList.toggle('idle', idle);
   if (!today.isWork) {
     $('#todayLead').textContent = t('today.lead.rest', { name: me.first });
     giant(head, t('today.rest.giant'));
     $('#todaySupport').replaceChildren(t('today.rest.support'));
+  } else if (idle) {
+    $('#todayLead').textContent = t('today.lead.zero', { name: me.first });
+    giant(head, t('today.zero.giant'));
+    $('#todaySupport').replaceChildren(...bold(t('today.zero.b'), t('today.zero.s', { pts: t('pts.plus', { n: rules.points.visit }) })));
   } else {
     $('#todayLead').textContent = t('today.lead', { name: me.first });
     // The count keeps its own node, so only the number that changed moves.
-    if (!$('.gl', head)) head.replaceChildren(h('span', { class: 'gl' }), h('em', { text: '.' }));
+    const first = !$('.gl', head);
+    if (first) head.replaceChildren(h('span', { class: 'gl' }), h('em', { text: '.' }));
     roll($('.gl', head), t('today.of', { a: done, b: 4 }));
+    if (first && animate) reveal(head);   // the count takes the headline over from the invitation
     const miss = [];
     if (!today.habits[0]) miss.push(t('miss.0'));
     if (!today.habits[1]) miss.push(t(today.conversations >= 1 ? 'miss.1.one' : 'miss.1.two'));
@@ -197,7 +214,7 @@ function renderToday(animate) {
   const box = $('#goalBox');
   box.hidden = !goal || !goal.options.length;
   if (!box.hidden) {
-    $('#goalText').replaceChildren(...bold(t('goal.line', { goal: goalName(goal.picked, week.workFingers) }), goal.reached ? t('goal.reached') : t('goal.progress', { a: goal.fullFingers, b: goal.picked })),
+    $('#goalText').replaceChildren(...bold(t('goal.line', { goal: goalName(goal.picked, week.workFingers) }), goal.reached ? t('goal.reached') : goal.fullFingers > 0 ? t('goal.progress', { a: goal.fullFingers, b: goal.picked }) : ''),
       goalPick && goalPick.which === 'next' && !goalPick.isDefault ? ` ${t('goal.next.picked', { goal: goalName(goalPick.picked, goalPick.options.at(-1)) })}` : '');
     $('#goalBtn').hidden = readOnly() || !goalPick;
     $('#goalBtn').textContent = t(goalPick && goalPick.which === 'next' ? 'goal.pick.next' : 'c.change');
@@ -231,6 +248,14 @@ function renderToday(animate) {
   setLens($('[data-lens="points"]', lenses), week.points, 0, t('u.pts'));
 
   renderRank(); renderCloseCard(); renderFeed($('#feed'), $('#feedEmpty'), animate); renderPlay();
+  // An empty feed on a day that can still be logged shows who is on the field and where to start.
+  const zero = $('#feedZero'), none = !S.me.feed.length && !readOnly() && !today.closed;
+  zero.hidden = !none;
+  if (none) {
+    $('#feedEmpty').hidden = true;
+    const T = S.me.table.week, people = [...(T.me ? [T.me] : []), ...T.podium.filter((r) => !r.mine), ...T.rest].slice(0, 6), key = people.map((r) => `${r.id}:${r.photo || ''}`).join('|');
+    if (zero.dataset.key !== key) { zero.dataset.key = key; $('#feedFaces').replaceChildren(...people.map((r) => face(r))); }
+  }
 }
 function goalName(k, fingers) { return k >= 5 && k === fingers ? t('goal.name.hand') : t('goal.name', { n: k }); }
 
@@ -276,6 +301,9 @@ function renderRank() {
   const table = S.me.table.week, mine = table.me, title = $('#rsTitle');
   if (mine && mine.place != null) withEm(title, 'rank.place', { ord: ord(mine.place), n: table.ranked }, 'ord');
   else title.textContent = mine && mine.isNew ? t('rank.new', { n: 14 }) : t('rank.none');
+  const first = firstDays(S.me), days = $('#rsDays');
+  days.hidden = !first;
+  if (first && days.dataset.key !== `${first.day}:${lang()}`) { days.dataset.key = `${first.day}:${lang()}`; days.replaceChildren(daysBone(first.day, first.of, t('rank.days.aria', { d: first.day, n: first.of }))); }
   const lead = table.podium[0] ? table.podium[0].score : 0;
   flipList($('#rsRows'), shownRows(table), (r) => r.id, newRow('span'), (row, r) => paintRow(row, r, 'week', lead));
 }
@@ -298,7 +326,9 @@ function renderTable() {
   else { giant(head, t('table.giant.zero')); sup.textContent = period === 'month' ? t('table.sup.month') : t('table.sup.zero'); }
   const lead = T.podium[0] ? T.podium[0].score : 0;
   flipList($('#tableRows'), shownRows(T), (r) => r.id, newRow('li'), (row, r) => paintRow(row, r, period, lead));
-  $('#tableEmpty').hidden = T.ranked > 0;
+  const why = tableNote(T), emptyNote = $('#tableEmpty');
+  emptyNote.hidden = why === 'ranked';
+  emptyNote.textContent = why === 'new' ? t('table.empty.new', { n: 14 }) : t('table.empty');
   // Everyone else: alphabetical, with the marks of their hand and no place.
   $('#restLabel').hidden = !T.rest.length;
   $('#restRows').replaceChildren(...T.rest.map((r) => {
@@ -344,7 +374,7 @@ function renderSquad(T, period) {
 // ---- closing the day ----
 function renderCloseCard() {
   const { today, rules } = S.me, btn = $('#closeBtn');
-  $('#closeCard').classList.toggle('light', !today.closed && !readOnly());   // the card that asks for something speaks in porcelain
+  $('#closeCard').classList.toggle('light', !today.closed && !readOnly() && anyLog(today));   // it speaks in porcelain once there is something to close
   if (today.closed) {
     $('#closeH').textContent = t('close.done.title');
     $('#closeP').textContent = t(today.closedOnTime ? 'close.done.p' : 'close.done.late', { time: clock(today.closedAt, tz()), by: hourName(rules.closeBy) });
@@ -391,7 +421,8 @@ function submitClose() {
       const res = await api('POST', 'close', { tomorrow: $('#fTomorrow').value.trim(), blocker: $('#fBlock').value.trim() });
       const was = S.me.today.points, before = S.me;
       baseReport = res.report; adopt(res.me); paintCloseSheet();
-      playMoments(moments(before, res.me));   // closing can fill the finger: its moment plays when this sheet closes
+      const earned = Math.max(0, res.me.today.points - was);
+      playMoments(moments(before, res.me).map((m) => ({ ...m, gained: earned, streak: 0 })));   // closing can fill the finger: its moment plays when this sheet closes
       if (!reduce) { const line = $('#slackPrev .scan'), height = $('#slackPrev').offsetHeight; line.animate([{ transform: 'translateY(0)', opacity: 1 }, { transform: `translateY(${height}px)`, opacity: 0 }], { duration: 620, easing: 'cubic-bezier(.2,.8,.2,1)' }); }
       renderAll(true);
       const gained = res.me.today.points - was;
@@ -403,7 +434,7 @@ function submitClose() {
 
 // ---- the feed and the plays ----
 function kudosButton(f) {
-  const btn = h('button', { class: 'kudos', type: 'button', 'aria-pressed': String(!!f.clapped), 'aria-label': t('kudos.aria', { name: f.name }), disabled: f.mine || readOnly() }, icon('clap'), h('span', { class: 'num', text: String(f.kudos) }));
+  const btn = h('button', { class: 'kudos', type: 'button', 'aria-pressed': String(!!f.clapped), 'aria-label': t('kudos.aria', { name: f.name }), disabled: f.mine || readOnly() }, icon('clap'), h('span', { class: 'num', text: String(f.kudos), hidden: !f.kudos }));
   btn.addEventListener('click', () => clap(f, btn));
   return btn;
 }
@@ -426,10 +457,11 @@ function renderFeed(list, empty, animate) {
 }
 async function clap(f, btn) {
   const on = btn.getAttribute('aria-pressed') !== 'true', n = $('.num', btn);
-  btn.setAttribute('aria-pressed', String(on)); n.textContent = String(Math.max(0, Number(n.textContent) + (on ? 1 : -1)));
+  const count = (by) => { const v = Math.max(0, Number(n.textContent) + by); n.textContent = String(v); n.hidden = v === 0; };
+  btn.setAttribute('aria-pressed', String(on)); count(on ? 1 : -1);
   if (on) { buzz(8); lock($('svg', btn)); ringAt($('svg', btn)); }
   try { const res = await api('POST', 'kudos', { target: f.id, on }); adopt(res.me); }
-  catch (e) { btn.setAttribute('aria-pressed', String(!on)); n.textContent = String(Math.max(0, Number(n.textContent) + (on ? -1 : 1))); toast(errText(e)); }
+  catch (e) { btn.setAttribute('aria-pressed', String(!on)); count(on ? -1 : 1); toast(errText(e)); }
 }
 function renderPlay() {
   const f = S.me.feed.find((x) => x.play && x.code !== 'badge'), card = $('#playCard');
@@ -482,12 +514,15 @@ function renderProfile() {
     const levels = ONE_LEVEL.has(b.code) ? 1 : 3;
     const state = b.level === 0 ? (b.next > 1 ? t('badge.progress', { have: b.have, next: b.next }) : t('badge.state.todo'))
       : levels === 1 ? t('badge.state.done') : `${t('badge.state.level', { n: b.level })}${b.next ? ` · ${t('badge.progress', { have: b.have, next: b.next })}` : ''}`;
-    return src(h('button', { class: `badge${b.level === 0 ? ' locked' : ''}`, type: 'button' }, badgeGlyph(b.code, b.level, levels), h('b', { text: t(`badge.${b.code}`) }), h('small', { text: state })),
+    const aim = b.level === 0 && badges.findIndex((x) => x.level === 0) === badges.indexOf(b);   // the first one still to earn
+    return src(h('button', { class: `badge${b.level === 0 ? ' locked' : ''}${aim ? ' aim' : ''}`, type: 'button' }, badgeGlyph(b.code, b.level, levels), h('b', { text: t(`badge.${b.code}`) }), h('small', { text: state }), h('i', { class: 'vf', 'aria-hidden': 'true' })),
       () => t(`badge.${b.code}`), () => t(`badge.info.${b.code}`));
   }));
 
   const heldSet = new Map(pending.map((p) => [`${p.logId}:${p.code}`, p]));
-  $('#ledger').replaceChildren(...ledger.map((e) => {
+  const more = $('#ledgerMore'), rest = ledger.length - 10;
+  more.hidden = S.ledgerAll || rest <= 0; more.textContent = rest > 0 ? t('profile.ledger.more', { n: rest }) : '';
+  $('#ledger').replaceChildren(...(S.ledgerAll ? ledger : ledger.slice(0, 10)).map((e) => {
     const waiting = e.status === 'pending', gone = e.status === 'expired', when = stamp(e.at, tz());
     const row = src(h('button', { class: 'rowsrc', type: 'button' }, t(`led.${e.code}`), h('small', {}, e.lead ? t('led.meta.lead', { lead: e.lead.name, when }) : when, waiting || gone ? h('span', { class: 'st', text: ` · ${t(`st.${e.status}`)}` }) : null)),
       () => t('c.source'), () => t(`ledsrc.${e.code}`, { pts: pts(e.pts), cap: rules.caps.messagesPerDay, days: rules.pendingDays, time: hourName(rules.closeBy) }));
@@ -644,7 +679,7 @@ function saveLog() {
   });
 }
 function logged(res, body) {
-  const before = S.me;
+  const before = S.me, wasLit = new Set($$('#hand .joint.on'));
   adopt(res.me); renderAll(true);
   const label = t(`kind.${body.kind}`);
   if (res.repeat) toast(t(res.updated ? 'toast.repeat.updated' : 'toast.repeat'));
@@ -656,28 +691,38 @@ function logged(res, body) {
     if (res.streakUp) text += `. ${t('toast.streak', { n: res.me.streak.current })}`;
     if (res.gained > 0 || res.pending > 0) toast(text, res.gained > 0 ? t('pts.plus', { n: res.gained }) : ''); else toast(t('toast.zero'));
   }
-  // Points earned answer where the person is: a ring leaves their lens, the tag locks and the points rise from it.
-  if (!res.repeat && res.gained > 0) { const tag = $('#heroPts'); ringAt($('#heroLens .portrait'), { whole: true }); lock(tag); floatUp(tag, t('pts.plus', { n: res.gained })); }
+  // Points travel to where the person is: a joint leaves the mark that was just lit (or the button, when no mark lit),
+  // reaches the tag on their lens, and there the lens answers and the points show.
+  if (!res.repeat && res.gained > 0) {
+    const tag = $('#heroPts'), from = $$('#hand .joint.on').find((j) => !wasLit.has(j)) || $('#logBtn');
+    flyDot(from, tag, () => { ringAt($('#heroLens .portrait'), { whole: true }); lock(tag); floatUp(tag, t('pts.plus', { n: res.gained })); });
+  }
   if (res.streakUp) { lock($('#streakChip')); ringAt($('#streakChip .dot')); }
-  const list = res.repeat ? [] : moments(before, res.me, { tookLead: !!res.tookLead });
+  const facts = { gained: res.gained, streak: res.streakUp ? res.me.streak.current : 0 };
+  const list = res.repeat ? [] : moments(before, res.me, { tookLead: !!res.tookLead }).map((m) => ({ ...m, ...facts }));
   const after = () => { if (body.kind === 'meeting' && !res.repeat) askPlay(res.logId); };
   setTimeout(() => playMoments(list).then(after), list.length ? (reduce ? 0 : 820) : 1400);
 }
 
 // ---- the moments: taking the lead, a full finger or hand, a new step or level, a badge ----
-/** What a moment shows: a large number or a drawing, a title in two parts and one line under it. */
+/** What a moment shows: a title in two parts, one line under it, and a large number or a drawing. When there is a photo
+ *  of the person the moment shows them instead, with the arc of their lens closing and that drawing pinned to it. */
 function describe(m) {
-  const me = S.me, T = me.table.week;
-  if (m.kind === 'lead') return { n: ord(1), a: t('lockon.title.a'), b: t('lockon.title.b'), sub: T.behind ? t('lockon.s.behind', { name: T.behind.name, gap: pts(T.behind.pts) }) : t('lockon.s') };
-  if (m.kind === 'finger') return { glyph: fingerGlyph(), a: t('cel.finger.a'), b: t('cel.finger.b'), sub: [t('cel.finger.s'), me.streak && me.streak.current > 1 ? t('toast.streak', { n: me.streak.current }) : ''].filter(Boolean).join(' ') };
-  if (m.kind === 'hand') return { glyph: handGlyph(me.week.days, me.week.anyLog), a: t('cel.hand.a'), b: t('cel.hand.b'), sub: t('cel.hand.s') };
+  const me = S.me, T = me.table.week, who = me.me, done = me.today ? me.today.habits.filter(Boolean).length : 0;
+  const face = (from, to) => (who.photo ? { person: who, from, to } : null);
+  // What the log itself brought: said under a moment whose own line would only repeat its title.
+  const earned = m.gained > 0 ? [`${t('pts.plus', { n: m.gained })}.`, m.streak > 0 ? t('toast.streak', { n: m.streak }) : ''].filter(Boolean).join(' ') : '';
+  if (m.kind === 'lead') return { n: ord(1), face: face(0, 1), a: t('lockon.title.a'), b: t('lockon.title.b'), sub: T.behind ? t('lockon.s.behind', { name: T.behind.name, gap: pts(T.behind.pts) }) : t('lockon.s') };
+  if (m.kind === 'finger') return { glyph: fingerGlyph(), face: face(Math.max(0, done - 1) / 4, 1), a: t('cel.finger.a'), b: t('cel.finger.b'), sub: [t('cel.finger.s'), me.streak && me.streak.current > 1 ? t('toast.streak', { n: me.streak.current }) : ''].filter(Boolean).join(' ') };
+  if (m.kind === 'hand') return { glyph: handGlyph(me.week.days, me.week.anyLog), face: face(0, 1), a: t('cel.hand.a'), b: t('cel.hand.b'), sub: t('cel.hand.s') };
   if (m.kind === 'badge') {
     const levels = ONE_LEVEL.has(m.code) ? 1 : 3;
-    return { glyph: badgeGlyph(m.code, m.level, levels), a: t('cel.badge.a'), b: `${t(`badge.${m.code}`).toLocaleLowerCase()}.`, sub: `${t(`badge.info.${m.code}`)}${levels > 1 ? ` ${t('cel.badge.level', { n: m.level })}` : ''}` };
+    return { glyph: badgeGlyph(m.code, m.level, levels), face: face(0, 1), a: t('cel.badge.a'), b: `${t(`badge.${m.code}`).toLocaleLowerCase()}.`,
+      sub: levels === 1 && earned ? earned : `${t(`badge.info.${m.code}`)}${levels > 1 ? ` ${t('cel.badge.level', { n: m.level })}` : ''}` };
   }
   const steps = me.rules.levels.find((l) => l.name === m.name).steps;
-  if (m.kind === 'level') return { glyph: stepsGlyph(1, steps.length), a: t('cel.level.a'), b: `${t(`level.${m.name}`)}.`, sub: t('cel.level.s', { pts: pts(m.xp) }) };
-  return { glyph: stepsGlyph(m.step, steps.length), a: t('cel.step.a'), b: t('cel.step.b', { a: m.step }), sub: t('cel.step.s', { level: cap(t(`level.${m.name}`)), a: m.step, b: steps.length, pts: pts(m.xp) }) };
+  if (m.kind === 'level') return { glyph: stepsGlyph(1, steps.length), face: face(0, 1 / steps.length), a: t('cel.level.a'), b: `${t(`level.${m.name}`)}.`, sub: t('cel.level.s', { pts: pts(m.xp) }) };
+  return { glyph: stepsGlyph(m.step, steps.length), face: face((m.step - 1) / steps.length, m.step / steps.length), a: t('cel.step.a'), b: t('cel.step.b', { a: m.step }), sub: t('cel.step.s', { level: cap(t(`level.${m.name}`)), a: m.step, b: steps.length, pts: pts(m.xp) }) };
 }
 const waiting = [];
 let playing = false;
@@ -755,7 +800,7 @@ function welcome(tab, day, ready) {
     chip: `${upper(wdShort(day))} ${upper(dayMonth(day))} · ${upper(t('time.week', { n: isoWeek(day) }))}${streak}`,
     lead: `${t(`greet.${dayPart(localMinutes(me.serverTime, who.tz))}`)},`,
     land: () => (S.tab === 'today' ? $('#heroLens .portrait') : null),
-    onLeave: () => ready.then(() => arrive(S.tab)),
+    onLeave: () => ready.then(() => arrive(S.tab, { landed: true })),
   }).then(() => playMoments());
 }
 /** The quiet check while the app is open. The screen is redrawn only when something moved, or every five minutes so
@@ -863,6 +908,11 @@ function wire() {
   $('#nextBtn').addEventListener('click', () => ($('#nextBtn').dataset.step === 'close' ? openClose() : openLog()));
   src($('#handHud'), () => t('hand.aria'), () => t('hand.caption', { a: S.me.week.marks, b: S.me.week.marksMax }));
   src($('#heroPts'), () => t('c.source'), () => t('src.points'));
+  $('#feedLog').addEventListener('click', openLog);
+  $('#ledgerMore').addEventListener('click', () => { S.ledgerAll = true; quiet(renderProfile); });
+  // On a wide screen the tabs live in the top bar, which stays in view; on a phone they are the bar at the thumb.
+  const wide = matchMedia('(min-width:980px)'), dock = () => { const nav = $('#nav'); if (wide.matches) $('.top').insertBefore(nav, $('.top-r')); else $('#app').append(nav); };
+  wide.addEventListener('change', dock); dock();
   alive($('#handBox'), $('.handstage'));
   // A moment that had to wait for a form plays once the form is gone.
   for (const dlg of $$('dialog.sheet')) dlg.addEventListener('close', () => setTimeout(() => playMoments(), 260));

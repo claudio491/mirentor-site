@@ -81,6 +81,8 @@ const es = {
 
   // ---- today ----
   'today.lead': '{name}, tus hábitos de hoy', 'today.of': '{a} de {b}',
+  'today.lead.zero': '{name}, tu día está por empezar', 'today.zero.giant': 'arranca.',
+  'today.zero.b': 'Una visita abre el día.', 'today.zero.s': 'Vale {pts} y enciende la primera marca de tu mano.',
   'today.lead.rest': '{name}, hoy es tu día libre', 'today.rest.giant': 'libre.',
   'today.rest.support': 'Lo que registres hoy suma puntos y puede completar un dedo que te faltó esta semana.',
   'today.missing': ['Te falta', 'Te faltan'], 'today.full': 'Dedo completo.', 'today.full.s': 'Los cuatro hábitos de hoy están hechos.',
@@ -126,7 +128,7 @@ const es = {
   'src.place': 'Lugar según los puntos ganados en el periodo. Quien trabaja menos de cinco días compite con sus puntos llevados a una semana de cinco. Un empate deja arriba a quien llegó primero.',
 
   // ---- rank strip and table ----
-  'rank.place': 'vas {ord} de {n}', 'rank.none': 'aún sin puntos esta semana', 'rank.new': 'tus primeros {n} días', 'rank.open': 'Ver la tabla', 'rank.open.aria': 'Abrir la tabla',
+  'rank.place': 'vas {ord} de {n}', 'rank.none': 'aún sin puntos esta semana', 'rank.new': 'tus primeros {n} días', 'rank.open': 'Ver la tabla', 'rank.open.aria': 'Abrir la tabla', 'rank.days.aria': 'Día {d} de tus primeros {n}',
   'table.week': 'Semana', 'table.day': 'Hoy', 'table.month': 'Mes', 'table.period.aria': 'Periodo',
   'table.lead.week': 'Semana del {date}', 'table.lead.day': 'Hoy, {date}', 'table.lead.month': '{month}: sitios firmados y reuniones realizadas',
   'table.giant': 'vas {ord}', 'table.giant.zero': 'en cero.', 'table.giant.new': 'nuevo.',
@@ -136,7 +138,7 @@ const es = {
   'table.sup.gap.named': 'A {gap} de {name}.', 'table.sup.gap.next': 'A {gap} del siguiente lugar.',
   'table.sup.month': 'El mes se ordena por sitios firmados y, después, por reuniones realizadas.',
   'table.you': '{name} (tú)', 'table.rest': 'El resto del equipo, en orden alfabético', 'table.gap.lead': 'punta', 'table.new': 'nuevo',
-  'table.empty': 'Nadie tiene puntos todavía en este periodo.',
+  'table.empty': 'Nadie tiene puntos todavía en este periodo.', 'table.empty.new': 'Todavía no hay lugares: todo el equipo está en sus primeros {n} días.',
   'table.note': 'Ves la punta y tu lugar. El resto del equipo aparece en orden alfabético, con las marcas de su mano. Los puntos vuelven a cero cada lunes.',
   'team.title': 'Objetivo del equipo', 'team.p': ['Falta {n} reunión para el objetivo de la semana. Cada una cuenta para todos.', 'Faltan {n} reuniones para el objetivo de la semana. Cada una cuenta para todos.'],
   'team.done': 'Objetivo de la semana cumplido. Cada reunión cuenta para todos.',
@@ -202,11 +204,11 @@ const es = {
   'greet.closed.a': 'Tu día ya está cerrado.', 'greet.closed.b': 'La semana sigue mañana.',
   'greet.team.a': 'Hoy trabajan {w} de {p} vendedores.', 'greet.team.b': 'Días cerrados: {c}.',
   'next.label': 'Siguiente', 'next.aria': 'Siguiente paso: {what}. Abre el registro.', 'next.aria.close': 'Siguiente paso: cerrar el día. Abre tu reporte.',
-  'cel.aria': '{title} Toca para cerrar.',
+  'cel.aria': '{title} Toca para cerrar.', 'cel.skip': 'Toca para cerrar',
   'cel.finger.a': 'dedo', 'cel.finger.b': 'completo.', 'cel.finger.s': 'Los cuatro hábitos de hoy están hechos.',
   'cel.hand.a': 'mano', 'cel.hand.b': 'completa.', 'cel.hand.s': 'Todos tus días de trabajo de la semana tienen sus cuatro marcas.',
-  'cel.level.a': 'llegaste a', 'cel.level.s': 'Llevas {pts} de por vida.',
-  'cel.step.a': 'subiste al', 'cel.step.b': 'paso {a}.', 'cel.step.s': '{level}, paso {a} de {b}. Llevas {pts} de por vida.',
+  'cel.level.a': 'llegaste a', 'cel.level.s': 'Llevas {pts} en total.',
+  'cel.step.a': 'subiste al', 'cel.step.b': 'paso {a}.', 'cel.step.s': '{level}, paso {a} de {b}. Llevas {pts} en total.',
   'cel.badge.a': 'insignia', 'cel.badge.level': 'Nivel {n}.',
   'hand.hud': '{a}/{b} marcas', 'hand.today': 'hoy',
   'squad.aria': 'El equipo esta semana', 'squad.marks': '{name}: {a} de {b} marcas', 'squad.place': '{name}: lugar {place}, {pts}',
@@ -214,7 +216,7 @@ const es = {
 
   // ---- profile ----
   'profile.lead': 'Tu trayectoria', 'level.aprendizaje': 'aprendizaje', 'level.oficio': 'oficio', 'level.maestria': 'maestría', 'level.mentoria': 'mentoría',
-  'profile.step': 'Paso {a} de {b}', 'profile.life': 'de por vida', 'profile.next.step': ['Falta {n} punto para el paso {s}.', 'Faltan {n} puntos para el paso {s}.'],
+  'profile.step': 'Paso {a} de {b}', 'profile.life': 'en total', 'profile.ledger.more': 'Ver {n} más', 'profile.next.step': ['Falta {n} punto para el paso {s}.', 'Faltan {n} puntos para el paso {s}.'],
   'profile.next.level': ['Falta {n} punto para {level}.', 'Faltan {n} puntos para {level}.'], 'profile.top': 'Llegaste al último paso.',
   'profile.bone.aria': 'Paso {a} de {b} del nivel {level}',
   'profile.badges': 'insignias', 'badge.first_log': 'Primer registro', 'badge.first_meeting': 'Primera reunión', 'badge.streak': 'Racha', 'badge.full_hand': 'Mano completa',
@@ -384,6 +386,8 @@ const en = {
 
   // ---- today ----
   'today.lead': '{name}, your habits today', 'today.of': '{a} of {b}',
+  'today.lead.zero': '{name}, your day is about to start', 'today.zero.giant': 'start.',
+  'today.zero.b': 'One visit opens the day.', 'today.zero.s': 'It is worth {pts} and lights the first mark on your hand.',
   'today.lead.rest': '{name}, today is your day off', 'today.rest.giant': 'off.',
   'today.rest.support': 'Anything you log today earns points and can complete a finger you missed this week.',
   'today.missing': ['Still to do:', 'Still to do:'], 'today.full': 'Finger complete.', 'today.full.s': 'All four habits are done for today.',
@@ -429,7 +433,7 @@ const en = {
   'src.place': 'Place by the points earned in the period. Anyone who works fewer than five days competes with their points scaled to a five-day week. In a tie, whoever got there first stays ahead.',
 
   // ---- rank strip and table ----
-  'rank.place': 'you are {ord} of {n}', 'rank.none': 'no points yet this week', 'rank.new': 'your first {n} days', 'rank.open': 'Open the table', 'rank.open.aria': 'Open the table',
+  'rank.place': 'you are {ord} of {n}', 'rank.none': 'no points yet this week', 'rank.new': 'your first {n} days', 'rank.open': 'Open the table', 'rank.open.aria': 'Open the table', 'rank.days.aria': 'Day {d} of your first {n}',
   'table.week': 'Week', 'table.day': 'Today', 'table.month': 'Month', 'table.period.aria': 'Period',
   'table.lead.week': 'Week of {date}', 'table.lead.day': 'Today, {date}', 'table.lead.month': '{month}: sites signed and meetings held',
   'table.giant': 'you are {ord}', 'table.giant.zero': 'at zero.', 'table.giant.new': 'new.',
@@ -439,7 +443,7 @@ const en = {
   'table.sup.gap.named': '{gap} behind {name}.', 'table.sup.gap.next': '{gap} from the next place.',
   'table.sup.month': 'The month is ordered by sites signed and then by meetings held.',
   'table.you': '{name} (you)', 'table.rest': 'The rest of the team, in alphabetical order', 'table.gap.lead': 'lead', 'table.new': 'new',
-  'table.empty': 'Nobody has points yet in this period.',
+  'table.empty': 'Nobody has points yet in this period.', 'table.empty.new': 'No places yet: the whole team is in its first {n} days.',
   'table.note': 'You see the lead and your own place. The rest of the team appears in alphabetical order, with the marks of their hand. Points go back to zero every Monday.',
   'team.title': 'Team target', 'team.p': ['{n} meeting to go for the week\'s target. Each one counts for everyone.', '{n} meetings to go for the week\'s target. Each one counts for everyone.'],
   'team.done': 'The week\'s target is reached. Each meeting counts for everyone.',
@@ -505,11 +509,11 @@ const en = {
   'greet.closed.a': 'Your day is already closed.', 'greet.closed.b': 'The week goes on tomorrow.',
   'greet.team.a': 'Today {w} of {p} reps are working.', 'greet.team.b': 'Days closed: {c}.',
   'next.label': 'Next', 'next.aria': 'Next step: {what}. Opens the log.', 'next.aria.close': 'Next step: close the day. Opens your report.',
-  'cel.aria': '{title} Tap to close.',
+  'cel.aria': '{title} Tap to close.', 'cel.skip': 'Tap to close',
   'cel.finger.a': 'finger', 'cel.finger.b': 'complete.', 'cel.finger.s': 'All four habits are done for today.',
   'cel.hand.a': 'full', 'cel.hand.b': 'hand.', 'cel.hand.s': 'Every working day of your week has its four marks.',
-  'cel.level.a': 'you reached', 'cel.level.s': 'Your lifetime total is {pts}.',
-  'cel.step.a': 'you moved up to', 'cel.step.b': 'step {a}.', 'cel.step.s': '{level}, step {a} of {b}. Your lifetime total is {pts}.',
+  'cel.level.a': 'you reached', 'cel.level.s': 'Your total is {pts}.',
+  'cel.step.a': 'you moved up to', 'cel.step.b': 'step {a}.', 'cel.step.s': '{level}, step {a} of {b}. Your total is {pts}.',
   'cel.badge.a': 'badge', 'cel.badge.level': 'Level {n}.',
   'hand.hud': '{a}/{b} marks', 'hand.today': 'today',
   'squad.aria': 'The team this week', 'squad.marks': '{name}: {a} of {b} marks', 'squad.place': '{name}: place {place}, {pts}',
@@ -517,7 +521,7 @@ const en = {
 
   // ---- profile ----
   'profile.lead': 'Your path', 'level.aprendizaje': 'learning', 'level.oficio': 'craft', 'level.maestria': 'mastery', 'level.mentoria': 'mentorship',
-  'profile.step': 'Step {a} of {b}', 'profile.life': 'lifetime', 'profile.next.step': ['{n} point to step {s}.', '{n} points to step {s}.'],
+  'profile.step': 'Step {a} of {b}', 'profile.life': 'in total', 'profile.ledger.more': 'See {n} more', 'profile.next.step': ['{n} point to step {s}.', '{n} points to step {s}.'],
   'profile.next.level': ['{n} point to {level}.', '{n} points to {level}.'], 'profile.top': 'You reached the last step.',
   'profile.bone.aria': 'Step {a} of {b} of the {level} level',
   'profile.badges': 'badges', 'badge.first_log': 'First log', 'badge.first_meeting': 'First meeting', 'badge.streak': 'Streak', 'badge.full_hand': 'Full hand',

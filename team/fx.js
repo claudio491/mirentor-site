@@ -7,8 +7,15 @@ import { changedChars } from './moments.js';
 
 /** Change what is on screen with a short cross-fade, where the browser can do it. */
 export function swap(run) {
-  if (reduce || isQuiet() || !document.startViewTransition) { run(); return; }
-  try { document.startViewTransition(run); } catch { run(); }
+  // A page nobody is looking at changes at once: a browser holds a transition back until it draws again.
+  if (reduce || isQuiet() || !document.startViewTransition || document.visibilityState !== 'visible') { run(); return; }
+  let ran = false;
+  const once = () => { if (!ran) { ran = true; run(); } };
+  try {
+    const move = document.startViewTransition(once);
+    // A second change that arrives mid-fade skips the first one: that is expected, not an error.
+    for (const p of [move.ready, move.finished, move.updateCallbackDone]) if (p && p.catch) p.catch(() => {});
+  } catch { once(); }
 }
 
 /** Write a short number line; the characters that changed lock into place instead of just appearing. */
@@ -30,10 +37,28 @@ export function floatUp(anchor, text) {
   const r = anchor.getBoundingClientRect();
   if (!r.width || r.bottom < 0 || r.top > innerHeight) return;
   const chip = h('span', { class: 'ptsfloat', text, 'aria-hidden': 'true' });
-  chip.style.left = `${r.left - 8}px`; chip.style.top = `${r.top}px`;
+  // It starts under the place and rises into it, on that place's right edge: the room there is free of text.
+  chip.style.left = `${r.right}px`; chip.style.top = `${r.bottom + 34}px`;
   document.body.append(chip);
-  chip.animate([{ transform: 'translate(-100%,10px) scale(.8)', opacity: 0 }, { transform: 'translate(-100%,0) scale(1)', opacity: 1, offset: 0.2 }, { transform: 'translate(-100%,-4px) scale(1)', opacity: 1, offset: 0.74 }, { transform: 'translate(-100%,-16px) scale(1)', opacity: 0 }],
-    { duration: 1400, easing: EASE.out }).onfinish = () => chip.remove();
+  chip.animate([{ transform: 'translate(-100%,8px) scale(.8)', opacity: 0 }, { transform: 'translate(-100%,0) scale(1)', opacity: 1, offset: 0.2 }, { transform: 'translate(-100%,-8px) scale(1)', opacity: 1, offset: 0.7 }, { transform: 'translate(-100%,-28px) scale(.9)', opacity: 0 }],
+    { duration: 1300, easing: EASE.out }).onfinish = () => chip.remove();
+}
+
+/** A joint travels from where something was earned to where it is counted, then `then` runs. */
+export function flyDot(from, to, then = () => {}) {
+  const a = from && from.getBoundingClientRect(), b = to && to.getBoundingClientRect();
+  if (reduce || !a || !b || !a.width || !b.width || a.bottom < 0 || a.top > innerHeight || b.bottom < 0 || b.top > innerHeight) { then(); return; }
+  const x0 = a.left + a.width / 2, y0 = a.top + a.height / 2, dx = b.left + b.width / 2 - x0, dy = b.top + b.height / 2 - y0;
+  const dot = h('i', { class: 'flydot', 'aria-hidden': 'true' });
+  dot.style.left = `${x0}px`; dot.style.top = `${y0}px`;
+  document.body.append(dot);
+  // The path bows to one side, the way a thrown thing does.
+  const bow = Math.min(70, Math.hypot(dx, dy) * 0.22), nx = -dy / (Math.hypot(dx, dy) || 1), ny = dx / (Math.hypot(dx, dy) || 1);
+  const fly = dot.animate([{ transform: 'translate(0,0) scale(.6)', opacity: 0 }, { transform: `translate(${dx * 0.12}px,${dy * 0.12}px) scale(1.25)`, opacity: 1, offset: 0.12 },
+    { transform: `translate(${dx / 2 + nx * bow}px,${dy / 2 + ny * bow}px) scale(1.1)`, opacity: 1, offset: 0.55 }, { transform: `translate(${dx}px,${dy}px) scale(.7)`, opacity: 1 }],
+  { duration: 620, easing: 'cubic-bezier(.45,0,.2,1)' });
+  const done = () => { dot.remove(); then(); };
+  fly.onfinish = done; fly.oncancel = done;
 }
 
 /** A headline arrives: the line rises out of a mask and its full stop locks last, like a joint. */
@@ -118,17 +143,28 @@ export function greet({ person, share = 0, chip, lead, name, line, land = null, 
 export const isGreeting = () => !!greeting;
 
 // ---- the moment box: taking the lead, a full finger, a new level, a badge ----
-/** n: a short number to show large, or glyph: a drawing. a + b: the title, b in signal. Resolves when it closes. */
-export function celebrate({ n = '', glyph = null, a, b, sub = '', label = '' }) {
+/** n: a short number to show large, or glyph: a drawing. a + b: the title, b in signal. With `face` ({ person, from,
+ *  to }) the box shows the person instead: their lens, the arc going from one share to the other, and the number or the
+ *  drawing pinned to it. Resolves when it closes. */
+export function celebrate({ n = '', glyph = null, face = null, a, b, sub = '', label = '' }) {
   const box = $('#lockon');
   if (!box) return Promise.resolve();
-  const back = document.activeElement;
-  $('#loN').textContent = n; $('#loG').replaceChildren(...(glyph ? [glyph] : []));
+  const back = document.activeElement, timers = [];
+  box.classList.toggle('person', !!face);
+  if (face) {
+    const lens = portrait(face.person, { share: face.from });
+    const pin = glyph || n ? h('span', { class: 'lo-emblem' }, glyph || h('b', { class: 'num', text: n })) : null;
+    $('#loN').textContent = ''; $('#loG').replaceChildren(lens, ...(pin ? [pin] : []));
+    timers.push(setTimeout(() => setPortrait(lens, face.to), reduce ? 0 : 520));
+    // The lens keeps answering while the moment holds.
+    for (const ms of [1250, 2050]) timers.push(setTimeout(() => { if (lens.isConnected && !reduce) ring(lens); }, ms));
+  } else { $('#loN').textContent = n; $('#loG').replaceChildren(...(glyph ? [glyph] : [])); }
   $('#loA').textContent = a; $('#loB').textContent = b; $('#loS').textContent = sub;
   box.setAttribute('aria-label', label || `${a} ${b}`);
   return new Promise((resolve) => {
     let timer;
     const off = () => {
+      timers.forEach(clearTimeout);
       clearTimeout(timer); box.classList.remove('on'); box.setAttribute('aria-hidden', 'true'); box.tabIndex = -1;
       box.removeEventListener('click', off); document.removeEventListener('keydown', onKey);
       if (back && back.focus) back.focus({ preventScroll: true });
@@ -138,6 +174,16 @@ export function celebrate({ n = '', glyph = null, a, b, sub = '', label = '' }) 
     box.classList.add('on'); box.setAttribute('aria-hidden', 'false'); box.tabIndex = 0; box.focus({ preventScroll: true });
     buzz([14, 60, 22]);
     box.addEventListener('click', off); document.addEventListener('keydown', onKey);
-    timer = setTimeout(off, 3800);
+    timer = setTimeout(off, 2900);
   });
+}
+/** A ring leaves the edge of a lens. */
+function ring(el) {
+  const r = el.getBoundingClientRect();
+  if (!r.width) return;
+  const node = h('i', { class: 'ringfx', 'aria-hidden': 'true' });
+  node.style.left = `${r.left + r.width / 2}px`; node.style.top = `${r.top + r.height / 2}px`;
+  node.style.width = `${r.width}px`; node.style.height = `${r.height}px`; node.style.margin = `${-r.height / 2}px 0 0 ${-r.width / 2}px`; node.style.zIndex = '41';
+  document.body.append(node);
+  node.animate([{ transform: 'scale(1)', opacity: 0.85 }, { transform: 'scale(1.42)', opacity: 0 }], { duration: 760, easing: EASE.track }).onfinish = () => node.remove();
 }

@@ -243,7 +243,9 @@ export function closeSheet(dlg) {
   if (!dlg.open) return;
   if (reduce) { dlg.close(); return; }
   dlg.classList.add('closing');
-  setTimeout(() => { dlg.close(); dlg.classList.remove('closing'); }, 240);
+  // The class stays on after closing: a closed sheet is still drawn while it leaves, and without the class it would
+  // slide back up for that moment. Opening it again takes the class off.
+  setTimeout(() => dlg.close(), 240);
 }
 export function initSheets() {
   for (const dlg of $$('dialog.sheet')) {

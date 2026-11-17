@@ -1,7 +1,7 @@
 // What deserves a moment on screen is decided in team/moments.js, apart from the screens, so it is tested without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, changedChars } from '../team/moments.js';
+import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, changedChars, tableNote, firstDays, untouched, anyLog } from '../team/moments.js';
 
 const RULES = { points: { visit: 3, conversation: 5, followup: 2, dayClosedOnTime: 2 }, habits: { visits: 1, conversations: 2, followups: 1 }, closeBy: '19:00' };
 const today = (over = {}) => ({ day: '2026-11-17', isWork: true, habits: [false, false, false, false], visits: 0, conversations: 0, followups: 0, closed: false, ...over });
@@ -104,4 +104,34 @@ test('a number that rolls says which of its characters changed', () => {
   assert.deepEqual(changedChars('9', '12'), [true, true]);      // another length: every character is new
   assert.deepEqual(changedChars('120', '128'), [false, false, true]);
   assert.deepEqual(changedChars(undefined, '7'), [false]);       // a first paint rolls nothing
+});
+
+test('an empty table says why it is empty: nobody scored, or the whole team is in its first days', () => {
+  const T = (over) => ({ ranked: 0, podium: [], me: null, rest: [], ...over });
+  assert.equal(tableNote(T({ ranked: 3 })), 'ranked');
+  assert.equal(tableNote(T({ me: { isNew: false }, rest: [{ isNew: false }, { isNew: true }] })), 'empty');
+  // everyone is new: someone may well have points, so the note must not say that nobody does
+  assert.equal(tableNote(T({ me: { isNew: true }, rest: [{ isNew: true }, { isNew: true }] })), 'new');
+  // a manager who does not play looks at a team of new reps
+  assert.equal(tableNote(T({ rest: [{ isNew: true }] })), 'new');
+  assert.equal(tableNote(T({})), 'empty');
+});
+
+test('a rep in their first days knows which day it is', () => {
+  assert.deepEqual(firstDays(view({ me: { id: 'r_a', first: 'Ana', isNew: true, startDate: '2026-11-10' } })), { day: 8, of: 14 });
+  assert.deepEqual(firstDays(view({ me: { id: 'r_a', first: 'Ana', isNew: true, startDate: '2026-11-17' } })), { day: 1, of: 14 });
+  assert.equal(firstDays(view()), null);                                        // not new
+  assert.equal(firstDays(view({ today: null, viewer: { role: 'manager' } })), null);   // nobody's day
+});
+
+test('a day is untouched until something is logged in it, whatever the habits say', () => {
+  const zero = { messages: 0, replies: 0, meetings: 0 };
+  assert.equal(untouched(today(zero)), true);
+  assert.equal(untouched(today({ ...zero, messages: 1 })), false);              // a message lights no habit, and it is still a log
+  assert.equal(untouched(today({ ...zero, conversations: 1 })), false);
+  assert.equal(untouched(today({ ...zero, closed: true })), false);
+  assert.equal(untouched(today({ ...zero, isWork: false })), false);            // a day off is not a day waiting to start
+  assert.equal(untouched(null), false);
+  // the card that closes the day asks only once there is something to close, on a day off too
+  assert.deepEqual([anyLog(today(zero)), anyLog(today({ ...zero, isWork: false, replies: 1 })), anyLog(null)], [false, true, false]);
 });
