@@ -8,7 +8,7 @@ import { openStore } from './lib/store.mjs';
 import { sheetsClient } from './lib/sheets.mjs';
 import { syncOne, syncPending } from './lib/sync.mjs';
 import { createDesk } from './lib/desk.mjs';
-import { createTeam } from './lib/team/api.mjs';
+import { createTeam, teamConfig } from './lib/team/api.mjs';
 
 const MAX_BODY = 16 * 1024;
 const WINDOW_MS = 10 * 60 * 1000;
@@ -132,9 +132,9 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const port = Number(process.env.PORT || 10000);
   const desk = createDesk({ dir: store.dir, password: process.env.DESK_PASSWORD, pushToken: process.env.DESK_PUSH_TOKEN, host: process.env.DESK_HOST });
   const adminToken = process.env.VISITS_TOKEN || process.env.DESK_PUSH_TOKEN || '';
-  // The team platform signs its sessions with TEAM_SECRET, or with the two desk secrets together when that is not set.
-  const teamSecret = process.env.TEAM_SECRET || (process.env.DESK_PASSWORD && process.env.DESK_PUSH_TOKEN ? `${process.env.DESK_PASSWORD}|${process.env.DESK_PUSH_TOKEN}` : '');
-  const team = createTeam({ dir: store.dir, secret: teamSecret, pushToken: process.env.TEAM_PUSH_TOKEN || process.env.DESK_PUSH_TOKEN, origins, publicBase: process.env.TEAM_PUBLIC_BASE || '', dev: process.env.TEAM_DEV === '1' });
+  // The sales team platform is off until TEAM_ENABLED=1. It signs sessions with TEAM_SECRET, or with the two desk secrets when that is not set.
+  const teamEnv = teamConfig(process.env);
+  const team = teamEnv ? createTeam({ dir: store.dir, ...teamEnv }) : null;
   createServer({ store, sheets, origins, desk, adminToken, team }).listen(port, () => console.log(`waitlist on ${port}, sheets ${sheets ? 'on' : 'off'}, desk ${desk ? 'on' : 'off'}, team ${team ? 'on' : 'off'}, ${store.pending().length} pending`));
   if (sheets) { syncPending(store, sheets); setInterval(() => syncPending(store, sheets), 60_000); }
 }

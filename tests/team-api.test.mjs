@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createServer } from '../server.mjs';
 import { openStore } from '../lib/store.mjs';
-import { createTeam } from '../lib/team/api.mjs';
+import { createTeam, teamConfig } from '../lib/team/api.mjs';
 
 const ORIGIN = 'https://mirentor.onrender.com';
 const PIN = '482915';
@@ -358,4 +358,16 @@ test('a manager records a signed site, marks its steps, gives a recognition and 
   assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: j.cookie })).status, 401);
   assert.equal((await s.call('POST', '/equipo/api/login', { handle: 'jose', pin: PIN })).status, 401);
   assert.equal((await s.call('POST', `/equipo/api/reps/${a.cookie ? 'r_nope' : ''}`, { patch: { active: false } }, { cookie: a.cookie })).status, 404);
+});
+
+test('the module stays off until it is switched on by name, even when the keys it could use are there', () => {
+  const desk = { DESK_PASSWORD: 'desk-pass', DESK_PUSH_TOKEN: 'desk-token', DATA_DIR: '/var/data' };
+  assert.equal(teamConfig({}), null);
+  assert.equal(teamConfig(desk), null);                                  // a deploy for any other reason must not publish /equipo
+  assert.equal(teamConfig({ TEAM_ENABLED: '1' }), null);                 // switched on but with nothing to sign sessions with
+  assert.equal(teamConfig({ ...desk, TEAM_ENABLED: '0' }), null);
+  assert.deepEqual(teamConfig({ ...desk, TEAM_ENABLED: '1', ALLOWED_ORIGINS: 'https://www.mirentor.com, https://mirentor.onrender.com' }),
+    { secret: 'desk-pass|desk-token', pushToken: 'desk-token', origins: ['https://www.mirentor.com', 'https://mirentor.onrender.com'], publicBase: '' });
+  assert.deepEqual(teamConfig({ ...desk, TEAM_ENABLED: 'true', TEAM_SECRET: 'own-secret', TEAM_PUSH_TOKEN: 'own-token', TEAM_PUBLIC_BASE: 'https://www.mirentor.com/' }),
+    { secret: 'own-secret', pushToken: 'own-token', origins: [], publicBase: 'https://www.mirentor.com' });
 });

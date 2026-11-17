@@ -30,7 +30,8 @@ Takes the waitlist form from the Mirentor site, keeps every sign-up on disk, and
 | `DESK_PUSH_TOKEN` | bearer token the desk sync uses to push the copy; unset turns `/desk` off |
 | `DESK_HOST` | `desk.mirentor.com`: on that host the desk sits at the root (`/`, `/login`, `/data.json`) |
 | `GOOGLE_SA_JSON` | the service account key, pasted whole. Share the sheet with its `client_email` as Editor. |
-| `TEAM_SECRET` | optional: signs the `/equipo` sessions. Unset, `DESK_PASSWORD` and `DESK_PUSH_TOKEN` together are used; with none of them `/equipo` is off |
+| `TEAM_ENABLED` | `1` turns the sales team platform on at `/equipo`. Unset, it stays off whatever other keys exist |
+| `TEAM_SECRET` | optional: signs the `/equipo` sessions. Unset, `DESK_PASSWORD` and `DESK_PUSH_TOKEN` together are used; with none of them `/equipo` stays off |
 | `TEAM_PUSH_TOKEN` | optional bearer token for the nightly CRM routine and the first manager; unset, `DESK_PUSH_TOKEN` is used |
 | `TEAM_PUBLIC_BASE` | optional: the address reps open (for example `https://www.mirentor.com`), used to build the setup links |
 
