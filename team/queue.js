@@ -6,6 +6,8 @@ export function verdict(err) {
   const status = err && typeof err.status === 'number' ? err.status : 0;
   if (!status || (err && err.code === 'offline')) return 'keep';                         // no answer at all
   if (status >= 500 || status === 429 || status === 408 || status === 401) return 'keep'; // restarting, busy, timed out, or signed out
+  // Refused for who is asking or from where, not for what the log says: that can be put right, so the log waits.
+  if (err.code === 'not_on_team' || err.code === 'origin') return 'keep';
   return 'drop';
 }
 

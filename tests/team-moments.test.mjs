@@ -11,8 +11,7 @@ const view = (over = {}) => ({
   table: { week: { ranked: 0, me: { place: null }, gap: null, behind: null, podium: [] } }, team: { working: 4, players: 4, closedToday: 1 }, ...over,
 });
 
-test('the full entrance plays after signing in and on the first open of a day, and only then', () => {
-  assert.equal(entrance({ fresh: true, lastDay: '2026-11-17', lastId: 'r_a', today: '2026-11-17', id: 'r_a' }), 'full');
+test('the full entrance plays on the first open of a day or when someone else used this phone last, and only then', () => {
   assert.equal(entrance({ lastDay: '2026-11-16', lastId: 'r_a', today: '2026-11-17', id: 'r_a' }), 'full');
   assert.equal(entrance({ lastDay: '2026-11-17', lastId: 'r_b', today: '2026-11-17', id: 'r_a' }), 'full');   // a shared phone: another person
   assert.equal(entrance({ lastDay: null, lastId: null, today: '2026-11-17', id: 'r_a' }), 'full');

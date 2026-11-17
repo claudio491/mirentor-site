@@ -189,7 +189,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       onSubmit: async (v) => {
         if (!v.city) throw { code: 'fields' };
         v.city = listed(v.city) || v.city;   // the list's own spelling when it is the same city
-        if (rep) { team = await api('POST', `reps/${encodeURIComponent(rep.id)}`, { patch: { name: v.name, city: v.city, country: v.country, startDate: v.startDate, workdays: v.workdays, ...(own ? {} : { email: v.email }) } }); toast(t('reps.saved')); renderAll(false); return false; }
+        if (rep) { team = await api('POST', `reps/${encodeURIComponent(rep.id)}`, { patch: { name: v.name, city: v.city, country: v.country, startDate: v.startDate, workdays: v.workdays, ...(own || v.email.toLowerCase() === (rep.email || '') ? {} : { email: v.email }) } }); toast(t('reps.saved')); renderAll(false); return false; }
         // Nothing to hand over: from now on that Google account opens the board.
         team = await api('POST', 'reps', { email: v.email, name: v.name, city: v.city, country: v.country, startDate: v.startDate, workdays: v.workdays, role: v.role });
         toast(t('reps.added', { name: v.name.trim().split(/\s+/)[0] })); renderAll(false);
@@ -214,7 +214,8 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       h('span', { class: 'pers' }, face(r), h('span', { class: 'pt' }, h('b', { text: r.name }), r.email ? h('small', { class: 'mail', text: r.email }) : null, h('small', { text: `${isPlayer ? '' : `${t(`role.${r.role}`)} · `}${cityName(r.city)} · ${t('reps.start', { date: dayMonth(r.startDate) })} · ${days}` }), status, leads)),
       h('span', { class: 'acts' },
         isPlayer ? h('a', { class: 'mini-btn', href: `?as=${encodeURIComponent(r.id)}`, 'data-as': r.id, onclick: openAs, text: t('mgr.viewas', { name: r.first }) }) : null,
-        canTouch && r.role === 'rep' ? h('button', { class: 'mini-btn', type: 'button', text: t('reps.edit'), onclick: () => repForm(r) }) : null,
+        // A rep is edited by any manager; a manager or an admin, by an admin, and never by themselves.
+        canTouch && (r.role === 'rep' || !self) ? h('button', { class: 'mini-btn', type: 'button', text: t('reps.edit'), onclick: () => repForm(r) }) : null,
         canTouch && !self ? h('button', { class: 'mini-btn', type: 'button', text: t(r.active ? 'reps.deactivate' : 'reps.activate'), onclick: (e) => act(e.currentTarget, () => api('POST', `reps/${encodeURIComponent(r.id)}`, { patch: { active: !r.active } }), 'reps.saved') }) : null));
   }
   function renderReps() {

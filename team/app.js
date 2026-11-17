@@ -8,6 +8,7 @@ import { swap, roll, floatUp, flyDot, reveal, stagger, lockIn, alive, greet, isG
 import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, tableNote, firstDays, untouched, anyLog, shortNames } from './moments.js';
 import { createManager } from './manager.js';
 import { verdict, mine as waitingOf } from './queue.js';
+import { sessionMove, HOME, LEAVE } from './door.js';
 
 const API = 'api';   // every address is relative to the page, so the app works wherever it is mounted
 const KEY = { lang: 'cancha.lang', queue: 'cancha.queue', me: 'cancha.me', greet: 'cancha.greet' };
@@ -753,7 +754,7 @@ async function flush() {
     for (const item of myQueue()) {
       try { await api('POST', 'log', item.body); sent += 1; }
       catch (e) {
-        if (verdict(e) === 'keep' || e.code === 'not_on_team') { shutOut(e); break; }   // it stays in the queue for the next try
+        if (verdict(e) === 'keep') { shutOut(e); break; }   // it stays in the queue for the next try
         toast(t('toast.dropped', { why: errText(e) }));   // refused for good: it leaves the queue with the reason shown
       }
       S.queue = S.queue.filter((q) => q !== item); store.set(KEY.queue, S.queue);
@@ -839,28 +840,24 @@ function showGate(kind, detail = '') {
   giant($('#gateGiant'), t(`gate.${kind}.title`));
   $('#gateSupport').textContent = kind === 'error' ? detail : t(`gate.${kind}.support`);
   const go = $('#gateGo'), alt = $('#gateAlt');
-  go.textContent = t(kind === 'session' ? 'gate.enter' : 'gate.retry'); go.href = './';
-  alt.hidden = kind !== 'team'; alt.textContent = t('gate.switch'); alt.href = 'salir';
+  go.textContent = t(kind === 'session' ? 'gate.enter' : 'gate.retry'); go.href = HOME;
+  alt.hidden = kind !== 'team'; alt.textContent = t('gate.switch'); alt.href = LEAVE;
 }
-const DOOR = 'cancha.door';
-/** The session ended. The page itself is the door: loading it again shows the portal's sign-in. If that was tried a
- * moment ago and the answer is the same, the screen says so instead of going round in circles. */
-function lostSession() {
-  store.del(KEY.me);
-  let last = 0;
-  try { last = Number(sessionStorage.getItem(DOOR)) || 0; } catch { /* no storage here: the screen below is the way on */ }
-  if (Date.now() - last < 20000) { showGate('session'); return; }
-  try { sessionStorage.setItem(DOOR, String(Date.now())); } catch { showGate('session'); return; }
-  location.reload();
-}
-/** True when the error means this person can no longer use the board, and the screen now says so. */
+const DOOR = 'cancha.door';   // when this tab last loaded the page again to reach the door
+/** True when the error means this person cannot go on, and the screen now says so. What to do is decided in door.js:
+ * load the page again (it is the door), or say why not. Whatever the phone kept about the person goes. */
 function shutOut(e) {
-  if (e && e.status === 401) { lostSession(); return true; }
-  if (e && e.code === 'not_on_team') { store.del(KEY.me); showGate('team', (e.data && e.data.email) || ''); return true; }
-  return false;
+  let last = null;
+  try { last = Number(sessionStorage.getItem(DOOR)) || 0; } catch { /* no storage here: door.js then asks for the screen, not a reload */ }
+  let move = sessionMove(e, { lastReload: last, now: Date.now() });
+  if (!move) return false;
+  store.del(KEY.me);
+  if (move === 'reload') { try { sessionStorage.setItem(DOOR, String(Date.now())); location.reload(); return true; } catch { move = 'gate:session'; } }
+  showGate(move === 'gate:team' ? 'team' : 'session', (e.data && e.data.email) || '');
+  return true;
 }
 /** Signing out ends the portal's session, which is the board's too. The next entrance plays in full. */
-function signOut() { store.del(KEY.me); store.del(KEY.greet); location.href = 'salir'; }
+function signOut() { store.del(KEY.me); store.del(KEY.greet); location.href = LEAVE; }
 /** `as` is whose screens to open as their manager. Left out, the page's own address says it. */
 async function start(as = undefined) {
   const url = new URL(location.href);

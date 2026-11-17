@@ -22,7 +22,7 @@ Takes the waitlist form from the Mirentor site, keeps every sign-up on disk, and
 
 | Key | Value |
 |---|---|
-| `ALLOWED_ORIGINS` | `https://mirentor.onrender.com` (comma list) |
+| `ALLOWED_ORIGINS` | comma list of the addresses the site is opened at: `https://www.mirentor.com`, `https://mirentor.com`, `https://mirentor.onrender.com`. The board's writes come through www, so that one must be here: without it every write answers `403 origin` |
 | `SHEET_ID` | the lead log's spreadsheet ID |
 | `DATA_DIR` | `/var/data` once the disk is mounted; `./data` otherwise (lost on redeploy) |
 | `VISITS_TOKEN` | optional bearer token for `GET /api/visits`; unset, `DESK_PUSH_TOKEN` is used |
@@ -65,14 +65,21 @@ Where the field sales reps log each contact and see their own numbers, and where
 - Sessions: the portal's own (`msales`, 30 days, signed, HttpOnly, Secure, SameSite=Lax, path `/ventas`), so one
   sign-in opens the portal and the board. Opened without a session, `/ventas/equipo/` shows the portal's sign-in page
   in place; that page posts back to `/ventas/equipo/auth`, which the portal answers, and lands on the board.
-  `/ventas/equipo/salir` ends the session. `lib/team/api.mjs` takes who a request is (`identify`) and that door
-  (`door`) from whoever mounts it: `startTeam` wires both to the portal, and `tests/team-door.test.mjs` runs the two
-  modules together.
+  `/ventas/equipo/salir` ends the session and comes back to the board's address, so the next sign-in lands on the
+  board. `lib/team/api.mjs` takes who a request is (`identify`) and that door (`door`) from whoever mounts it:
+  `startTeam` wires both to the portal (on the portal's own host, `SALES_HOST`, the door is at the root, as the portal
+  is), and `tests/team-door.test.mjs` runs the two modules together.
+- What that sharing means: the board trusts every page served at the same address. A script on any page of the
+  portal, or of the site at www.mirentor.com, runs with the session of whoever has it open, so publishing a page there
+  (`PUT /ventas/_files`, a deploy of the site) is as much as acting on the board for that person, an admin included.
+  The portal's pages allow inline scripts. A stricter setup gives the board an address of its own.
+- Writes are protected from other sites three ways: the session cookie is `SameSite=Lax`, a write must be JSON, and
+  when the browser names where it comes from (`Origin`) it must be this host or one in `ALLOWED_ORIGINS`.
 - The answers carry codes and numbers only. Every sentence the rep reads is in `team/i18n.js`, in Spanish and English.
 
 | Who | Routes under `/ventas/equipo/api` |
 |---|---|
-| Anyone signed in | `GET photo/<person id>` |
+| Anyone on the team | `GET photo/<person id>` |
 | A rep | `GET me`, `GET leads?q=`, `POST log`, `POST close {tomorrow, blocker, preview?}`, `POST goal {k}`, `POST kudos {target, on}`, `POST play {logId, text}`, `POST held {logId}`, `POST lang {lang}` |
 | A manager | `GET me?as=<rep id>` (read only), `GET team`, `POST confirm {logId, what, undo?}`, `POST void {logId, reason}`, `POST reopen {rep, day}`, `POST reps {email, name, city, ...}`, `POST reps/<id> {patch}`, `POST dayoff {scope, date}`, `POST site {id?, rep, lead}`, `POST site/<id> {what}`, `POST badge {rep, text}` |
 | The bearer token | `POST bootstrap {email, name}`, `PUT leads [...]` (`?force=1`), `GET export?since=<iso>`, `POST leadmap {pairs}`, `PUT photo/<person id> {type, data}`, `DELETE photo/<person id>` |
@@ -102,8 +109,9 @@ Where the field sales reps log each contact and see their own numbers, and where
   board and sign in with that Google account. Once the team has an admin it answers `409 bootstrap_closed`, and the
   admin adds everyone else inside the app. With `TEAM_BOOTSTRAP=1` it makes another admin, which is the way back in
   when the only one left or was made with the wrong address. `node tools/team-admin.mjs <service-url> <email> "<name>"`
-  wraps it. An address must be on the company domain (`400 email_domain`) and belong to nobody else (`409 email_taken`);
-  a manager can correct anyone's address but their own.
+  wraps it. An address must be on the company domain (`400 email_domain`), belong to nobody else (`409 email_taken`)
+  and carry no plus sign: Google answers with the account's own address, so a tagged one could never sign in. An admin
+  can correct anyone's address but their own; a manager, a rep's.
 - The nightly CRM routine pushes the lead list with `PUT leads` (`{id, company, city, zone, stage, lastContact, doNotCall}`),
   reads the day with `GET export` (`logs` with the CRM's channel and outcome, `stages`, `newLeads`, `doNotCall`) and
   answers each business added in the app with its CRM id through `POST leadmap`. `stages` holds the highest stage the
@@ -116,7 +124,8 @@ Where the field sales reps log each contact and see their own numbers, and where
   cannot start at all, the waitlist and the desk start without it.
 - The client is plain files in `team/`, with no build step: `index.html`, `app.css`, `app.js` (the rep's screens and the
   shell), `manager.js`, `hand.js` (the hand, the lenses, the level), `fx.js` (the entrance, the moment box, the small
-  rewards), `moments.js`, `ui.js`, `queue.js` and `i18n.js`. Elements are built node by node, never from a string of
+  rewards), `moments.js`, `ui.js`, `queue.js`, `door.js` (what the app does when the session ends or the account is
+  not on the team) and `i18n.js`. Elements are built node by node, never from a string of
   markup; `tests/team-client.test.mjs` checks that, and that both languages carry the same keys.
 - Motion has three tiers. The entrance (the lens finds the person and says where they stand) plays on the first open
   of a day and after signing in again. A moment (a full finger or hand, a new step or level, a badge, taking the lead)
@@ -125,8 +134,9 @@ Where the field sales reps log each contact and see their own numbers, and where
   apart from the screens, and tested in `tests/team-moments.test.mjs`. With reduced motion every screen shows its
   final state and the loops are off.
 - A log that cannot be sent (no signal, a service that is restarting, a session that ended) waits on the phone (the
-  top bar says how many) and goes out again with the same `id`. Only a refusal the server explains drops it, with the
-  reason on screen; `team/queue.js` holds that rule. The day cannot be closed while logs wait.
+  top bar says how many) and goes out again with the same `id`. Only a refusal about the log itself drops it, with the
+  reason on screen; a refusal about who is asking (no longer on the team, an origin the service does not allow) keeps
+  it waiting, because that can be put right. `team/queue.js` holds that rule. The day cannot be closed while logs wait.
 - To look at it on this machine: `node tools/team-dev.mjs 8772`, then open `http://localhost:8772/`. Nobody signs in
   there: where production shows the portal's Google sign-in, the preview lists the people and you choose who to be
   (`tools/team-preview.mjs`; `/dev/como?h=<handle>` does it in one step). Each start writes fictional people and

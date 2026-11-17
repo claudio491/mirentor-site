@@ -58,3 +58,15 @@ test('a search ignores accents and case, stays in the rep\'s city and leaves out
   assert.deepEqual(searchLeads(leads, 'ferre', 'Colón').map((l) => l.id), ['2']);
   assert.deepEqual(searchLeads(leads, '', 'Panama City').length, 0);
 });
+
+test('one address written for two people: when one of them moves, the other keeps the way in', () => {
+  // The API refuses a second person with the same address; a list written by hand can still carry one.
+  const store = openTeamStore(tmp());
+  store.append({ ...repEvent('ana'), email: 'una@equipo.test' });
+  store.append({ ...repEvent('beto'), email: 'una@equipo.test' });
+  assert.equal(store.state.emails.get('una@equipo.test'), 'beto');
+  store.append({ type: 'rep.updated', id: 'ana', patch: { email: 'ana@equipo.test' } });
+  assert.deepEqual([store.state.emails.get('una@equipo.test'), store.state.emails.get('ana@equipo.test')], ['beto', 'ana']);
+  store.append({ type: 'rep.updated', id: 'beto', patch: { email: '' } });
+  assert.deepEqual([store.state.emails.has('una@equipo.test'), store.state.reps.get('beto').email], [false, '']);
+});

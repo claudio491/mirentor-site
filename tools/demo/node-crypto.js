@@ -1,7 +1,6 @@
 // node-crypto.js: stands in for node:crypto in the copy of the app that runs without a server.
-// SHA-256 and its HMAC are the real functions, written out because a browser only offers them as promises.
-// scryptSync is NOT scrypt: it is one SHA-256 of the salt and the PIN. That is fine for a demonstration whose PIN is
-// public, and it is the reason this file must never be used by a real service.
+// SHA-256 is the real function, written out because a browser only offers it as a promise. The copy keeps no secret
+// and signs nothing, so this is all the board's code asks of node:crypto there.
 import { Buffer } from './buffer.js';
 
 const K = new Uint32Array([
@@ -42,18 +41,7 @@ export function createHash() {
   const parts = [];
   return { update(data) { parts.push(bytes(data)); return this; }, digest(encoding) { return digestOf(sha256(Buffer.concat(parts)), encoding); } };
 }
-export function createHmac(_algorithm, key) {
-  let k = bytes(key); if (k.length > 64) k = sha256(k);
-  const inner = new Buffer(64).fill(0x36), outer = new Buffer(64).fill(0x5c);
-  for (let i = 0; i < k.length; i += 1) { inner[i] ^= k[i]; outer[i] ^= k[i]; }
-  const parts = [inner];
-  return { update(data) { parts.push(bytes(data)); return this; }, digest(encoding) { return digestOf(sha256(Buffer.concat([outer, sha256(Buffer.concat(parts))])), encoding); } };
-}
 export function randomBytes(size) { const out = new Buffer(size); globalThis.crypto.getRandomValues(out); return out; }
-export function scryptSync(password, salt, length) {
-  const once = sha256(Buffer.from(`demo|${salt}|${password}`));
-  return length === 32 ? once : Buffer.concat([once, once]).subarray(0, length);
-}
 export function timingSafeEqual(a, b) {
   if (a.length !== b.length) return false;
   let diff = 0;

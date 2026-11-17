@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { teamConfig } from '../lib/team/api.mjs';
 import { ORIGIN, MON_10, start, logBody } from './team-helper.mjs';
@@ -26,16 +27,18 @@ test('a person is added with a work email on the company domain that nobody else
   assert.deepEqual(await refused({ email: 'no es un correo' }), [400, 'fields']);
   assert.deepEqual(await refused({ email: undefined }), [400, 'fields']);
   assert.deepEqual(await refused({ email: 'jefe@equipo.test' }), [409, 'email_taken']);
-  const ok = await add({ email: '  Mario.Rep+ventas@Equipo.Test ' });
+  // Google answers with the account's own address, so one with a tag after a plus could never open the board
+  assert.deepEqual(await refused({ email: 'mario+ventas@equipo.test' }), [400, 'fields']);
+  const ok = await add({ email: "  Mario.O'Brien@Equipo.Test " });   // an apostrophe is a letter a company address may carry
   assert.equal(ok.status, 200);
   const made = ok.json.reps.find((r) => r.id === ok.json.id);
-  assert.deepEqual([made.email, made.handle, made.name], ['mario.rep+ventas@equipo.test', 'mario.rep-ventas', 'Mario Rep']);
-  assert.deepEqual(await refused({ email: 'MARIO.rep+ventas@equipo.test' }), [409, 'email_taken']);
+  assert.deepEqual([made.email, made.handle, made.name], ["mario.o'brien@equipo.test", 'mario.o-brien', 'Mario Rep']);
+  assert.deepEqual(await refused({ email: "MARIO.o'brien@equipo.test" }), [409, 'email_taken']);
   // nothing to hand over: that account opens the board from now on
   assert.equal('setupUrl' in ok.json, false);
-  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: s.as('mario.rep+ventas@equipo.test') })).status, 200);
+  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: s.as("mario.o'brien@equipo.test") })).status, 200);
   // teammates see each other's names and numbers, not each other's addresses
-  const seen = await s.call('GET', '/equipo/api/me', undefined, { cookie: s.as('mario.rep+ventas@equipo.test') });
+  const seen = await s.call('GET', '/equipo/api/me', undefined, { cookie: s.as("mario.o'brien@equipo.test") });
   assert.equal(JSON.stringify(seen.json).includes('jefe@equipo.test'), false);
 });
 
@@ -45,6 +48,11 @@ test('nobody signed in gets 401, and an account that is not on the team gets 403
   const none = await s.call('GET', '/equipo/api/me');
   assert.deepEqual([none.status, none.json.error], [401, 'session']);
   const other = await s.call('GET', '/equipo/api/me', undefined, { cookie: s.as('Otra@Equipo.Test') });
+  assert.deepEqual(Object.keys(other.json).sort(), ['email', 'error', 'ok']);   // the account it used, and nothing about anyone else
+  // an address the board would never add is still someone signed in: it is told the same, not sent round in circles
+  const odd = await s.call('GET', '/equipo/api/me', undefined, { cookie: s.as(' Ra!ro+x@Equipo.Test ') });
+  assert.deepEqual([odd.status, odd.json.error, odd.json.email], [403, 'not_on_team', 'ra!ro+x@equipo.test']);
+  assert.equal((await s.call('GET', '/equipo/', undefined, { cookie: s.as('ra!ro+x@equipo.test') })).status, 200);
   assert.deepEqual([other.status, other.json.error, other.json.email], [403, 'not_on_team', 'otra@equipo.test']);
   assert.equal((await s.call('GET', '/equipo/api/team', undefined, { cookie: s.as('otra@equipo.test') })).status, 403);
   // the page needs someone signed in; mounted without a door, it only says where to go
@@ -334,4 +342,58 @@ test('the module stays off until it is switched on by name, and keeps no secret 
   assert.deepEqual(teamConfig({ ...desk, TEAM_ENABLED: '1', ALLOWED_ORIGINS: 'https://www.mirentor.com, https://mirentor.onrender.com' }),
     { pushToken: 'desk-token', origins: ['https://www.mirentor.com', 'https://mirentor.onrender.com'], bootstrapOpen: false });
   assert.deepEqual(teamConfig({ ...desk, TEAM_ENABLED: 'true', TEAM_PUSH_TOKEN: 'own-token', TEAM_BOOTSTRAP: '1' }), { pushToken: 'own-token', origins: [], bootstrapOpen: true });
+});
+
+/** A data folder that already holds people, written the way a list or an older log would: straight to the file. */
+function folderWith(events) {
+  const dir = mkdtempSync(path.join(tmpdir(), 'team-api-seeded-'));
+  mkdirSync(path.join(dir, 'team'), { recursive: true });
+  const person = (id, over = {}) => ({ type: 'rep.created', t: '2026-11-02T13:00:00.000Z', id, handle: id.slice(2), name: `${id.slice(2)} Rep`, role: 'rep', country: 'PA', city: 'Panama City', tz: 'America/Panama', workdays: [1, 2, 3, 4, 5], startDate: '2026-11-02', lang: 'es', ...over });
+  writeFileSync(path.join(dir, 'team', 'events.jsonl'), `${events(person).map((e) => JSON.stringify(e)).join('\n')}\n`);
+  return dir;
+}
+
+test('saving a person again with the address they already have changes only what changed', async (t) => {
+  // one person with no address and one with an address from somewhere else: only a list can make them, and both must stay editable
+  const dir = folderWith((p) => [p('r_jefe', { role: 'admin', email: 'jefe@equipo.test' }), p('r_sin'), p('r_otro', { email: 'otro@ejemplo.test' })]);
+  const s = await start({ dir }); t.after(() => s.srv.close());
+  const boss = s.as('jefe@equipo.test');
+  const patch = (id, p) => s.call('POST', `/equipo/api/reps/${id}`, { patch: p }, { cookie: boss });
+  const last = () => s.lines().at(-1);
+  // the form sends the address back along with everything else
+  assert.equal((await patch('r_sin', { email: '', city: 'Colón' })).status, 200);
+  assert.deepEqual(last().patch, { city: 'Colón' });
+  assert.equal((await patch('r_otro', { email: ' Otro@Ejemplo.Test ', city: 'Colón' })).status, 200);
+  assert.deepEqual(last().patch, { city: 'Colón' });
+  assert.equal((await patch('r_otro', { email: 'otro@ejemplo.test' })).json.error, 'patch');   // nothing changed
+  // a new address is checked like any other
+  assert.equal((await patch('r_sin', { email: 'sin@otra.test' })).json.error, 'email_domain');
+  assert.equal((await patch('r_sin', { email: 'jefe@equipo.test' })).json.error, 'email_taken');
+  assert.equal((await patch('r_sin', { email: 'Sin@Equipo.Test' })).status, 200);
+  assert.deepEqual(last().patch, { email: 'sin@equipo.test' });
+  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: s.as('sin@equipo.test') })).status, 200);
+});
+
+test('a manager who is not an admin cannot make an admin, nor move an admin\'s address', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin();
+  const lead = await s.addRep(a.cookie, 'lider', { role: 'manager' });
+  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: lead.cookie })).json.viewer.role, 'manager');
+  const made = await s.call('POST', '/equipo/api/reps', { email: 'nuevo@equipo.test', name: 'Nuevo Rep', country: 'PA', city: 'Panama City', role: 'admin' }, { cookie: lead.cookie });
+  assert.deepEqual([made.status, made.json.reps.find((r) => r.id === made.json.id).role], [200, 'rep']);
+  // the address is who a person is: moving the admin's would hand the board to another account
+  const move = await s.call('POST', `/equipo/api/reps/${a.id}`, { patch: { email: 'nuevo.jefe@equipo.test' } }, { cookie: lead.cookie });
+  assert.deepEqual([move.status, move.json.error], [403, 'admin_only']);
+  assert.deepEqual([(await s.call('GET', '/equipo/api/me', undefined, { cookie: a.cookie })).status, (await s.call('GET', '/equipo/api/me', undefined, { cookie: s.as('nuevo.jefe@equipo.test') })).status], [200, 403]);
+  // an admin can correct a manager's
+  assert.equal((await s.call('POST', `/equipo/api/reps/${lead.id}`, { patch: { email: 'lider.dos@equipo.test' } }, { cookie: a.cookie })).status, 200);
+});
+
+test('an admin who was taken off the team does not keep the first door shut', async (t) => {
+  const dir = folderWith((p) => [p('r_jefe', { role: 'admin', email: 'jefe@equipo.test' }), { type: 'rep.updated', t: '2026-11-03T13:00:00.000Z', id: 'r_jefe', patch: { active: false } }]);
+  const s = await start({ dir }); t.after(() => s.srv.close());
+  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: s.as('jefe@equipo.test') })).status, 403);
+  const again = await s.call('POST', '/equipo/api/bootstrap', { email: 'jefa@equipo.test', name: 'Jefa Dos' }, { bearer: 'push-token' });
+  assert.equal(again.status, 200);
+  assert.equal((await s.call('POST', '/equipo/api/bootstrap', { email: 'tercero@equipo.test', name: 'Tercero' }, { bearer: 'push-token' })).json.error, 'bootstrap_closed');
 });

@@ -5,7 +5,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { createHash, createHmac, randomBytes, timingSafeEqual } from '../tools/demo/node-crypto.js';
+import * as pageCrypto from '../tools/demo/node-crypto.js';
 import { Buffer as PageBuffer } from '../tools/demo/buffer.js';
 import { buildDemo } from '../tools/team-demo.mjs';
 
@@ -24,13 +24,15 @@ async function load(script) {
   return (await import(pathToFileURL(file).href)).req;
 }
 
+const { createHash, randomBytes, timingSafeEqual } = pageCrypto;
+
 test('the stand-ins for Node hash and encode exactly as Node does', () => {
   const long = 'registro '.repeat(40), bytes = Buffer.from([0, 1, 2, 250, 251, 255]);
   for (const input of ['', 'abc', long, bytes]) {
     for (const enc of ['hex', 'base64url']) assert.equal(createHash('sha256').update(input).digest(enc), nodeCrypto.createHash('sha256').update(input).digest(enc));
-    assert.equal(createHmac('sha256', 'la clave').update(input).digest('base64url'), nodeCrypto.createHmac('sha256', 'la clave').update(input).digest('base64url'));
   }
-  assert.equal(createHmac('sha256', long).update('x').digest('hex'), nodeCrypto.createHmac('sha256', long).update('x').digest('hex'));   // a key longer than a block
+  // the copy keeps no secret and signs nothing: what is left of the stand-in is what the board's code asks for
+  assert.deepEqual(Object.keys(pageCrypto).sort(), ['createHash', 'randomBytes', 'timingSafeEqual']);
   assert.deepEqual([...createHash('sha256').update('abc').digest()], [...nodeCrypto.createHash('sha256').update('abc').digest()]);
   assert.equal(timingSafeEqual(PageBuffer.from('igual'), PageBuffer.from('igual')), true);
   assert.equal(timingSafeEqual(PageBuffer.from('igual'), PageBuffer.from('otro!')), false);

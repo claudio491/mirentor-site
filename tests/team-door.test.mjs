@@ -5,10 +5,12 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import http from 'node:http';
 import { createServer } from '../server.mjs';
 import { openStore } from '../lib/store.mjs';
 import { createSales } from '../lib/sales.mjs';
-import { startTeam } from '../lib/team/api.mjs';
+import { startTeam, createTeam } from '../lib/team/api.mjs';
+import { LEAVE } from '../team/door.js';
 
 const CLIENT = 'cid.apps.googleusercontent.com', TOKEN = 'a-token-for-this-test';
 const BOARD = '/ventas/equipo';
@@ -16,12 +18,12 @@ const BOARD = '/ventas/equipo';
 const google = async (credential) => ({ aud: CLIENT, iss: 'https://accounts.google.com', exp: String(Math.floor(Date.now() / 1000) + 600),
   email_verified: 'true', email: credential, hd: credential.endsWith('@mirentor.com') ? 'mirentor.com' : undefined, given_name: 'X' });
 
-async function start() {
+async function start({ env = {}, host = '' } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), 'team-door-')), root = path.join(dir, 'portal');
   mkdirSync(root); writeFileSync(path.join(root, 'index.html'), '<p>portal home</p>');
   const said = [];
-  const sales = createSales({ clientId: CLIENT, secret: 'a-secret-for-this-test', root, verify: google });
-  const team = startTeam({ TEAM_ENABLED: '1', TEAM_PUSH_TOKEN: TOKEN }, dir, { sales, log: (m) => said.push(String(m)) });
+  const sales = createSales({ clientId: CLIENT, secret: 'a-secret-for-this-test', root, host, verify: google });
+  const team = startTeam({ TEAM_ENABLED: '1', TEAM_PUSH_TOKEN: TOKEN, SALES_HOST: host, ...env }, dir, { sales, log: (m) => said.push(String(m)) });
   const srv = createServer({ store: openStore(dir), sheets: null, origins: [], sales, team, log: (m) => said.push(String(m)) });
   await new Promise((r) => srv.listen(0, r));
   const url = `http://127.0.0.1:${srv.address().port}`;
@@ -40,7 +42,15 @@ async function start() {
     await call('POST', `${BOARD}/api/bootstrap`, { email: 'jefe@mirentor.com', name: 'Jefe Uno' }, { bearer: TOKEN });
     return (await signIn('jefe@mirentor.com')).cookie;
   };
-  return { srv, url, call, signIn, admin, said, dir };
+  /** A request that names the host it is for, the way a browser on another address would. */
+  const from = (hostname, method, p, body, cookie) => new Promise((ok, no) => {
+    const text = body === undefined ? null : JSON.stringify(body);
+    const req = http.request(`${url}${p}`, { method, headers: { host: hostname, 'x-forwarded-proto': 'https', ...(text === null ? {} : { 'content-type': 'application/json', 'x-sales-login': '1' }), ...(cookie ? { cookie } : {}) } }, (res) => {
+      let got = ''; res.on('data', (c) => { got += c; }); res.on('end', () => { let json = null; try { json = JSON.parse(got); } catch { /* a page */ } ok({ status: res.statusCode, text: got, json, location: res.headers.location || null, set: String(res.headers['set-cookie'] || ''), cookie: String(res.headers['set-cookie'] || '').split(';')[0] || null }); });
+    });
+    req.on('error', no); req.end(text === null ? undefined : text);
+  });
+  return { srv, url, call, signIn, admin, from, said, dir };
 }
 
 test('without a session the board\'s address shows the portal sign-in and tells nothing', async (t) => {
@@ -107,9 +117,11 @@ test('a person taken off the team loses the board at once and gets it back when 
 test('signing out at the board ends the portal session', async (t) => {
   const s = await start(); t.after(() => s.srv.close());
   const boss = await s.admin();
-  const out = await s.call('GET', `${BOARD}/salir`, undefined, { cookie: boss });
+  const out = await s.call('GET', `${BOARD}/${LEAVE}`, undefined, { cookie: boss });   // the address the app itself goes to
   assert.equal(out.status, 303);
   assert.match(out.headers.get('set-cookie'), /^msales=; Path=\/ventas; Max-Age=0/);
+  // and it comes back to the board's own address, so signing in again lands on the board, not on the portal's home
+  assert.equal(out.headers.get('location'), `${BOARD}/`);
 });
 
 test('the board stays off without the portal, and says why', () => {
@@ -120,4 +132,57 @@ test('the board stays off without the portal, and says why', () => {
   const sales = createSales({ clientId: CLIENT, secret: 'a-secret-for-this-test', root: dir, verify: google });
   assert.equal(startTeam({}, dir, { sales }), null);
   assert.equal(typeof startTeam({ TEAM_ENABLED: 'true' }, dir, { sales }), 'function');
+});
+
+test('who a request is comes from the portal\'s cookie and from nothing else in the request', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const boss = await s.admin();
+  const bossId = (await s.call('GET', `${BOARD}/api/me`, undefined, { cookie: boss })).json.viewer.id;
+  await s.call('POST', `${BOARD}/api/reps`, { email: 'vendedor.uno@mirentor.com', name: 'Vendedor Uno', country: 'PA', city: 'Panama City' }, { cookie: boss });
+  const rep = (await s.signIn('vendedor.uno@mirentor.com')).cookie;
+  const me = await s.call('GET', `${BOARD}/api/me?as=${bossId}&id=${bossId}&quien=${bossId}&email=jefe@mirentor.com`, undefined, { cookie: `${rep}; who=jefe%40mirentor.com; cancha_dev=${bossId}` });
+  assert.deepEqual([me.status, me.json.viewer.email, me.json.viewer.role, me.json.viewer.as, me.json.me.name], [200, 'vendedor.uno@mirentor.com', 'rep', null, 'Vendedor Uno']);
+  // a second cookie with the admin's name on it is not a session
+  const forged = await s.call('GET', `${BOARD}/api/me`, undefined, { cookie: `msales=${Buffer.from('jefe@mirentor.com').toString('base64url')}.9999999999.x` });
+  assert.equal(forged.status, 401);
+  // naming the person directly is for a preview on one machine: a real mount never takes it
+  const dir = mkdtempSync(path.join(tmpdir(), 'team-door-id-'));
+  const real = createTeam({ dir, identify: () => ({ id: 'r_x' }), pushToken: TOKEN }), preview = createTeam({ dir: mkdtempSync(path.join(tmpdir(), 'team-door-id-')), identify: () => ({ id: 'r_x' }), pushToken: TOKEN, dev: true });
+  const ask = (team) => new Promise((ok) => { const res = { writeHead(status) { this.status = status; return this; }, end(body) { ok([this.status, JSON.parse(body).error]); } }; team({ method: 'GET', url: '/equipo/api/me', headers: {}, socket: {} }, res, '/equipo/api/me'); });
+  assert.deepEqual([await ask(real), await ask(preview)], [[401, 'session'], [403, 'not_on_team']]);
+});
+
+test('behind the site\'s rewrite a write passes when its origin is one the service allows, and only then', async (t) => {
+  const s = await start({ env: { ALLOWED_ORIGINS: 'https://www.mirentor.com' } }); t.after(() => s.srv.close());
+  const boss = await s.admin();
+  const add = (n, origin) => s.call('POST', `${BOARD}/api/reps`, { email: `persona.${n}@mirentor.com`, name: `Persona ${n}`, country: 'PA', city: 'Panama City' }, { cookie: boss, headers: origin ? { origin } : {} });
+  // the browser is on www, the service sees its own address as the host
+  assert.equal((await add(1, 'https://www.mirentor.com')).status, 200);
+  const evil = await add(2, 'https://evil.example');
+  assert.deepEqual([evil.status, evil.json.error], [403, 'origin']);
+  assert.equal((await add(3, 'null')).status, 403);
+  // opened at the service's own address, the origin is the host: no list is needed for that
+  assert.equal((await add(4, s.url)).status, 200);
+  const plain = await start(); t.after(() => plain.srv.close());
+  const boss2 = await plain.admin();
+  const add2 = (origin) => plain.call('POST', `${BOARD}/api/reps`, { email: 'persona.5@mirentor.com', name: 'Persona 5', country: 'PA', city: 'Panama City' }, { cookie: boss2, headers: { origin } });
+  assert.deepEqual([(await add2('https://www.mirentor.com')).status, (await add2(plain.url)).status], [403, 200]);
+});
+
+test('on the portal\'s own host the board borrows the door where the portal keeps it there', async (t) => {
+  const HOST = 'ventas.ejemplo.test';
+  const s = await start({ host: HOST }); t.after(() => s.srv.close());
+  await s.call('POST', `${BOARD}/api/bootstrap`, { email: 'jefe@mirentor.com', name: 'Jefe Uno' }, { bearer: TOKEN });
+  const door = await s.from(HOST, 'GET', `${BOARD}/`);
+  assert.equal(door.status, 200);
+  assert.match(door.text, /g_id_onload/);
+  const inn = await s.from(HOST, 'POST', `${BOARD}/auth`, { credential: 'jefe@mirentor.com' });
+  assert.equal(inn.status, 200);
+  assert.match(inn.set, /^msales=[^;]+; Path=\/; /);   // on its own host the portal sits at the root, and so does its cookie
+  assert.equal((await s.from(HOST, 'GET', `${BOARD}/api/me`, undefined, inn.cookie)).json.viewer.email, 'jefe@mirentor.com');
+  const out = await s.from(HOST, 'GET', `${BOARD}/salir`, undefined, inn.cookie);
+  assert.deepEqual([out.status, out.location], [303, `${BOARD}/`]);
+  assert.match(out.set, /^msales=; Path=\/; Max-Age=0/);
+  // the same service asked by another name keeps the portal under /ventas, as before
+  assert.match((await s.signIn('jefe@mirentor.com')).headers.get('set-cookie'), /Path=\/ventas; /);
 });

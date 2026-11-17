@@ -81,7 +81,7 @@ test('the rep payload carries today, the hand, the goal, the streak and the leve
   assert.deepEqual([v.me.first, v.me.role, v.me.lang], ['ANA', 'rep', 'es']);
   assert.equal(v.team.target, 10);
   assert.equal(v.ledger[0].code.length > 0, true);
-  assert.equal(JSON.stringify(v).includes('pin'), false);
+  assert.equal('email' in v.me, false);   // a person's view names nobody's address, not even their own: that is the viewer's
 });
 
 test('the feed shows who did what without the business, and marks what the viewer applauded', () => {

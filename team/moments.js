@@ -3,10 +3,10 @@
 
 export const NEW_REP_DAYS = 14;   // the same first days the server leaves out of the table
 
-/** How much of an entrance a visit gets: the full one after signing in, on the first open of a day, or when another
- *  person used this phone last; a short one after that. */
-export function entrance({ fresh = false, lastDay = null, lastId = null, today, id }) {
-  return fresh || lastDay !== today || lastId !== id ? 'full' : 'short';
+/** How much of an entrance a visit gets: the full one on the first open of a day, or when another person used this
+ *  phone last (signing out forgets who that was); a short one after that. */
+export function entrance({ lastDay = null, lastId = null, today, id }) {
+  return lastDay !== today || lastId !== id ? 'full' : 'short';
 }
 
 /** Which greeting an hour asks for, from the minutes since midnight. */
