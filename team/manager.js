@@ -54,7 +54,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     const rep = r.today.isWork ? (r.today.closed ? t('mgr.report.closed', { time: clock(r.today.closedAt, zone) }) : t('mgr.report.open')) : t('mgr.report.rest');
     set('report', t('col.report'), rep); $('.c-report .cv', row).classList.toggle('ok', !!r.today.closed);
     set('last', t('col.last'), r.today.lastLogAt ? ago(r.today.lastLogAt, team.serverTime, zone) : t('mgr.last.none'));
-    const link = $('.act a', row); link.href = `/equipo?as=${encodeURIComponent(r.id)}`; link.textContent = t('mgr.viewas', { name: r.first });
+    const link = $('.act a', row); link.href = `/equipo?as=${encodeURIComponent(r.id)}`; link.textContent = t('mgr.viewas.row'); link.setAttribute('aria-label', t('mgr.viewas', { name: r.first }));
   }
   function renderTeam(animate) {
     const tn = team.team, day = dayOf(team.serverTime, S.me.me.tz);

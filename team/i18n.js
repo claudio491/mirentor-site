@@ -237,7 +237,7 @@ const es = {
   'col.place': 'Lugar', 'col.rep': 'Vendedor', 'col.hand': 'Mano', 'col.visits': 'Visitas', 'col.convs': 'Conversaciones', 'col.meetings': 'Reuniones', 'col.contracts': 'Contratos',
   'col.points': 'Puntos', 'col.streak': 'Racha', 'col.report': 'Reporte de hoy', 'col.last': 'Último registro', 'col.goal': 'Meta',
   'mgr.report.closed': 'Cerrado {time}', 'mgr.report.open': 'Abierto', 'mgr.report.rest': 'Día libre', 'mgr.last.none': 'Sin registros',
-  'mgr.viewas': 'Ver como {name}', 'mgr.flag.silent': 'Sin registros hoy', 'mgr.flag.pace': 'Bajo ritmo', 'mgr.flag.confirm': ['{n} por confirmar', '{n} por confirmar'], 'mgr.flag.late': 'Hora distinta',
+  'mgr.viewas': 'Ver como {name}', 'mgr.viewas.row': 'Ver su vista', 'mgr.flag.silent': 'Sin registros hoy', 'mgr.flag.pace': 'Bajo ritmo', 'mgr.flag.confirm': ['{n} por confirmar', '{n} por confirmar'], 'mgr.flag.late': 'Hora distinta',
   'mgr.of': '{a} de {b}', 'mgr.table.aria': 'El equipo esta semana', 'mgr.noplace': 'sin lugar',
   'src.mgr.closed': 'Vendedores con día de trabajo hoy que ya cerraron su día. El reporte queda con la hora del servidor.',
 
@@ -508,7 +508,7 @@ const en = {
   'col.place': 'Place', 'col.rep': 'Rep', 'col.hand': 'Hand', 'col.visits': 'Visits', 'col.convs': 'Conversations', 'col.meetings': 'Meetings', 'col.contracts': 'Contracts',
   'col.points': 'Points', 'col.streak': 'Streak', 'col.report': 'Today\'s report', 'col.last': 'Last log', 'col.goal': 'Goal',
   'mgr.report.closed': 'Closed {time}', 'mgr.report.open': 'Open', 'mgr.report.rest': 'Day off', 'mgr.last.none': 'No logs',
-  'mgr.viewas': 'View as {name}', 'mgr.flag.silent': 'No logs today', 'mgr.flag.pace': 'Under pace', 'mgr.flag.confirm': ['{n} to confirm', '{n} to confirm'], 'mgr.flag.late': 'Different time',
+  'mgr.viewas': 'View as {name}', 'mgr.viewas.row': 'See their view', 'mgr.flag.silent': 'No logs today', 'mgr.flag.pace': 'Under pace', 'mgr.flag.confirm': ['{n} to confirm', '{n} to confirm'], 'mgr.flag.late': 'Different time',
   'mgr.of': '{a} of {b}', 'mgr.table.aria': 'The team this week', 'mgr.noplace': 'no place',
   'src.mgr.closed': 'Reps with a working day today who already closed their day. The report keeps the server\'s time.',
 
