@@ -330,3 +330,32 @@ test('a preview whose clock runs days away from the real one does not flag every
   const logs = s.lines().filter((e) => e.type === 'log');
   assert.deepEqual(logs.map((e) => [e.late === true, e.clientAt]), [[false, new Date(MON_10).toISOString()], [true, new Date(MON_10 - 3 * 3600 * 1000).toISOString()]]);
 });
+
+test('a manager records a signed site, marks its steps, gives a recognition and deactivates a rep', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin(); const m = await s.addRep(a.cookie, 'mario'); const j = await s.addRep(a.cookie, 'jose');
+  assert.equal((await s.call('POST', '/equipo/api/site', { rep: m.id, lead: { name: 'Astillero El Faro' } }, { cookie: m.cookie })).status, 403);
+  assert.equal((await s.call('POST', '/equipo/api/site', { rep: m.id, lead: { name: 'x' } }, { cookie: a.cookie })).status, 400);
+  const site = await s.call('POST', '/equipo/api/site', { rep: m.id, lead: { name: 'Astillero El Faro' } }, { cookie: a.cookie });
+  assert.deepEqual([site.status, site.json.sites.length, site.json.sites[0].lead.name], [200, 1, 'Astillero El Faro']);
+  const id = site.json.sites[0].id;
+  const me = async () => (await s.call('GET', '/equipo/api/me', undefined, { cookie: m.cookie })).json;
+  let v = await me();
+  assert.deepEqual([v.week.points, v.table.month.podium[0].sites, v.ledger.filter((e) => e.status === 'pending').map((e) => e.code).sort()], [40, 1, ['site_first_hour', 'site_installed']]);
+  assert.equal((await s.call('POST', `/equipo/api/site/${id}`, { what: 'painted' }, { cookie: a.cookie })).status, 400);
+  assert.equal((await s.call('POST', '/equipo/api/site/s_nope', { what: 'installed' }, { cookie: a.cookie })).status, 404);
+  assert.equal((await s.call('POST', `/equipo/api/site/${id}`, { what: 'installed' }, { cookie: a.cookie })).status, 200);
+  await s.call('POST', `/equipo/api/site/${id}`, { what: 'installed' }, { cookie: a.cookie });   // a second tap changes nothing
+  v = await me();
+  assert.equal(v.week.points, 70);
+  assert.equal((await s.call('POST', '/equipo/api/badge', { rep: m.id, text: '' }, { cookie: a.cookie })).status, 400);
+  assert.equal((await s.call('POST', '/equipo/api/badge', { rep: m.id, text: 'Volvió tres veces hasta encontrar al dueño.' }, { cookie: a.cookie })).status, 200);
+  const seen = (await s.call('GET', '/equipo/api/me', undefined, { cookie: j.cookie })).json.feed[0];
+  assert.deepEqual([seen.code, seen.name, seen.play], ['badge', 'mario', 'Volvió tres veces hasta encontrar al dueño.']);
+  // a rep who leaves: the session ends, the PIN stops working, and the table forgets them
+  const off = await s.call('POST', `/equipo/api/reps/${j.id}`, { patch: { active: false } }, { cookie: a.cookie });
+  assert.deepEqual([off.status, off.json.reps.map((r) => r.handle), off.json.others.some((r) => r.handle === 'jose' && !r.active)], [200, ['mario'], true]);
+  assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: j.cookie })).status, 401);
+  assert.equal((await s.call('POST', '/equipo/api/login', { handle: 'jose', pin: PIN })).status, 401);
+  assert.equal((await s.call('POST', `/equipo/api/reps/${a.cookie ? 'r_nope' : ''}`, { patch: { active: false } }, { cookie: a.cookie })).status, 404);
+});
