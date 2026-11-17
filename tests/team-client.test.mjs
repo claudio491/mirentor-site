@@ -67,6 +67,7 @@ test('t fills the blanks, picks the plural and never returns a bare key', () => 
   assert.equal(es('u.points', { n: 12 }), '12 puntos');
   assert.equal(en('u.points', { n: 1 }), '1 point');
   assert.equal(es('u.points', { n: 1240 }), '1,240 puntos');
+  assert.deepEqual([es('pts.plus', { n: 1 }), es('pts.plus', { n: 8 }), en('pts.plus', { n: 1 })], ['+1 pt', '+8 pts', '+1 pt']);
   assert.throws(() => es('no.such.key'), /no\.such\.key/);
 });
 

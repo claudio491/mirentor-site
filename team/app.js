@@ -74,8 +74,8 @@ function renderNav() {
   const nav = $('#nav'), canLog = !S.mgr && !readOnly() && !!S.me.today;
   const tabs = S.mgr ? ['team', 'needs', 'reps'] : ['today', 'table', 'profile'];
   const count = S.mgr ? manager.needsCount() : 0;
-  put(nav, tabs.map((id) => h('button', { class: 'tab', type: 'button', 'data-tab': id, 'aria-current': S.tab === id ? 'page' : null, onclick: () => setTab(id) },
-    icon(id), h('span', { text: t(`nav.${id}`) }), id === 'needs' && count ? h('span', { class: 'count num', text: String(count) }) : null)),
+  put(nav, tabs.map((id) => h('button', { class: 'tab', type: 'button', 'data-tab': id, 'aria-label': id === 'needs' && count ? `${t('nav.needs')}: ${count}` : t(`nav.${id}`), 'aria-current': S.tab === id ? 'page' : null, onclick: () => setTab(id) },
+    icon(id), h('span', { text: t(`nav.${id}`) }), id === 'needs' && count ? h('span', { class: 'count num', text: String(count), 'aria-hidden': 'true' }) : null)),
   canLog ? h('button', { class: 'btn primary log', type: 'button', id: 'logBtn', onclick: openLog }, icon('plus'), t('nav.log')) : null);
   nav.classList.toggle('three', !canLog);
   nav.hidden = false;
@@ -309,7 +309,7 @@ function feedItem(f, fresh) {
   const clapBtn = kudosButton(f);
   return h('li', { class: fresh ? 'new' : null }, h('span', {}, h('b', { text: f.name }), ` ${t(`feed.${f.code}`)}`, f.play ? h('q', { text: f.play }) : null,
     h('small', { text: `${cityName(f.city)} · ${ago(f.at, S.me.serverTime, tz())}` })),
-  h('span', { class: 'side' }, f.pts ? h('span', { class: 'p', text: t('pts.plus', { n: f.pts }).replace(` ${t('u.pts')}`, '') }) : null, clapBtn));
+  h('span', { class: 'side' }, f.pts ? h('span', { class: 'p num', text: `+${num(f.pts)}` }) : null, clapBtn));
 }
 function renderFeed(list, empty, animate) {
   const items = S.me.feed.slice(0, 10), seen = S.seenFeed;
