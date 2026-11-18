@@ -101,6 +101,19 @@ test('the rep payload says what Saturday and Sunday brought, so the chart of the
   assert.equal(v.points, v.days.reduce((a, d) => a + d.points, 0) + v.weekendPoints);
 });
 
+test('a meeting that still waits to be confirmed stays in the history a phone gets, however much was logged after it', () => {
+  // the meeting is two weeks ahead; in the days after booking it, the rep logs far more than the 40 rows a phone gets
+  const events = [rep('ana'), log('ana', MON, '09:00', 'meeting', 'M1', { when: '2026-11-30' })];
+  for (const day of ['2026-11-17', '2026-11-18', '2026-11-19']) for (let i = 0; i < 9; i += 1) events.push(log('ana', day, `1${i}:00`, 'talk'));
+  const v = repView(build(events), 'ana', ctx('20:00', '2026-11-19'));
+  assert.ok(v.ledger.length > 40, `the history holds the recent rows and what waits: ${v.ledger.length}`);
+  const waiting = v.ledger.filter((e) => e.code === 'meeting_held' && e.status === 'pending');
+  assert.equal(waiting.length, 1, 'the row from which the rep reports the meeting as held is still there');
+  assert.equal(v.pending.some((p) => p.logId === waiting[0].logId && !p.held), true);
+  // newest first, as before: what waits from days ago comes after the recent rows
+  assert.equal(v.ledger.at(-1).id, waiting[0].id);
+});
+
 test('the feed shows who did what without the business, and marks what the viewer applauded', () => {
   const l1 = log('ana', MON, '09:00', 'talk', 'SECRETO');
   const s = build([rep('ana'), rep('beto'), l1, log('ana', MON, '09:10', 'message', 'M1'), { type: 'kudos', t: at(MON, '09:20'), by: 'beto', target: l1.id, on: true }, { type: 'play', t: at(MON, '09:30'), logId: l1.id, text: 'Pregunté por el encargado.' }]);

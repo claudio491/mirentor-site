@@ -100,8 +100,8 @@ const es = {
   'today.missing': ['Te falta', 'Te faltan'],
   'habits.aria': 'Hábitos de hoy',
   'habit.0': 'Una visita', 'habit.0.s': 'En persona, a un negocio de tu ciudad',
-  'habit.1': 'Dos conversaciones', 'habit.1.s': 'Con el dueño o quien decide',
-  'habit.2': 'Un seguimiento', 'habit.2.s': 'A un negocio que ya tenía un contacto',
+  'habit.1': 'Dos conversaciones', 'habit.1.s': 'Con el dueño o quien decide, en dos negocios',
+  'habit.2': 'Un seguimiento', 'habit.2.s': 'A un negocio que ya tuvo contacto otro día',
   'habit.3': 'Cerrar el día', 'habit.3.s': 'Tu reporte, antes de las {time}',
   'habitname.0': 'visita', 'habitname.1': 'dos conversaciones', 'habitname.2': 'seguimiento', 'habitname.3': 'cierre del día',
   // ---- the hand ----
@@ -247,13 +247,13 @@ const es = {
   'led.meta.lead': '{lead} · {when}',
   // ---- how you earn ----
   'rules.title': 'cómo se gana',
-  'rules.note.visit': 'Una por negocio al día', 'rules.note.conversation': 'En persona o por teléfono', 'rules.note.followup': 'Un contacto con un negocio que ya tenía uno',
+  'rules.note.visit': 'Una por negocio al día', 'rules.note.conversation': 'En persona o por teléfono, una por negocio al día', 'rules.note.followup': 'Visita, llamada contestada o respuesta de un negocio que ya tuvo contacto otro día',
   'rules.note.message': 'Cuentan hasta {cap} al día', 'rules.note.reply': 'Cuando un negocio contesta', 'rules.note.meeting_booked': 'Al agendarla',
   'rules.note.meeting_held': 'Cuando tu líder confirma que ocurrió', 'rules.note.contract_sent': 'Cuando tu líder lo confirma', 'rules.note.contract_signed': 'A la firma',
   'rules.note.site_signed': 'Lo registra tu líder', 'rules.note.site_installed': 'Con los teléfonos instalados', 'rules.note.site_first_hour': 'Con la primera hora aprobada',
   'rules.note.day_closed': 'Antes de las {time}',
   'rules.hand.b': 'La mano.', 'rules.hand': 'Cada día de trabajo es un dedo con cuatro luces: una visita, dos conversaciones con quien decide, un seguimiento y el cierre del día. La muñeca se enciende con tu primer registro de la semana.',
-  'rules.streak.b': 'La racha.', 'rules.streak': 'Se mantiene con una conversación con quien decide cada día de trabajo. Tienes {n} comodines para un día malo y recuperas uno con cada semana completa.',
+  'rules.streak.b': 'La racha.', 'rules.streak': 'Se mantiene con una conversación con quien decide cada día de trabajo. Tienes {n} comodines para un día malo y recuperas uno con cada semana en la que conversas todos tus días de trabajo.',
   'rules.table.b': 'La tabla.', 'rules.table': 'Muestra la punta y tu lugar. Los puntos vuelven a cero cada lunes y nadie más aparece con número.',
   'rules.money': 'Es una propuesta para revisar con el equipo. Los puntos no son dinero y no se convierten en dinero.',
   // ---- manager: the team ----
@@ -397,8 +397,8 @@ const en = {
   'today.missing': ['Still to do:', 'Still to do:'],
   'habits.aria': 'Today\'s habits',
   'habit.0': 'One visit', 'habit.0.s': 'In person, at a business in your city',
-  'habit.1': 'Two conversations', 'habit.1.s': 'With the owner or whoever decides',
-  'habit.2': 'One follow-up', 'habit.2.s': 'With a business that already had a contact',
+  'habit.1': 'Two conversations', 'habit.1.s': 'With the owner or whoever decides, at two businesses',
+  'habit.2': 'One follow-up', 'habit.2.s': 'With a business that had a contact on an earlier day',
   'habit.3': 'Close the day', 'habit.3.s': 'Your report, before {time}',
   'habitname.0': 'visit', 'habitname.1': 'two conversations', 'habitname.2': 'follow-up', 'habitname.3': 'closing the day',
   // ---- the hand ----
@@ -544,13 +544,13 @@ const en = {
   'led.meta.lead': '{lead} · {when}',
   // ---- how you earn ----
   'rules.title': 'how you earn',
-  'rules.note.visit': 'One per business per day', 'rules.note.conversation': 'In person or by phone', 'rules.note.followup': 'A contact with a business that already had one',
+  'rules.note.visit': 'One per business per day', 'rules.note.conversation': 'In person or by phone, one per business per day', 'rules.note.followup': 'A visit, answered call or reply from a business that had a contact on an earlier day',
   'rules.note.message': 'They count up to {cap} a day', 'rules.note.reply': 'When a business answers', 'rules.note.meeting_booked': 'When you book it',
   'rules.note.meeting_held': 'When your manager confirms it happened', 'rules.note.contract_sent': 'When your manager confirms it', 'rules.note.contract_signed': 'At signature',
   'rules.note.site_signed': 'Your manager records it', 'rules.note.site_installed': 'Once the phones are installed', 'rules.note.site_first_hour': 'With the first approved hour',
   'rules.note.day_closed': 'Before {time}',
   'rules.hand.b': 'The hand.', 'rules.hand': 'Each working day is a finger with four lights: one visit, two conversations with whoever decides, one follow-up and closing the day. The wrist lights up with your first log of the week.',
-  'rules.streak.b': 'The streak.', 'rules.streak': 'You keep it with one conversation with whoever decides each working day. You have {n} spare days for a bad day and you get one back with each complete week.',
+  'rules.streak.b': 'The streak.', 'rules.streak': 'You keep it with one conversation with whoever decides each working day. You have {n} spare days for a bad day and you get one back with each week in which you have a conversation every working day.',
   'rules.table.b': 'The table.', 'rules.table': 'It shows the lead and your own place. Points go back to zero every Monday and nobody else appears with a number.',
   'rules.money': 'This is a proposal to review with the team. Points are not money and do not convert to money.',
   // ---- manager: the team ----

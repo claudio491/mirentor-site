@@ -67,6 +67,13 @@ export function firstDays(view) {
 /** Whether anything was logged in a day. */
 export const anyLog = (today) => !!today && !!(today.visits || today.conversations || today.followups || today.messages || today.replies || today.meetings);
 /** A working day nobody has logged in yet: the screen then invites a start instead of counting zero. */
+/** The history as a person reads it: what waits for them comes first (a meeting they still have to report as held),
+ *  then everything else in the order the server sends it, newest first. */
+export function historyRows(ledger, pending) {
+  const theirs = new Set(pending.filter((p) => p.code === 'meeting_held' && !p.held).map((p) => `${p.logId}:${p.code}`));
+  const waits = (e) => e.status === 'pending' && theirs.has(`${e.logId}:${e.code}`);
+  return [...ledger.filter(waits), ...ledger.filter((e) => !waits(e))];
+}
 /** The faces on the team's staircase: at most `max`, by name, and the viewer always one of them. T is a table as the
  *  server sends it: the viewer's row, the podium (their own row marked `mine`) and everybody else. */
 export function crewOf(T, max = 5) {

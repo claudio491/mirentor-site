@@ -1,7 +1,7 @@
 // What deserves a moment on screen is decided in team/moments.js, apart from the screens, so it is tested without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, changedChars, tableNote, firstDays, untouched, anyLog, shortNames, closeCard, crewOf } from '../team/moments.js';
+import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, changedChars, tableNote, firstDays, untouched, anyLog, shortNames, closeCard, crewOf, historyRows } from '../team/moments.js';
 
 const RULES = { points: { visit: 3, conversation: 5, followup: 2, dayClosedOnTime: 2 }, habits: { visits: 1, conversations: 2, followups: 1 }, closeBy: '19:00' };
 const today = (over = {}) => ({ day: '2026-11-17', isWork: true, habits: [false, false, false, false], visits: 0, conversations: 0, followups: 0, closed: false, ...over });
@@ -175,4 +175,14 @@ test('the faces on the team staircase are at most five, by name, and the viewer 
   // a viewer with no row of their own (a manager looking at the team) sees the first five
   assert.deepEqual(names(crewOf(table(null, [row('Luis')], [row('Ana')]))), ['Ana', 'Luis']);
   assert.equal(crewOf({ ...big, me: null }).length, 5);
+});
+
+test('in the history, a meeting the person still has to report as held comes first; the rest keeps its order', () => {
+  const row = (id, code, status = 'earned', logId = id) => ({ id, logId, code, status });
+  const ledger = [row('a', 'visit'), row('b', 'conversation'), row('m1', 'meeting_held', 'pending', 'L1'), row('c', 'contract_sent', 'pending', 'L2'), row('m2', 'meeting_held', 'pending', 'L3')];
+  const pending = [{ logId: 'L1', code: 'meeting_held', held: false }, { logId: 'L2', code: 'contract_sent', held: false }, { logId: 'L3', code: 'meeting_held', held: true }];
+  // L1 waits for the rep; L3 was already reported and now waits for the manager; a contract never waits for the rep
+  assert.deepEqual(historyRows(ledger, pending).map((e) => e.id), ['m1', 'a', 'b', 'c', 'm2']);
+  assert.deepEqual(historyRows(ledger, []).map((e) => e.id), ['a', 'b', 'm1', 'c', 'm2']);
+  assert.deepEqual(historyRows([], pending), []);
 });

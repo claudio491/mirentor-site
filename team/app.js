@@ -5,7 +5,7 @@ import { $, $$, h, put, icon, t, setLang, lang, applyStatic, giant, num, ord, wd
   lock, buzz, quiet, EASE, countTo, recount, ringAt, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, once, copyText, grain, reduce, formSheet, setExplain, newId, putFace, face, dayOf, showErr } from './ui.js';
 import { buildHand, paintHand, miniHand, rowWrist, levelBone, badgeGlyph, portrait, setPortrait, replayHand, drawIn, handGlyph, stepsGlyph, teachHand, daysBone } from './hand.js';
 import { swap, roll, floatUp, flyDot, reveal, stagger, lockIn, greet, isGreeting, celebrate, dayDone } from './fx.js';
-import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, tableNote, firstDays, untouched, anyLog, shortNames, closeCard, crewOf } from './moments.js';
+import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, tableNote, firstDays, untouched, anyLog, shortNames, closeCard, crewOf, historyRows } from './moments.js';
 import { STOPS, stopsOf, standOn, loopOf, rewardOf, landed, stepOf } from './stops.js';
 import { createStage } from './stage.js';
 import { ART, STEPS } from './art.js';
@@ -679,9 +679,9 @@ function renderProfile() {
   }));
 
   const heldSet = new Map(pending.map((p) => [`${p.logId}:${p.code}`, p]));
-  const more = $('#ledgerMore'), rest = ledger.length - 10;
+  const rows = historyRows(ledger, pending), more = $('#ledgerMore'), rest = rows.length - 10;   // what waits for the person comes first
   more.hidden = S.ledgerAll || rest <= 0; more.textContent = rest > 0 ? t('profile.ledger.more', { n: rest }) : '';
-  $('#ledger').replaceChildren(...(S.ledgerAll ? ledger : ledger.slice(0, 10)).map((e) => {
+  $('#ledger').replaceChildren(...(S.ledgerAll ? rows : rows.slice(0, 10)).map((e) => {
     const waiting = e.status === 'pending', gone = e.status === 'expired', when = stamp(e.at, tz());
     const row = src(h('button', { class: 'rowsrc', type: 'button' }, t(`led.${e.code}`), h('small', {}, e.lead ? t('led.meta.lead', { lead: e.lead.name, when }) : when, waiting || gone ? h('span', { class: 'st', text: ` · ${t(`st.${e.status}`)}` }) : null)),
       () => t('c.source'), () => t(`ledsrc.${e.code}`, { pts: pts(e.pts), cap: rules.caps.messagesPerDay, days: rules.pendingDays, time: hourName(rules.closeBy) }));
