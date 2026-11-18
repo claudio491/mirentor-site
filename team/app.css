@@ -694,7 +694,7 @@ html.greeting{overflow:hidden}
 .mebtn:focus-visible{outline:2px solid var(--signal);outline-offset:4px}
 .mebtn[aria-current=page]::after{content:"";position:absolute;left:50%;bottom:-9px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--signal)}
 @media (max-width:479px){body:not(.bare) #brandName{display:none}#streakChip>span{display:none}.top-r{gap:6px}}
-@media (max-width:379px){.top-r{gap:6px}.top-r .chip{padding-left:8px;padding-right:8px}}
+@media (max-width:379px){.top-r{gap:5px}.top-r .chip{padding-left:7px;padding-right:7px}.seg.lang button{min-width:34px;padding:0 6px}.top{gap:8px 6px}}
 
 /* ---------- zones ---------- */
 .zone{position:relative;margin:0 -16px calc(-104px - env(safe-area-inset-bottom));padding:2px 16px calc(124px + env(safe-area-inset-bottom));min-height:calc(100dvh - 64px);overflow-x:clip}

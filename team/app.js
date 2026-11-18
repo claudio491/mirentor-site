@@ -303,6 +303,7 @@ function renderWeek(animate) {
   const ws = week.start;
   $('#weekLead').textContent = `${t('time.week', { n: isoWeek(ws) })} · ${t('time.range', { a: dayMonth(ws), b: dayMonth(addDays(ws, 6)) })}`;
   giant($('#weekGiant'), t('week.giant'));
+  $('#weekGiant').classList.toggle('word', t('week.giant').length > 9);
   $('#weekSupport').replaceChildren(...bold(t('week.sup.b'), t('week.sup')));
   const hand = $('#hand');
   if (!hand.hand) buildHand(hand);
