@@ -61,7 +61,7 @@ export function createServer({ store, sheets, origins, limit = 10, visitLimit = 
     };
     const { pathname } = new URL(req.url, 'http://x');
 
-    if (req.method === 'GET' && pathname === '/healthz') return send(200, { ok: true, sheets: !!sheets, pending: store.pending().length, dataDir: store.dir, desk: !!desk, sales: !!sales });
+    if (req.method === 'GET' && pathname === '/healthz') return send(200, { ok: true, sheets: !!sheets, pending: store.pending().length, dataDir: store.dir, desk: !!desk, sales: !!sales, team: !!team });
     if (desk && (await desk(req, res, pathname))) return;
     // The sales team's board lives inside the portal, at /ventas/equipo, so it is asked before the portal is.
     if (team && (await team(req, res, pathname))) return;

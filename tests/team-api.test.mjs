@@ -284,7 +284,7 @@ test('requests from another site are refused, and the page ships with a strict p
 test('the rest of the service is untouched while the team module is on', async (t) => {
   const s = await start(); t.after(() => s.srv.close());
   const h = await s.call('GET', '/healthz');
-  assert.deepEqual([h.status, h.json.ok, h.json.desk], [200, true, false]);
+  assert.deepEqual([h.status, h.json.ok, h.json.desk, h.json.team], [200, true, false, true]);   // the health page says the board is on
   const wl = await fetch(`${s.url}/api/waitlist`, { method: 'POST', headers: { 'content-type': 'application/json', origin: ORIGIN }, body: '{}' });
   assert.equal(wl.status, 400);
   assert.equal((await s.call('GET', '/desk')).status, 404);
