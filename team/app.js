@@ -501,6 +501,7 @@ function renderSquad(T, period) {
 // ---- closing the day ----
 function renderCloseCard() {
   const { today, rules } = S.me, btn = $('#closeBtn');
+  $('#closeCard').hidden = !today.closed;   // before that, closing is the route's last stop
   $('#closeCard').classList.toggle('light', !today.closed && !readOnly() && anyLog(today));   // it speaks in porcelain once there is something to close
   if (today.closed) {
     $('#closeH').textContent = t('close.done.title');

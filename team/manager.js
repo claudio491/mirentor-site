@@ -2,6 +2,7 @@
 // The headline of the team view is a live number (days closed today), and the rows that need attention are framed.
 import { $, h, put, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, dayOf, clock, stamp, ago, cityName, countTo, flipList, toast, src, once, copyText, formSheet, quiet, newId, sameText, face, putFace } from './ui.js';
 import { miniHand, lens, setLens, portrait, setPortrait } from './hand.js';
+import { STOPS } from './stops.js';
 import { shortNames } from './moments.js';
 
 const MONDAY = '2026-11-16';   // any Monday: only used to name the days of the week
@@ -88,15 +89,20 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
 
     const cities = [...new Set(team.reps.map((r) => r.city).filter(Boolean))].sort();
     if (city !== 'all' && !cities.includes(city)) city = 'all';
-    // The wall: every rep's day as a lens. The arc is today's four habits; a tap opens their screens.
+    // The wall: every rep's day as the scene it stands on (the stop that is next, the close once the day is done,
+    // the hammock on a day off), with their face and the arc of today's four habits. A tap opens their screens.
     const shown = team.reps.filter((r) => city === 'all' || r.city === city), names = shortNames(shown);
     const drawWall = () => flipList($('#wall'), shown, (r) => r.id,
-      () => h('a', { class: 'wl', onclick: openAs }, h('span', { class: 'pt' }), h('b'), h('span', { class: 'st' })),
+      () => h('a', { class: 'wl', onclick: openAs }, h('span', { class: 'ws', 'aria-hidden': 'true' }, h('i')), h('span', { class: 'pt' }), h('b'), h('span', { class: 'st' })),
       (node, r) => {
         const done = r.today.habits.filter(Boolean).length, flagged = flagsOf(r).length > 0;
         const state = !r.today.isWork ? t('mgr.report.rest') : r.today.closed ? t('mgr.report.closed', { time: clock(r.today.closedAt, tzOf(r)) }) : r.today.logs ? t('wall.today', { a: done }) : t('mgr.last.none');
         node.href = `?as=${encodeURIComponent(r.id)}`; node.dataset.as = r.id; node.classList.toggle('flag', flagged);
         node.setAttribute('aria-label', t('wall.open.aria', { name: r.name, state }));
+        const over = r.today.closed || done === 4, at = r.today.habits.slice(0, 3).findIndex((x) => !x);
+        $('.ws', node).dataset.art = !r.today.isWork ? 'rest' : over ? 'close' : STOPS[at >= 0 ? at : 3];
+        $('.ws i', node).dataset.f = r.today.isWork && over ? '3' : '0';
+        node.classList.toggle('wait', r.today.isWork && !over);
         putFace($('.pt', node), r, (person) => portrait(person, { share: 0 }));
         setPortrait($('.pt .portrait', node), r.today.isWork ? done / 4 : 0);
         $('b', node).textContent = names.get(r.id); $('.st', node).textContent = state;

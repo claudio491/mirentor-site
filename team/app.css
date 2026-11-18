@@ -881,6 +881,18 @@ html.greeting{overflow:hidden}
 .z-team .trow .ahand.mini{width:44px}
 .z-team .feed{margin-top:10px}
 
+/* ---------- the leader's wall: every rep's day as the scene it stands on ---------- */
+.wl{width:132px;gap:4px}
+.ws{position:relative;display:block;width:116px;height:116px}
+.ws i{position:absolute;inset:0;background-image:var(--art);background-repeat:no-repeat;background-size:400% 100%;background-position:var(--fx,0%) 0}
+/* a day still open is not a still picture: its scene moves between its two waiting frames */
+.wl.wait .ws i{animation:ws-wait 2.8s steps(1) infinite}
+@keyframes ws-wait{0%,66%{background-position:0 0}67%,100%{background-position:33.333% 0}}
+.wl .pt{position:relative;z-index:1;justify-self:start;margin:-36px 0 0 2px}
+.wl .portrait{--p:54px}
+.wl b,.wl .st{justify-self:start;text-align:left;padding-left:4px}
+@media (prefers-reduced-motion:reduce){.wl.wait .ws i{animation:none}}
+
 /* ---------- the bar: the open zone is marked; the stage's button is the one in signal ---------- */
 .tabs.none::before{opacity:0}
 .nav .log{background:var(--porcelain);border-color:transparent;color:var(--graphite)}
@@ -935,7 +947,7 @@ html.greeting{overflow:hidden}
   .cta{min-height:62px;max-width:520px;font-size:18px}
   .route{max-width:520px;margin-left:-8px}
   /* semana: the hand on the left under its title; how it reads, the results and the points on the right */
-  .z-week,.z-team{grid-template-rows:auto auto auto auto auto auto auto 1fr}
+  .z-week{grid-template-rows:auto auto auto auto auto auto auto 1fr}
   .z-week>.handcard{grid-column:1;grid-row:5 / span 4;align-self:start;margin:16px 0 0}
   .z-week>.legend{grid-column:2;grid-row:1 / span 4;align-self:end;margin:0}
   .z-week>.tier{grid-column:2;grid-row:5;margin-top:16px}
@@ -944,9 +956,11 @@ html.greeting{overflow:hidden}
   .legend .sl{width:58px;height:58px}
   .handcard .ahand{width:min(100%,440px)}
   /* equipo: the staircase on the left under the team's number; the table and the field on the right */
-  .z-team>.climb{grid-column:1;grid-row:3 / span 6;align-self:start;width:min(100%,440px);margin:-8px auto -14px}
-  .z-team>.sec-table{grid-column:2;grid-row:1 / span 7;margin-top:0}
-  .z-team>.sec-feed{grid-column:2;grid-row:8}
+  .z-team{grid-template-rows:auto auto auto auto 1fr}
+  .z-team>.climb{grid-column:1;grid-row:3;align-self:start;width:min(100%,520px);margin:-8px auto -14px}
+  .z-team>.sec-play{grid-column:1;grid-row:4;margin-top:8px}
+  .z-team>.sec-table{grid-column:2;grid-row:1 / span 3;margin-top:0}
+  .z-team>.sec-feed{grid-column:2;grid-row:4 / span 2}
   .daydone .dd-in{width:min(100%,520px)}
 }
 @media (prefers-reduced-motion:reduce){
