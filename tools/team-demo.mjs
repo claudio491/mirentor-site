@@ -16,7 +16,7 @@ import { readRoster } from './team-roster.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const NODE = { 'node:crypto': 'tools/demo/node-crypto.js', 'node:fs': 'tools/demo/node-fs.js', 'node:path': 'tools/demo/node-path.js', 'node:url': 'tools/demo/node-url.js', 'node:zlib': 'tools/demo/node-zlib.js' };
-const ENTRY = 'tools/demo/boot.js', DATA = 'tools/demo/demo-data.js';
+const ENTRY = 'tools/demo/boot.js', DATA = 'tools/demo/demo-data.js', ART = 'team/art.js';
 const TITLE = 'Mirentor Sales Team App';
 
 /** Where an import leads, as a path from the repository's root. */
@@ -75,7 +75,10 @@ export function buildDemo({ people, photosDir = '.' } = {}) {
     if (file && type && existsSync(file)) { const bytes = readFileSync(file); photos[id] = dataUri(type, bytes); version = createHash('sha256').update(bytes).digest('hex').slice(0, 12); }
     return { id, handle: p.handle, ...(typeof p.email === 'string' && p.email ? { email: p.email.trim().toLowerCase() } : {}), name: p.name, role: p.role || 'rep', city: p.city || '', country: p.country || 'PA', ...(p.tz ? { tz: p.tz } : {}), ...(p.startDate ? { startDate: p.startDate } : {}), photo: version };
   });
-  const script = bundle(ENTRY, { [DATA]: `export const PEOPLE = ${JSON.stringify(list)};\nexport const PHOTOS = ${JSON.stringify(photos)};\n` });
+  // The illustrations travel inside the page too: art.js as it is, with each address replaced by the image itself.
+  const art = readFileSync(path.join(ROOT, ART), 'utf8').replace(/"art\/([a-z0-9.-]+\.webp)"/g, (m, name) => JSON.stringify(dataUri('image/webp', readFileSync(path.join(ROOT, 'team', 'art', name)))));
+  if (/"art\//.test(art)) throw new Error('an illustration is still read from the server');
+  const script = bundle(ENTRY, { [DATA]: `export const PEOPLE = ${JSON.stringify(list)};\nexport const PHOTOS = ${JSON.stringify(photos)};\n`, [ART]: art });
 
   // the app's own page, with everything it loads carried inside
   const team = (name) => readFileSync(path.join(ROOT, 'team', name));
