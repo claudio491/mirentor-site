@@ -881,6 +881,13 @@ html.greeting{overflow:hidden}
 .z-team .trow .ahand.mini{width:44px}
 .z-team .feed{margin-top:10px}
 
+/* ---------- the log sheet: each result shows the scene it leaves on the route ---------- */
+.out .sl{grid-row:1 / span 2;align-self:start;width:40px;height:40px;margin:-1px 0 0 -2px}
+.out:has(.sl){grid-template-columns:40px minmax(0,1fr)}
+.out .sl i{background-position:var(--fx,0%) 0}
+.sl.one i{inset:-4%;background-image:var(--art-glow),var(--art);background-size:100% 100%;background-position:center}
+.out[aria-pressed=true] .sl{box-shadow:0 0 0 2px var(--signal)}
+
 /* ---------- the leader's wall: every rep's day as the scene it stands on ---------- */
 .wl{width:132px;gap:4px}
 .ws{position:relative;display:block;width:116px;height:116px}

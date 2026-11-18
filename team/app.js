@@ -141,6 +141,12 @@ function setTab(name, { instant = false } = {}) {
   // A screen puts itself together the first time it is opened in a visit; after that it is simply there.
   for (const n of inBands(name) ? BANDS : [name]) if (!S.arrived.has(n)) { S.arrived.add(n); setTimeout(() => arrive(n), reduce ? 0 : 90); }
 }
+/** Run `fn` once, when `el` is at least a third on screen (at once where the browser cannot tell). */
+function whenSeen(el, fn) {
+  if (!el || !('IntersectionObserver' in window)) { fn(); return; }
+  const io = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) { io.disconnect(); fn(); } }, { threshold: 0.34 });
+  io.observe(el);
+}
 /** A screen has just arrived: its headline rises, its picture and its rows come in, once. */
 function arrive(name, { fast = false, landed: lensLanded = false } = {}) {
   if (reduce || !S.me) return;
@@ -161,7 +167,11 @@ function arrive(name, { fast = false, landed: lensLanded = false } = {}) {
     zero($$('#bars li'), (n) => n.style.getPropertyValue('--v'), (n, empty, v) => n.style.setProperty('--v', empty ? '0' : v));
     recount($('#weekPts'));
     // A week with no light yet shows how the hand works, once in a visit.
-    if (!S.taught && !fast && S.me.week.marks === 0 && !readOnly()) { S.taught = true; setTimeout(() => { if (S.me && !stopTeach && (S.tab === 'week' || inBands('week')) && !$('dialog[open]')) teach(); }, took + 1100); }
+    // It waits until the hand is on screen: on a wide page the week may still be below the fold.
+    if (!S.taught && !fast && S.me.week.marks === 0 && !readOnly()) {
+      S.taught = true;
+      whenSeen($('.handcard'), () => setTimeout(() => { if (S.me && !stopTeach && (S.tab === 'week' || inBands('week')) && !$('dialog[open]') && !isGreeting()) teach(); }, took + 1100));
+    }
   } else if (name === 'table') {
     reveal($('#goalGiant'));
     lockIn($$('#squad .fl .pt'), { delay: 60 }); drawIn($('#squad'), 220, 60);
@@ -697,6 +707,15 @@ function openLog() {
   $('#leadQ').value = ''; $('#newName').value = ''; $('#newZone').value = '';
   renderLog(); openSheet($('#logSheet'));
 }
+// What each result looks like on the route: the frame of a stop that tells it, or the scene of a meeting or a contract.
+const OUT_ART = { talk: ['visit', 3], absent: ['visit', 0], call: ['follow', 2], message: ['follow', 1], reply: ['follow', 3], noanswer: ['follow', 0], meeting: ['meeting'], contract: ['contract'] };
+function outArt(kind) {
+  const art = OUT_ART[kind];
+  if (!art) return icon(kind);
+  const pic = h('i', { 'data-art': art[0] });
+  if (art.length > 1) pic.dataset.f = String(art[1]);
+  return h('span', { class: art.length > 1 ? 'sl' : 'sl one', 'aria-hidden': 'true' }, pic);
+}
 function leadOption(l, pressed) {
   const today = S.me.today.day, mine = l.lastDay ? t('log.last', { date: l.lastDay === today ? t('nav.today').toLocaleLowerCase() : dayMonth(l.lastDay) }) : l.known ? t('log.known') : t('log.unknown');
   return h('button', { class: 'leadopt', type: 'button', 'aria-pressed': String(!!pressed), onclick: () => { L.lead = pressed ? null : l; renderLog(); } },
@@ -733,7 +752,7 @@ function renderLog() {
   };
   $('#outOpts').replaceChildren(...kinds.map((k) => h('button', { class: 'out', type: 'button', 'aria-pressed': String(L.kind === k), onclick: () => {
     L.kind = L.kind === k ? null : k; L.channel = L.kind && CHANNELS[L.kind] ? CHANNELS[L.kind][0] : null; L.voicemail = false; L.tag = null; renderLog();
-  } }, icon(k), h('b', { text: t(`kind.${k}`) }), h('span', { class: 'pp', text: hint(k) }))));
+  } }, outArt(k), h('b', { text: t(`kind.${k}`) }), h('span', { class: 'pp', text: hint(k) }))));
   const more = $('#moreOuts'); more.textContent = t(L.more ? 'log.less' : 'log.more'); more.setAttribute('aria-expanded', String(L.more));
 
   // 3. the details this result asks for
