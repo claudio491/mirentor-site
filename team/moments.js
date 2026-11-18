@@ -67,6 +67,18 @@ export function firstDays(view) {
 /** Whether anything was logged in a day. */
 export const anyLog = (today) => !!today && !!(today.visits || today.conversations || today.followups || today.messages || today.replies || today.meetings);
 /** A working day nobody has logged in yet: the screen then invites a start instead of counting zero. */
+/** The faces on the team's staircase: at most `max`, by name, and the viewer always one of them. T is a table as the
+ *  server sends it: the viewer's row, the podium (their own row marked `mine`) and everybody else. */
+export function crewOf(T, max = 5) {
+  const byName = (x, y) => x.name.localeCompare(y.name, 'es');
+  const others = [...T.podium.filter((r) => !r.mine), ...T.rest].sort(byName);
+  if (!T.me) return others.slice(0, max);
+  return [T.me, ...others.slice(0, max - 1)].sort(byName);
+}
+/** The card that closes the day, under the route. A working day closes through the route's last stop, so the card
+ *  waits until there is a report to read. A day off has no route: work logged on it needs its close too (a full day
+ *  on a day off completes a finger missed earlier), so the card is there as soon as something is logged. */
+export const closeCard = (today) => !!today && (!!today.closed || (!today.isWork && anyLog(today)));
 export const untouched = (today) => !!today && today.isWork && !today.closed && !anyLog(today);
 
 /** Why a table has no places: 'ranked' when it has them, 'new' when everyone on it is in their first days (they may

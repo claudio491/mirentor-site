@@ -1,7 +1,7 @@
 // What deserves a moment on screen is decided in team/moments.js, apart from the screens, so it is tested without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, changedChars, tableNote, firstDays, untouched, anyLog, shortNames } from '../team/moments.js';
+import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, changedChars, tableNote, firstDays, untouched, anyLog, shortNames, closeCard, crewOf } from '../team/moments.js';
 
 const RULES = { points: { visit: 3, conversation: 5, followup: 2, dayClosedOnTime: 2 }, habits: { visits: 1, conversations: 2, followups: 1 }, closeBy: '19:00' };
 const today = (over = {}) => ({ day: '2026-11-17', isWork: true, habits: [false, false, false, false], visits: 0, conversations: 0, followups: 0, closed: false, ...over });
@@ -147,4 +147,32 @@ test('people who share a first name are told apart on a lens, with as little as 
   // nothing more to show, or nothing at all
   assert.deepEqual(label('Ana', 'Ana', '  Luz   María  '), ['Ana', 'Ana', 'Luz']);
   assert.deepEqual(label(''), ['']);
+});
+
+test('the card that closes the day shows where the route cannot: on a day off with something logged, and once the day is closed', () => {
+  // A working day closes through the route's last stop, so the card waits until there is a report to read.
+  assert.equal(closeCard(today({ visits: 1 })), false);
+  assert.equal(closeCard(today({ closed: true })), true);
+  // A day off has no route. Work logged on it can complete a finger missed earlier, and that needs its close too.
+  assert.equal(closeCard(today({ isWork: false })), false);
+  assert.equal(closeCard(today({ isWork: false, visits: 1 })), true);
+  assert.equal(closeCard(today({ isWork: false, visits: 1, closed: true })), true);
+  assert.equal(closeCard(null), false);
+});
+
+test('the faces on the team staircase are at most five, by name, and the viewer is always one of them', () => {
+  const row = (name, mine = false) => ({ id: name, name, mine });
+  const table = (me, podium, rest) => ({ me, podium, rest });
+  const names = (list) => list.map((r) => r.name);
+  const me = row('Zoe', true);
+  // a small team: everybody, by name
+  assert.deepEqual(names(crewOf(table(me, [row('Luis'), row('Ana')], [row('Mara')]))), ['Ana', 'Luis', 'Mara', 'Zoe']);
+  // the viewer's own row on the podium is not a second face
+  assert.deepEqual(names(crewOf(table(me, [row('Luis'), { ...me }], []))), ['Luis', 'Zoe']);
+  // a larger team: five faces, and the viewer keeps theirs even when their name sorts last
+  const big = table(me, [row('Ana'), row('Beto'), row('Caro')], [row('Dani'), row('Eli'), row('Fer')]);
+  assert.deepEqual(names(crewOf(big)), ['Ana', 'Beto', 'Caro', 'Dani', 'Zoe']);
+  // a viewer with no row of their own (a manager looking at the team) sees the first five
+  assert.deepEqual(names(crewOf(table(null, [row('Luis')], [row('Ana')]))), ['Ana', 'Luis']);
+  assert.equal(crewOf({ ...big, me: null }).length, 5);
 });

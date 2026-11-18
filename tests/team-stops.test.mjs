@@ -25,6 +25,9 @@ test('the stop to stand on is the first habit still open, and the close once the
   assert.equal(at([true, true, false, false]), 2);
   assert.equal(at([true, true, true, false]), 3);
   assert.equal(at([true, true, true, true], { closed: true }), 3);
+  // a day closed with habits still open stands on its close: there is nothing left to do today
+  assert.equal(at([true, false, false, true], { closed: true }), 3);
+  assert.equal(at([false, false, false, true], { closed: true }), 3);
 });
 
 test('a stop waits on its first two frames and rests on its last two once it is done', () => {

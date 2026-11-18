@@ -113,7 +113,7 @@ export function replayHand(el, { fast = false } = {}) {
 export function teachHand(el, { finger = 2, say = () => {}, beat = () => {}, hot = () => {}, done = () => {} } = {}) {
   let alive = true;
   const timers = [], labels = el.hand.labels;
-  const wait = (ms) => new Promise((r) => { timers.push(setTimeout(r, reduce ? 0 : ms)); });
+  const wait = (ms) => new Promise((r) => { timers.push(setTimeout(r, ms)); });   // with reduced motion too: the captions need their time
   const demo = [0, 1, 2, 3, 4].map(() => [false, false, false, false]);
   const show = (wrist = false, animate = false) => paintHand(el, demo.map((habits) => ({ kind: 'work', habits })), { wrist, animate, labels: false });
   const point = (f) => labels.forEach((l, i) => l.classList.toggle('point', i === f));

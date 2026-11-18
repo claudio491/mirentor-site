@@ -132,7 +132,6 @@ fieldset.field legend{padding:0;margin-bottom:6px}
 .tier{margin-top:14px;padding:12px 14px;border:1px solid var(--rule);border-radius:var(--r-input);background:var(--panel);color:var(--mist);font-size:14.5px;line-height:1.45}
 .tier b{color:var(--porcelain);font-weight:500}
 /* ---------- lenses ---------- */
-.lenses{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:22px}
 /* faces: a person's photo in a lens with the hairline, or their initials */
 .face{position:relative;flex:none;display:inline-grid;place-items:center;width:40px;height:40px;border-radius:50%;overflow:hidden;background:var(--panel)}
 .face::after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--hair);pointer-events:none}
@@ -448,7 +447,7 @@ dialog.sheet.closing::backdrop{opacity:0}
 
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important}
-  .hand .bone.on,.hand.live .bone.on,.lens .arc,.lens .tipg,.lbone .bone.on{transition:none}
+  .lens .arc,.lens .tipg,.lbone .bone.on{transition:none}
   dialog.sheet,dialog.sheet::backdrop{transition:opacity 160ms linear}
   @starting-style{dialog.sheet[open]{transform:none;opacity:0}}
   dialog.sheet.closing{transform:none;opacity:0}
@@ -504,7 +503,6 @@ dialog.sheet.closing::backdrop{opacity:0}
   transition:background-color 160ms ease,transform 140ms var(--ease-out)}
 .wl:active{transform:scale(.97)}
 .wl:focus-visible{outline:2px solid var(--signal);outline-offset:-2px}
-.wl .portrait{--p:88px}
 .wl b{display:block;max-width:100%;font-size:15px;font-weight:600;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wl .st{display:block;font:500 11px/1.35 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--mist)}
 .wl.flag .st{color:var(--porcelain)}
@@ -611,7 +609,6 @@ html.greeting{overflow:hidden}
   .mhero{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:0 48px;align-items:end}
   .wall{flex-wrap:wrap;justify-content:flex-start;overflow:visible;margin:0;padding:0 0 4px}
   .wl{width:132px}
-  .wl .portrait{--p:104px}
 }
 
 @media (prefers-reduced-motion:reduce){
@@ -648,7 +645,7 @@ html.greeting{overflow:hidden}
 .lo-g>.portrait{--p:184px}
 .lo-emblem{position:absolute;right:10px;bottom:10px;display:grid;place-items:center;width:66px;height:66px;border-radius:50%;background:var(--graphite);box-shadow:inset 0 0 0 1.5px var(--hair)}
 .lo-emblem>svg{width:46px;height:46px;overflow:visible}
-.lo-emblem>.hand.mini{width:44px;height:auto}
+.lo-emblem>.ahand.mini.big{width:44px}
 .lo-emblem>b{font:600 19px/1 var(--mono);color:var(--signal)}
 .lo-box .tipr{fill:none;stroke:var(--signal);stroke-width:2;transform-box:fill-box;transform-origin:center;opacity:0}
 .lockon.on .lo-box .tipr{animation:tipring 1.5s var(--ease-out) 1100ms infinite}
@@ -686,7 +683,6 @@ html.greeting{overflow:hidden}
 /* ---------- zones ---------- */
 .zone{position:relative;margin:0 -16px calc(-104px - env(safe-area-inset-bottom));padding:2px 16px calc(124px + env(safe-area-inset-bottom));min-height:calc(100dvh - 64px);overflow-x:clip}
 .zname{display:none}
-.zone>.lead:first-of-type{margin-top:16px}
 .z-hoy::before{content:"";position:absolute;inset:0 0 auto 0;height:560px;pointer-events:none;background:radial-gradient(ellipse 90% 60% at 50% 46%,rgba(233,235,236,.075),rgba(233,235,236,0) 72%)}
 .z-week{color:var(--graphite);color-scheme:light;background-color:var(--porcelain);
   background-image:linear-gradient(to right,rgba(27,29,32,.07) 1px,transparent 1px),linear-gradient(to bottom,rgba(27,29,32,.07) 1px,transparent 1px);background-size:56px 56px;background-position:16px 0,0 16px}
@@ -706,19 +702,21 @@ html.greeting{overflow:hidden}
 
 /* ---------- Hoy: the stage ---------- */
 .hoy-head{position:relative;z-index:1}
-.hoy-head .lead{margin-top:14px}
-.hoy-head .giant{margin-top:4px}
-.hoy-head .support{margin-top:10px}
+.hoy-head .lead,.eq-head .lead{margin-top:14px}
+.hoy-head .giant,.eq-head .giant{margin-top:4px}
+.hoy-head .support,.eq-head .support{margin-top:10px}
+.pc-short{display:none}
+@media (max-width:349px){.pc-full{display:none}.pc-short{display:inline}.hoy-head .hud-row{gap:6px}.hoy-head .chip{padding-left:8px;padding-right:8px}}
 .stopstage{position:relative;z-index:2;height:min(84vw,330px,36dvh);margin:-2px -16px 0;pointer-events:none}
 .pool{position:absolute;left:50%;bottom:3%;width:88%;height:42%;border-radius:50%;transform:translateX(-50%);opacity:var(--light,.2);transition:opacity 600ms linear;
   background:radial-gradient(ellipse at center,rgba(255,90,54,.34),rgba(255,90,54,.08) 46%,rgba(255,90,54,0) 70%);animation:breathe 4.2s ease-in-out infinite}
 @keyframes breathe{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.06)}}
-.tilt{position:absolute;left:50%;bottom:0;height:100%;aspect-ratio:1;transform:translateX(-50%);perspective:900px}
-.dio{position:absolute;inset:0;background-image:var(--art);background-repeat:no-repeat;background-size:400% 100%;background-position:var(--fx,0%) 0;transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));animation:floaty 5.4s ease-in-out infinite}
+.tilt{position:absolute;left:50%;bottom:0;height:100%;aspect-ratio:1;transform:translateX(-50%);perspective:900px;animation:floaty 5.4s ease-in-out infinite}
+.dio{position:absolute;inset:0;background-image:var(--art);background-repeat:no-repeat;background-size:400% 100%;background-position:var(--fx,0%) 0;transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform 200ms var(--ease-out)}
 @keyframes floaty{0%,100%{translate:0 0}50%{translate:0 -5px}}
 .dio.leaving{animation:dio-out 170ms ease-in forwards}
-.dio.arriving{animation:dio-in 420ms var(--ease-reveal) both,floaty 5.4s ease-in-out infinite 420ms}
-.dio.bump{animation:dio-hit 520ms var(--ease-lock),floaty 5.4s ease-in-out infinite 520ms}
+.dio.arriving{animation:dio-in 420ms var(--ease-reveal) both}
+.dio.bump{animation:dio-hit 520ms var(--ease-lock)}
 @keyframes dio-out{to{opacity:0;transform:translateX(-26px) scale(.97)}}
 @keyframes dio-in{from{opacity:0;transform:translateX(34px) scale(.96)}to{opacity:1;transform:none}}
 @keyframes dio-hit{0%{transform:scale(1)}30%{transform:scale(1.045)}100%{transform:scale(1)}}
@@ -848,6 +846,7 @@ html.greeting{overflow:hidden}
 .bars em{position:absolute;bottom:calc(var(--v,0) * 100% + 4px);font:600 11px/1 var(--mono);font-style:normal;color:var(--graphite);opacity:0;transition:opacity 300ms linear 300ms}
 .bars li.has em{opacity:1}
 .dayrow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:6px}
+.chart.six .bars,.chart.six .dayrow{grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
 .dayrow .flabel{text-align:center;font:500 11px/1 var(--mono);letter-spacing:.07em;color:var(--slate)}
 .dayrow .flabel.today{color:var(--signal-ink);font-weight:600}
 
@@ -963,8 +962,10 @@ html.greeting{overflow:hidden}
   .daydone .dd-in{width:min(100%,520px)}
 }
 @media (prefers-reduced-motion:reduce){
-  .motes,.nextring{display:none}
-  .dio,.pool,.crew,.climb .glow,.sring,.stop.next .sring{animation:none}
-  .jt,.abone,.stick,.bars i,.stop::after,.daydone,.teachsteps i::after{transition:none}
+  .motes{display:none}
+  .nextring.show{animation:none;opacity:.8}
+  .tilt,.dio,.pool,.crew,.climb .glow,.sring,.stop.next .sring{animation:none}
+  .dio{transition:none}
+  .jt,.abone,.stick,.bars i,.stop:not(:last-child)::after,.daydone,.daydone.on,.teachsteps i::after,.teachsteps i.on::after{transition:none}
   .daydone.on .dd-hand,.daydone.on .giant,.daydone.on .dd-sub,.daydone.on .dd-go,.burst.fire circle,.burst.fire line{animation:none}
 }

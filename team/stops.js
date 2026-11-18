@@ -18,6 +18,7 @@ export function stopsOf(today, rules) {
 
 /** Where the day stands: the first of the three habits still open, and the close once they are done. */
 export function standOn(stops) {
+  if (stops[3].done) return 3;   // a closed day stands on its close whatever is left open: nothing more to do today
   const i = stops.findIndex((s, k) => k < 3 && !s.done);
   return i >= 0 ? i : 3;
 }

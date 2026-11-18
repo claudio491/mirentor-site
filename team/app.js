@@ -5,7 +5,7 @@ import { $, $$, h, put, icon, t, setLang, lang, applyStatic, giant, num, ord, wd
   lock, buzz, quiet, EASE, countTo, recount, ringAt, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, once, copyText, grain, reduce, formSheet, setExplain, newId, putFace, face, dayOf, showErr } from './ui.js';
 import { buildHand, paintHand, miniHand, rowWrist, levelBone, badgeGlyph, portrait, setPortrait, replayHand, drawIn, handGlyph, stepsGlyph, teachHand, daysBone } from './hand.js';
 import { swap, roll, floatUp, flyDot, reveal, stagger, lockIn, greet, isGreeting, celebrate, dayDone } from './fx.js';
-import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, tableNote, firstDays, untouched, anyLog, shortNames } from './moments.js';
+import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, tableNote, firstDays, untouched, anyLog, shortNames, closeCard, crewOf } from './moments.js';
 import { STOPS, stopsOf, standOn, loopOf, rewardOf, landed, stepOf } from './stops.js';
 import { createStage } from './stage.js';
 import { ART, STEPS } from './art.js';
@@ -212,6 +212,14 @@ function renderToday(animate) {
   if (!today) return;
   $('#dateChip').textContent = `${upper(wdShort(today.day))} ${upper(dayMonth(today.day))} · ${upper(t('time.week', { n: isoWeek(today.day) }))}`;
   $('#sampleChip').hidden = !S.me.sample;
+  // the place in the week's table, at a glance: a tap goes to the team
+  const mine = S.me.table.week.me, place = $('#placeChip');
+  place.hidden = !mine || mine.place == null;
+  if (!place.hidden) {
+    const vars = { ord: ord(mine.place), n: S.me.table.week.ranked }, text = t('rank.place', vars);
+    $('#placeChipT').textContent = text; $('#placeChipS').textContent = t('rank.short', vars);   // the short one is for the narrowest phones
+    place.setAttribute('aria-label', `${cap(text)}. ${t('rank.open.aria')}`);
+  }
   const done = today.habits.filter(Boolean).length, head = $('#todayGiant'), sup = $('#todaySupport');
   head.classList.toggle('full', today.isWork && done === 4);   // a full finger: the count turns to signal
   sup.hidden = today.isWork;
@@ -238,6 +246,7 @@ function renderToday(animate) {
  *  (S.hold) the stop it landed on keeps its picture, and nothing here moves until the answer has played. */
 function paintStage(animate = false) {
   const { today, rules } = S.me, chip = $('#stopChipT'), cta = $('#nextBtn'), copy = $('#stopCopy'), dio = $('#dio');
+  if (S.hold != null) return;
   const work = today.isWork;
   $('#route').hidden = !work; copy.hidden = !work;
   if (!work) {
@@ -245,7 +254,6 @@ function paintStage(animate = false) {
     dio.setAttribute('aria-label', t('art.rest')); chip.textContent = t('stop.chip.rest'); cta.hidden = true;
     return;
   }
-  if (S.hold != null) return;
   const stops = stopsOf(today, rules), at = standOn(stops), sel = S.stop != null ? S.stop : at, stop = stops[sel];
   stage.show(STOPS[sel], loopOf(sel, stop), { swap: animate });
   dio.setAttribute('aria-label', t(`art.${sel}`));
@@ -275,16 +283,19 @@ function paintStage(animate = false) {
 }
 /** A log, or the close, landed on a stop: the stage shows that stop as it was, plays what happened there with the
  *  tracking ring around it, and only then lets the day move on. `before` and `after` are the day on each side. */
+let answers = 0;
 async function answer(hit, before, after) {
-  const rules = S.me.rules, a = stopsOf(before, rules)[hit], b = stopsOf(after, rules)[hit];
+  const rules = S.me.rules, a = stopsOf(before, rules)[hit], b = stopsOf(after, rules)[hit], mine = ++answers;
   S.hold = hit; S.stop = null;
   try {
     await stage.hold(STOPS[hit], loopOf(hit, a)[0][0]);
+    if (mine !== answers) return;   // a newer answer took the stage while this one was getting on it
     stage.burst(); buzz(12);
     await stage.play(STOPS[hit], rewardOf(hit, a.have, b.have, b.need), { once: true });
   } finally {
-    S.hold = null;
-    if (S.me && S.me.today) paintStage(true);
+    // an answer that a newer one cut short leaves the stage to it, and so does one that ends while the close of the
+    // day waits behind its sheet
+    if (mine === answers && !S.owed) { S.hold = null; if (S.me && S.me.today) paintStage(true); }
   }
 }
 
@@ -344,16 +355,19 @@ function renderWeek(animate) {
   paintResult('meet', week.counts.meetings, rules.goals.meetings);
   paintResult('con', week.counts.contracts, rules.goals.contracts);
 
-  // points, day by day
-  const bars = $('#bars'), row = $('#dayRow');
-  if (!bars.childElementCount) { bars.append(...week.days.map(() => h('li', {}, h('i'), h('em', { class: 'num' })))); row.append(...week.days.map(() => h('span', { class: 'flabel' }))); }
-  const top = Math.max(20, ...week.days.map((d) => d.points || 0));
-  week.days.forEach((d, i) => {
-    const li = bars.children[i], isToday = !!today && d.day === today.day, v = d.points || 0;
-    li.classList.toggle('today', isToday); li.classList.toggle('has', v > 0);
-    li.style.setProperty('--v', (v / top).toFixed(3)); $('em', li).textContent = num(v);
-    li.setAttribute('aria-label', `${cap(wdLong(d.day))}: ${pts(v)}`);
-    row.children[i].textContent = upper(wdShort(d.day)); row.children[i].classList.toggle('today', isToday);
+  // points, day by day. Saturday and Sunday have no finger: they share one bar, and only in a week when they brought something.
+  const bars = $('#bars'), row = $('#dayRow'), extra = week.weekendPoints || 0;
+  const cols = [...week.days.map((d) => ({ day: d.day, v: d.points || 0 })), { day: null, v: extra }];
+  if (!bars.childElementCount) { bars.append(...cols.map(() => h('li', {}, h('i'), h('em', { class: 'num' })))); row.append(...cols.map(() => h('span', { class: 'flabel' }))); }
+  bars.parentNode.classList.toggle('six', extra > 0);
+  const top = Math.max(20, ...cols.map((c) => c.v)), offDay = !!today && !week.days.some((d) => d.day === today.day);
+  cols.forEach((c, i) => {
+    const li = bars.children[i], label = row.children[i], isToday = !!today && (c.day ? c.day === today.day : offDay);
+    li.hidden = !c.day && !extra; label.hidden = li.hidden;
+    li.classList.toggle('today', isToday); li.classList.toggle('has', c.v > 0);
+    li.style.setProperty('--v', (c.v / top).toFixed(3)); $('em', li).textContent = num(c.v);
+    li.setAttribute('aria-label', `${c.day ? cap(wdLong(c.day)) : t('week.wkd.aria')}: ${pts(c.v)}`);
+    label.textContent = c.day ? upper(wdShort(c.day)) : t('week.wkd'); label.classList.toggle('today', isToday);
   });
   countTo($('#weekPts'), week.points);
 }
@@ -428,7 +442,7 @@ function renderClimb(animate) {
   const [a, b = ''] = t('team.sup', { n: '\u0001' }).split('\u0001');
   sup.replaceChildren(a, n, `${b} ${t(reached ? 'team.flag' : 'team.climb')}`);
   // everybody on the team, as faces on the same step
-  const T = table.week, people = [...(T.me ? [T.me] : []), ...T.podium.filter((r) => !r.mine), ...T.rest].sort((x, y) => x.name.localeCompare(y.name, 'es')).slice(0, 5);
+  const people = crewOf(table.week);
   const key = people.map((r) => `${r.id}:${r.photo || ''}`).join('|');
   if (crew.dataset.key !== key) { crew.dataset.key = key; crew.replaceChildren(...people.map((r) => face(r))); }
   const at = stepOf(team.meetings, team.target), [x, y] = STEPS[at];
@@ -516,7 +530,8 @@ function renderSquad(T, period) {
 // ---- closing the day ----
 function renderCloseCard() {
   const { today, rules } = S.me, btn = $('#closeBtn');
-  $('#closeCard').hidden = !today.closed;   // before that, closing is the route's last stop
+  // A working day closes through the route's last stop. A day off has no route, so its close lives here.
+  $('#closeCard').hidden = !closeCard(today) || (!today.closed && readOnly());
   $('#closeCard').classList.toggle('light', !today.closed && !readOnly() && anyLog(today));   // it speaks in porcelain once there is something to close
   if (today.closed) {
     $('#closeH').textContent = t('close.done.title');
@@ -904,7 +919,7 @@ async function fullFinger() {
   paintHand(hand, week.days.map((d, k) => (k === i ? { ...d, habits: [false, false, false, false] } : d)), { wrist: week.anyLog });
   setTimeout(() => paintHand(hand, week.days, { wrist: week.anyLog, animate: true, step: 230 }), reduce ? 0 : 760);
   const sub = [t('cel.finger.sub'), streak && streak.current > 1 ? t('toast.streak', { n: streak.current }) : ''].filter(Boolean).join(' ');
-  const go = await dayDone({ title: t('cel.finger.title'), sub, glyph: hand, from: $('#nextBtn').hidden ? $('#dio') : $('#nextBtn'), label: t('cel.aria', { title: t('cel.finger.title') }) });
+  const go = await dayDone({ title: t('cel.finger.title'), sub, glyph: hand, from: $('#nextBtn').hidden ? $('#dio') : $('#nextBtn'), label: `${t('cel.finger.title')} ${sub} ${t('cel.finger.go')}.` });
   if (go && S.me && !S.mgr) setTab('week');
 }
 
@@ -943,6 +958,7 @@ function enter(me) {
   document.body.classList.remove('bare'); document.body.classList.toggle('mgr', S.mgr);
   if (!readOnly()) store.set(KEY.me, me);
   S.seenFeed = null; waiting.length = 0;
+  S.stop = null; S.hold = null; S.owed = null;
   const first = S.mgr ? 'team' : 'today';
   const ready = S.mgr ? manager.load().then(() => { renderAll(false); }).catch((e) => toast(errText(e))) : Promise.resolve();
   renderAll(false); setTab(S.tab && $(`#nav [data-tab="${S.tab}"]`) ? S.tab : first, { instant: true });
@@ -1060,6 +1076,7 @@ function wire() {
   $('#hand').addEventListener('click', (e) => { const hit = e.target.closest('.ahit'); if (hit) { e.stopPropagation(); if (stopTeach) stopTeach(); fingerDetail(hit); } });
   $('#teachBtn').addEventListener('click', teach);
   $('#meBtn').addEventListener('click', () => setTab('profile'));
+  $('#placeChip').addEventListener('click', () => setTab('table'));
   $('#goalBtn').addEventListener('click', openGoal);
   $('#nextBtn').addEventListener('click', () => {
     const step = $('#nextBtn').dataset.step;

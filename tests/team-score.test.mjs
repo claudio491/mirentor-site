@@ -158,6 +158,16 @@ test('each day of the week carries the points earned that day, for the chart of 
   assert.equal(w.points, 15);
 });
 
+test('points earned on Saturday and Sunday are in the week total and told apart: the hand has no finger for them', () => {
+  const s = build([rep('a'), log('a', MON, '09:00', 'talk', 'L1'), log('a', '2026-11-21', '10:00', 'talk', 'L2')]);
+  const w = weekOf(s, 'a', MON, ctx('2026-11-22'));
+  assert.deepEqual(w.days.map((d) => d.points), [8, 0, 0, 0, 0]);
+  assert.equal(w.weekendPoints, 8);
+  assert.equal(w.points, 16);
+  // a week with nothing on its weekend says so with a zero
+  assert.equal(weekOf(build([rep('a'), log('a', MON, '09:00', 'talk', 'L1')]), 'a', MON, ctx('2026-11-22')).weekendPoints, 0);
+});
+
 test('a part-time rep has rest fingers and points scaled to a five-day week', () => {
   const s = build([rep('a', { workdays: [1, 3, 5] }), log('a', MON, '10:00', 'talk'), log('a', '2026-11-18', '10:00', 'call', 'L2')]);
   const w = weekOf(s, 'a', MON, ctx('2026-11-20'));

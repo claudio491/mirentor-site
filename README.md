@@ -160,7 +160,7 @@ Where the field sales reps log each contact and see their own numbers, and where
 
 A rep's day, week and team are drawn with images made for this app (17 Nov 2026, the third look). They live in `team/art/`, and `team/art.js` says where each one is and what the page must know about it: how much of each frame of a stop is light, where the hand's 21 joints are, where the team stands on the staircase. Both are written by the art pipeline, which is kept beside the approved sample, outside this repository (`sales/team-platform/sample-v3/art/`: the prompts, `process.py`, `export_app.py`). Do not edit `team/art.js` by hand.
 
-- A stop of the day is a strip of four frames (it waits, it starts, it happened, it is celebrated). Which frames play, and where a log lands, is decided in `team/stops.js`, away from the screen (`tests/team-stops.test.mjs`); `team/stage.js` draws it.
+- A stop of the day is a strip of four frames (it waits, it starts, it happened, it is celebrated). Which frames play, and where a log lands, is decided in `team/stops.js`, away from the screen (`tests/team-stops.test.mjs`); `team/stage.js` draws it. The frames are played on a clock by `team/player.js`: one sequence at a time, and whoever waited for a sequence that another one replaces goes on instead of hanging (`tests/team-player.test.mjs`).
 - The page names each image once, as a CSS variable (`--art-visit` and so on, set by `app.js`); an element picks one with `data-art` and a frame with `data-f`. The one-page copy (`tools/team-demo.mjs`) swaps `art.js` for one that carries the images inside.
 - The images hold no person and no name.
 

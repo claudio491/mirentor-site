@@ -84,6 +84,12 @@ test('the rep payload carries today, the hand, the goal, the streak and the leve
   assert.equal('email' in v.me, false);   // a person's view names nobody's address, not even their own: that is the viewer's
 });
 
+test('the rep payload says what Saturday and Sunday brought, so the chart of the week can give them their bar', () => {
+  const v = repView(build([rep('ana'), log('ana', MON, '09:00', 'talk'), log('ana', '2026-11-21', '10:00', 'talk')]), 'ana', ctx('20:00', '2026-11-21')).week;
+  assert.equal(v.weekendPoints, 8);
+  assert.equal(v.points, v.days.reduce((a, d) => a + d.points, 0) + v.weekendPoints);
+});
+
 test('the feed shows who did what without the business, and marks what the viewer applauded', () => {
   const l1 = log('ana', MON, '09:00', 'talk', 'SECRETO');
   const s = build([rep('ana'), rep('beto'), l1, log('ana', MON, '09:10', 'message', 'M1'), { type: 'kudos', t: at(MON, '09:20'), by: 'beto', target: l1.id, on: true }, { type: 'play', t: at(MON, '09:30'), logId: l1.id, text: 'Pregunté por el encargado.' }]);

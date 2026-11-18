@@ -5,6 +5,7 @@
 import { $, $$, h, s, t, reduce } from './ui.js';
 import { LIGHT } from './art.js';
 import { STOPS } from './stops.js';
+import { createPlayer } from './player.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, reduce ? 0 : ms));
 /** Play a one-shot class again from its start. */
@@ -12,39 +13,38 @@ const again = (node, cls) => { node.classList.remove(cls); void node.getBounding
 
 export function createStage({ onPick = () => {} } = {}) {
   const box = $('#stopStage'), dio = $('#dio'), route = $('#route'), ring = $('#burst');
-  let timer = 0, shown = null;
+  let shown = null, ticket = 0, ringTimer = 0;
+  // What plays once on the stop is put away when it ends. Left on, an arrival would hold the stop still under the
+  // pointer, and every one of them would play again each time this screen comes back.
+  const ONCE = { 'dio-in': 'arriving', 'dio-hit': 'bump' };
+  dio.addEventListener('animationend', (e) => { if (ONCE[e.animationName]) dio.classList.remove(ONCE[e.animationName]); });
 
-  const frame = (art, f) => {
+  let art = null;   // the illustration the frames belong to
+  const player = createPlayer((f) => {
     dio.dataset.f = String(f);
     // the pool of light under the stop follows how much of the frame is lit
     box.style.setProperty('--light', (0.16 + Math.min(0.8, ((LIGHT[art] || [])[f] || 0) * 8)).toFixed(2));
-  };
-  /** Play [frame, ms] pairs: in a loop, or once (the promise then resolves after the last one). A pair with 0 ms holds. */
-  function play(art, seq, { once = false } = {}) {
-    clearTimeout(timer);
-    if (reduce) { frame(art, seq[once ? seq.length - 1 : 0][0]); return Promise.resolve(); }
-    return new Promise((done) => {
-      let k = 0;
-      const step = () => {
-        const [f, ms] = seq[k % seq.length]; frame(art, f); k += 1;
-        if (!ms) { done(); return; }
-        timer = setTimeout(() => { if (once && k >= seq.length) done(); else step(); }, ms);
-      };
-      step();
-    });
+  }, { still: reduce });
+  /** Play [frame, ms] pairs of an illustration: in a loop, or once. See player.js for what the promise answers. */
+  function play(of, seq, opts) { art = of; return player.play(seq, opts); }
+  /** Put an illustration on the stage and start its loop. With `swap`, the one that was there leaves first. A show
+   *  that is overtaken while it waits for that (another show, or a hold) is dropped: the last one asked for wins. */
+  async function show(of, seq, { swap = false } = {}) {
+    const mine = ++ticket, changed = shown !== of;
+    if (swap && changed && shown && !reduce) {
+      dio.classList.remove('arriving'); dio.classList.add('leaving');
+      await sleep(170);
+      if (mine !== ticket) return;
+    }
+    shown = of; dio.dataset.art = of; dio.classList.remove('leaving');
+    play(of, seq);
+    if (swap && changed && !reduce) { dio.classList.remove('bump'); again(dio, 'arriving'); }
   }
-  /** Put an illustration on the stage and start its loop. With `swap`, the one that was there leaves first. */
-  async function show(art, seq, { swap = false } = {}) {
-    const changed = shown !== art;
-    if (swap && changed && shown && !reduce) { dio.classList.remove('arriving'); dio.classList.add('leaving'); await sleep(170); }
-    shown = art; dio.dataset.art = art; dio.classList.remove('leaving');
-    play(art, seq);
-    if (swap && changed && !reduce) again(dio, 'arriving');
-  }
-  /** Keep what is on the stage exactly as it is (a log is about to be answered there), or bring that stop on, still. */
-  async function hold(art, f) {
-    if (shown === art) { clearTimeout(timer); return; }
-    await show(art, [[f, 0]], { swap: true });
+  /** A log is about to be answered on this stop: it takes the stage now, still, on frame f. A stop that was on its
+   *  way out comes back, and one that was on its way in is dropped. */
+  async function hold(of, f) {
+    if (shown === of) { ticket += 1; dio.classList.remove('leaving'); play(of, [[f, 0]]); return; }
+    await show(of, [[f, 0]], { swap: true });
   }
   /** A ring of joints locks on around the stop and its bones draw: the brand's tracking move, as the answer to a log. */
   function burst() {
@@ -58,7 +58,9 @@ export function createStage({ onPick = () => {} } = {}) {
     });
     const joints = pts.map((p, k) => { const c = s('circle', { cx: p[0].toFixed(2), cy: p[1].toFixed(2), r: 1.7 }); c.style.setProperty('--k', String(k)); return c; });
     ring.replaceChildren(...lines, ...joints);
-    again(ring, 'fire'); again(dio, 'bump');
+    dio.classList.remove('arriving'); again(ring, 'fire'); again(dio, 'bump');
+    // ten joints 34 ms apart, 560 ms lit and 420 ms to fade: then the ring is taken down
+    clearTimeout(ringTimer); ringTimer = setTimeout(() => { ring.classList.remove('fire'); ring.replaceChildren(); }, 1500);
   }
 
   // ---- the route: the four stops, small, with the line between them ----
