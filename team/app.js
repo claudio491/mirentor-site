@@ -3,9 +3,9 @@
 import { APP_NAME, LANGS } from './i18n.js';
 import { $, $$, h, put, icon, t, setLang, lang, applyStatic, giant, num, ord, wdShort, wdLong, dayMonth, monthName, upper, cap, isoWeek, addDays, clock, hourName, stamp, ago, cityName, joinList,
   lock, buzz, quiet, EASE, countTo, recount, ringAt, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, once, copyText, grain, reduce, formSheet, setExplain, newId, putFace, face, dayOf, showErr } from './ui.js';
-import { buildHand, paintHand, miniHand, rowWrist, levelBone, badgeGlyph, portrait, setPortrait, replayHand, drawIn, handGlyph, stepsGlyph, teachHand } from './hand.js';
+import { buildHand, paintHand, miniHand, rowWrist, levelBone, badgeGlyph, portrait, setPortrait, replayHand, drawIn, handGlyph, stepsGlyph, teachHand, daysBone } from './hand.js';
 import { swap, roll, floatUp, flyDot, reveal, stagger, lockIn, greet, isGreeting, celebrate, dayDone } from './fx.js';
-import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, tableNote, untouched, anyLog, shortNames } from './moments.js';
+import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, tableNote, firstDays, untouched, anyLog, shortNames } from './moments.js';
 import { STOPS, stopsOf, standOn, loopOf, rewardOf, landed, stepOf } from './stops.js';
 import { createStage } from './stage.js';
 import { ART, STEPS } from './art.js';
@@ -459,6 +459,10 @@ function renderTable(animate = false) {
     sup.replaceChildren(...parts);
   } else if (mine && mine.isNew) { giant(head, t('table.giant.new')); sup.textContent = t('table.sup.new', { n: 14 }); }
   else { giant(head, t('table.giant.zero')); sup.textContent = period === 'month' ? t('table.sup.month') : t('table.sup.zero'); }
+  // A new rep's first days, as joints: the days gone by, and today.
+  const first = firstDays(S.me), days = $('#rsDays');
+  days.hidden = !first;
+  if (first && days.dataset.key !== `${first.day}:${lang()}`) { days.dataset.key = `${first.day}:${lang()}`; days.replaceChildren(daysBone(first.day, first.of, t('rank.days.aria', { d: first.day, n: first.of }))); }
   const lead = T.podium[0] ? T.podium[0].score : 0;
   flipList($('#tableRows'), shownRows(T), (r) => r.id, newRow('li'), (row, r) => paintRow(row, r, period, lead));
   const why = tableNote(T), emptyNote = $('#tableEmpty');

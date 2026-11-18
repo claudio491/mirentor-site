@@ -174,12 +174,6 @@ fieldset.field legend{padding:0;margin-bottom:6px}
 .card.light .btn{background:var(--graphite);border-color:var(--graphite);color:var(--porcelain)}
 .card.light :focus-visible{outline-color:var(--graphite)}
 @media (hover:hover) and (pointer:fine){.card.light .btn:hover{background:var(--panel-2)}}
-.rankstrip{all:unset;box-sizing:border-box;display:block;width:100%;cursor:pointer;margin-top:22px;border:1px solid var(--rule);border-radius:var(--r-media);background:var(--panel);padding:14px 6px 4px}
-.rankstrip:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
-.rankstrip .rs-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:0 10px 8px}
-.rankstrip .rs-h b{font-size:22px;font-weight:700;letter-spacing:-.04em;text-transform:lowercase}
-.rankstrip .rs-h b em{font-style:normal;color:var(--signal)}
-.rankstrip .tower{display:block}
 
 /* ---------- tower (the table) ---------- */
 .tower{position:relative}
@@ -187,9 +181,6 @@ fieldset.field legend{padding:0;margin-bottom:6px}
 .trow{position:relative;display:grid;grid-template-columns:30px 44px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border-top:1px solid var(--rule);min-height:64px}
 .trow .fc{display:none}
 /* On the home strip a row shows the person's face; the hand is one tap away, on the table. */
-.rankstrip .trow{grid-template-columns:26px 40px minmax(0,1fr) auto}
-.rankstrip .trow .fc{display:block;width:40px;height:40px}
-.rankstrip .trow .h{display:none}
 /* The race: how far this row is along the way to the leader. */
 .race{position:absolute;left:10px;right:10px;bottom:-3px;height:5px;overflow:hidden;pointer-events:none;z-index:1}
 .race .run{position:absolute;left:0;right:0;top:1.75px;height:1.5px;background:var(--porcelain);opacity:.6;transform:translateX(calc((var(--share,0) - 1) * 100%));transition:transform 760ms var(--ease-track)}
@@ -220,10 +211,6 @@ fieldset.field legend{padding:0;margin-bottom:6px}
 #tableRows{margin-top:14px}
 #tableRows:not(:empty),#restRows:not(:empty){border-bottom:1px solid var(--rule)}
 .rest-h{margin-top:22px;padding:0 10px 8px}
-.teamgoal{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;margin-top:20px;padding:6px 0}
-.teamgoal .lens{padding:0}
-.teamgoal p{color:var(--mist);font-size:14.5px}
-.teamgoal p b{color:var(--porcelain);font-weight:500;display:block;font-size:16px}
 .note{color:var(--mist);font-size:13.5px;margin-top:12px;line-height:1.45}
 .note b{color:var(--porcelain);font-weight:500}
 
@@ -578,7 +565,7 @@ html.greeting{overflow:hidden}
 /* ---------- what answers a pointer ---------- */
 @media (hover:hover) and (pointer:fine){
   .lens:hover .tip,.fl:hover .portrait .tip,.wl:hover .portrait .tip{transform:scale(1.5)}
-  .rankstrip:hover,.leadopt:hover,.out:hover,.pick:hover{border-color:var(--hair)}
+  .leadopt:hover,.out:hover,.pick:hover{border-color:var(--hair)}
   .wl:hover{background:rgba(233,235,236,.05)}
   .nav .log:hover svg.ic{transform:rotate(90deg)}
   .tab:hover,.kudos:hover{color:var(--porcelain)}
@@ -638,7 +625,7 @@ html.greeting{overflow:hidden}
 /* ---------- a day nobody has touched: an invitation, with the count kept small ---------- */
 .chip.open .dot{background:transparent;box-shadow:inset 0 0 0 1.5px var(--signal)}
 /* A new rep's first days, as joints: the days gone by, and today. */
-.rs-days{display:block;padding:0 10px 10px}
+.rs-days{display:block;margin-top:14px;max-width:340px}
 .dbone{display:block;width:100%;height:auto;overflow:visible}
 .dbone .rail{stroke:rgba(233,235,236,.3);stroke-width:1.5;stroke-linecap:round}
 .dbone .gone{stroke:rgba(233,235,236,.7);stroke-width:2;stroke-linecap:round}
@@ -930,6 +917,11 @@ html.greeting{overflow:hidden}
   .stop:not(:last-child)::after{top:22.5px}
   .sring{top:-6px;width:60px;height:60px;margin-left:-30px}
   .stick{top:33px}
+}
+
+/* ---------- between a phone and a wide screen: a zone keeps a phone's column, in the middle ---------- */
+@media (min-width:980px) and (max-width:1079px){
+  .zone{max-width:560px;margin-left:auto;margin-right:auto}
 }
 
 /* ---------- a wide screen: a rep's three zones are one page, a band under the other ---------- */

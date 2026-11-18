@@ -240,19 +240,7 @@ export function badgeGlyph(code, level, levels) {
     pts.map((p, j) => s('circle', { class: `bj${j < litCount ? ' on' : ''}`, cx: p[0].toFixed(1), cy: p[1].toFixed(1), r: 3 })));
 }
 
-// ---- drawings for a moment: a finger that fills, and the whole hand ----
-/** One finger, upright: the wrist and its four joints lock from the base, each bone drawing after its joint. */
-export function fingerGlyph() {
-  const ys = [132, 104, 76, 48, 20], svg = s('svg', { viewBox: '0 0 150 150', 'aria-hidden': 'true', focusable: 'false' });
-  const bones = ys.slice(1).map((y, i) => s('line', { class: 'fg-bone', x1: 75, y1: ys[i], x2: 75, y2: y, pathLength: 1, 'stroke-dasharray': '1 1' }));
-  const joints = ys.map((y, i) => s('circle', { class: 'fg-j', cx: 75, cy: y, r: i ? 8 : 9.5 }));
-  svg.append(...bones, ...joints);
-  if (!reduce && svg.animate) {
-    joints.forEach((j, i) => j.animate([{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 200, delay: 260 + i * 130, easing: EASE.lock, fill: 'backwards' }));
-    bones.forEach((b, i) => b.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], { duration: 240, delay: 330 + i * 130, easing: EASE.track, fill: 'backwards' }));
-  }
-  return svg;
-}
+// ---- drawings for a moment: the whole hand, and the steps of a level ----
 /** The week's hand as it stands, large, putting itself together. */
 export function handGlyph(days, wrist) {
   const el = buildHand(h('span', { class: 'ahand mini big', 'aria-hidden': 'true' }), { mini: true });

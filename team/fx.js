@@ -81,13 +81,6 @@ export function lockIn(nodes, { delay = 0, step = 70 } = {}) {
   [...nodes].forEach((n, i) => { if (n.animate) n.animate([{ transform: 'scale(.82)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 300, delay: delay + i * step, easing: EASE.lock, fill: 'backwards' }); });
 }
 
-/** Loops run only while their element is on screen. */
-export function alive(...nodes) {
-  if (reduce || !('IntersectionObserver' in window)) return;
-  const io = new IntersectionObserver((entries) => { for (const e of entries) e.target.classList.toggle('alive', e.isIntersecting); }, { threshold: 0.15 });
-  for (const n of nodes) if (n) io.observe(n);
-}
-
 // ---- the entrance: the system finds the person, then hands them their day ----
 let greeting = null;
 /** person: { id, name, photo }. share: what the arc of their lens measures. line: [the fact, what follows from it].
