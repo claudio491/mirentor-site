@@ -699,6 +699,7 @@ html.greeting{overflow:hidden}
 .sec>.sec-h:first-child,.rowhead .sec-h{margin-top:0}
 .rowhead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .giant.mid{margin-top:10px;font-size:clamp(44px,13.5vw,64px)}
+.sec-table .support{margin-top:10px}   /* room for a letter that hangs under the line, as the y of "you are" does */
 
 /* ---------- Hoy: the stage ---------- */
 .hoy-head{position:relative;z-index:1}
