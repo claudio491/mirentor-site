@@ -187,3 +187,32 @@ function ring(el) {
   document.body.append(node);
   node.animate([{ transform: 'scale(1)', opacity: 0.85 }, { transform: 'scale(1.42)', opacity: 0 }], { duration: 760, easing: EASE.track }).onfinish = () => node.remove();
 }
+
+// ---- the day is complete: the four habits are done, and the screen says so before the week does ----
+/** Closes in from where the last habit was logged (`from`), shows `glyph` (the hand, with today's finger about to
+ *  light) and the title. Resolves true when the person asks for their week (a tap, Enter), false when it leaves by
+ *  itself or by Escape. */
+export function dayDone({ title, sub = '', glyph = null, from = null, label = '' }) {
+  const box = $('#dayDone');
+  if (!box) return Promise.resolve(false);
+  const back = document.activeElement, r = from && from.getBoundingClientRect();
+  box.style.setProperty('--mx', `${r && r.width ? Math.round(r.left + r.width / 2) : Math.round(innerWidth / 2)}px`);
+  box.style.setProperty('--my', `${r && r.width ? Math.round(r.top + r.height / 2) : Math.round(innerHeight * 0.7)}px`);
+  giant($('#ddGiant'), title); $('#ddSub').textContent = sub; $('#ddHand').replaceChildren(...(glyph ? [glyph] : []));
+  box.setAttribute('aria-label', label || title);
+  return new Promise((resolve) => {
+    let timer;
+    const off = (go) => {
+      clearTimeout(timer); box.classList.remove('on'); box.setAttribute('aria-hidden', 'true'); box.tabIndex = -1;
+      box.removeEventListener('click', onClick); document.removeEventListener('keydown', onKey);
+      if (back && back.focus) back.focus({ preventScroll: true });
+      setTimeout(() => resolve(go), reduce ? 0 : 420);
+    };
+    const onClick = () => off(true);
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); off(false); } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); off(true); } };
+    box.classList.add('on'); box.setAttribute('aria-hidden', 'false'); box.tabIndex = 0; box.focus({ preventScroll: true });
+    buzz([14, 60, 22, 60, 30]);
+    box.addEventListener('click', onClick); document.addEventListener('keydown', onKey);
+    timer = setTimeout(() => off(false), 8000);
+  });
+}

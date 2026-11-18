@@ -25,7 +25,8 @@ export function standOn(stops) {
 /** What a stop shows while nothing happens, as [frame, milliseconds] in a loop. A single pair holds its frame (0 ms). */
 export function loopOf(i, stop) {
   if (i === 0) return stop.done ? [[2, 1500], [3, 800]] : [[0, 1600], [1, 700]];           // the shutter is tried, then the open shop waves
-  if (i === 1) return stop.done ? [[2, 1400], [3, 1000]] : [[stop.have >= 1 ? 1 : 0, 0]];   // one speech bubble per conversation
+  // one speech bubble per conversation; before the first one, a bubble comes and goes, so the stop is never a still picture
+  if (i === 1) return stop.done ? [[2, 1400], [3, 1000]] : stop.have >= 1 ? [[1, 0]] : [[0, 1900], [1, 600]];
   if (i === 2) return stop.done ? [[3, 0]] : [[0, 1600], [1, 800]];
   return stop.done ? [[3, 0]] : [[0, 1400], [1, 1400]];
 }

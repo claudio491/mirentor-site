@@ -35,6 +35,8 @@ test('a stop waits on its first two frames and rests on its last two once it is 
     // a loop of one frame holds it (0 ms); a loop of several gives each one its time
     for (const seq of [waiting, done]) assert.ok(seq.length === 1 ? seq[0][1] === 0 : seq.every(([, ms]) => ms >= 400), JSON.stringify(seq));
   }
+  // the conversation that has not started is not a still picture: its first bubble comes and goes
+  assert.equal(loopOf(1, { have: 0, need: 2, done: false }).length, 2);
   // one conversation of two shows its one speech bubble and holds it
   assert.deepEqual(loopOf(1, { have: 1, need: 2, done: false }), [[1, 0]]);
 });

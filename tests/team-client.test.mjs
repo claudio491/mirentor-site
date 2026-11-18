@@ -7,7 +7,7 @@ import { DICT, makeT, LANGS } from '../team/i18n.js';
 import { KINDS, CHANNELS, RULES } from '../lib/team/rules.mjs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const SCRIPTS = ['team/app.js', 'team/hand.js', 'team/manager.js', 'team/ui.js', 'team/queue.js', 'team/door.js', 'team/fx.js', 'team/moments.js'];
+const SCRIPTS = ['team/app.js', 'team/hand.js', 'team/manager.js', 'team/ui.js', 'team/queue.js', 'team/door.js', 'team/fx.js', 'team/moments.js', 'team/stops.js', 'team/stage.js', 'team/art.js'];
 const flat = (v) => (Array.isArray(v) ? v.join(' ') : v);
 const holes = (v) => [...new Set(flat(v).match(/\{\w+\}/g) || [])].sort();
 
@@ -23,7 +23,8 @@ test('Spanish and English have exactly the same keys, the same blanks and the sa
 
 test('no em dash anywhere a person reads, and the fixed vocabulary holds', () => {
   for (const lang of LANGS) for (const [k, v] of Object.entries(DICT[lang])) assert.equal(/[—―]| – /.test(flat(v)), false, `${lang}.${k} has a dash`);
-  // One word per thing: the score is "puntos / points", the hand's joints are "marcas / marks".
+  // One word per thing: the score is "puntos / points", the hand's joints are "luces / lights" (they were "marcas / marks").
+  for (const lang of LANGS) for (const [k, v] of Object.entries(DICT[lang])) assert.equal(/\bmarcas\b|\b(?:four|possible|of \d+|\{b\}) marks\b/i.test(flat(v)), false, `${lang}.${k} still calls the lights marks`);
   for (const [k, v] of Object.entries(DICT.es)) assert.equal(/\bXP\b|\bpuntaje\b/i.test(flat(v)), false, `es.${k} names the score another way`);
   for (const [k, v] of Object.entries(DICT.en)) assert.equal(/\bXP\b|\bscore points\b/i.test(flat(v)), false, `en.${k} names the score another way`);
   // Who confirms is "líder" in Spanish and "manager" in English, everywhere.
@@ -113,6 +114,6 @@ test('the stylesheet keeps the motion rules', () => {
   for (const m of css.matchAll(/font(?:-size)?:[^;}]*?(\d+(?:\.\d+)?)px/g)) assert.ok(Number(m[1]) >= 11, `a ${m[1]}px font`);
   for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const size = /font(?:-size)?:[^;]*?(\d+(?:\.\d+)?)px/.exec(m[2]);
-    if (size && Number(size[1]) < 13) assert.ok(/var\(--mono\)/.test(m[2]) || /\.(tab|flabel|count|tag|cell-l|chip)\b/.test(m[1]), `text under 13 px outside a label: ${m[1].trim()}`);
+    if (size && Number(size[1]) < 13) assert.ok(/var\(--mono\)/.test(m[2]) || /\.(tab|flabel|slabel|count|tag|cell-l|chip)\b/.test(m[1]), `text under 13 px outside a label: ${m[1].trim()}`);
   }
 });

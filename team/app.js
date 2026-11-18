@@ -2,10 +2,13 @@
 // The server answers codes and numbers; every sentence comes from i18n.js through t().
 import { APP_NAME, LANGS } from './i18n.js';
 import { $, $$, h, put, icon, t, setLang, lang, applyStatic, giant, num, ord, wdShort, wdLong, dayMonth, monthName, upper, cap, isoWeek, addDays, clock, hourName, stamp, ago, cityName, joinList,
-  lock, buzz, quiet, countTo, recount, ringAt, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, once, copyText, grain, reduce, formSheet, setExplain, newId, putFace, face, dayOf, showErr } from './ui.js';
-import { buildHand, paintHand, miniHand, rowWrist, lens, setLens, levelBone, badgeGlyph, portrait, setPortrait, replayHand, drawIn, fingerGlyph, handGlyph, stepsGlyph, daysBone } from './hand.js';
-import { swap, roll, floatUp, flyDot, reveal, stagger, lockIn, alive, greet, isGreeting, celebrate } from './fx.js';
-import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, tableNote, firstDays, untouched, anyLog, shortNames } from './moments.js';
+  lock, buzz, quiet, EASE, countTo, recount, ringAt, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, once, copyText, grain, reduce, formSheet, setExplain, newId, putFace, face, dayOf, showErr } from './ui.js';
+import { buildHand, paintHand, miniHand, rowWrist, levelBone, badgeGlyph, portrait, setPortrait, replayHand, drawIn, handGlyph, stepsGlyph, teachHand } from './hand.js';
+import { swap, roll, floatUp, flyDot, reveal, stagger, lockIn, greet, isGreeting, celebrate, dayDone } from './fx.js';
+import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, tableNote, untouched, anyLog, shortNames } from './moments.js';
+import { STOPS, stopsOf, standOn, loopOf, rewardOf, landed, stepOf } from './stops.js';
+import { createStage } from './stage.js';
+import { ART, STEPS } from './art.js';
 import { createManager } from './manager.js';
 import { verdict, mine as waitingOf } from './queue.js';
 import { sessionMove, HOME, LEAVE } from './door.js';
@@ -36,8 +39,17 @@ const errText = (e) => { try { return t(`err.${(e && e.code) || 'unknown'}`); } 
 setExplain(errText);
 
 // ---- state ----
-const S = { me: null, sig: '', tab: null, period: 'week', as: null, mgr: false, queue: store.get(KEY.queue, []), seenFeed: null, lastLoad: 0, lastPaint: 0, arrived: new Set(), ledgerAll: false };
-const SCREENS = ['boot', 'gate', 'today', 'table', 'profile', 'team', 'needs', 'reps'];
+const S = { me: null, sig: '', tab: null, period: 'week', as: null, mgr: false, queue: store.get(KEY.queue, []), seenFeed: null, lastLoad: 0, lastPaint: 0, arrived: new Set(), ledgerAll: false,
+  stop: null,     // the stop the person tapped on the route; null follows the day
+  hold: null,     // the stop a log landed on, kept on the stage until its answer has played
+  owed: null,     // an answer that waits for a sheet to close
+  taught: false };
+const SCREENS = ['boot', 'gate', 'today', 'week', 'table', 'profile', 'team', 'needs', 'reps'];
+// A rep's three zones. On a wide screen they are one page, a band under the other; anywhere else one shows at a time.
+const BANDS = ['today', 'week', 'table'], WIDE = matchMedia('(min-width:1080px)');
+const banded = () => WIDE.matches && !S.mgr && !!S.me;
+const inBands = (name) => banded() && BANDS.includes(name);
+const REST_LOOP = [[0, 1500], [1, 1500], [2, 1900], [3, 1500]];   // a day off: the hammock swings
 const FOLLOWS = new Set(['talk', 'absent', 'call', 'reply', 'meeting']);
 const CHANNELS = { message: ['whatsapp', 'linkedin', 'email', 'sms'], meeting: ['visit', 'call', 'whatsapp'], reply: ['whatsapp', 'linkedin', 'email', 'sms', 'call'], baddata: ['call', 'email'] };
 const TAGGED = new Set(['talk', 'call', 'reply']);
@@ -52,7 +64,7 @@ const pts = (n) => t('u.points', { n });
 /** The word of a counted unit without its number: "sitios" from "3 sitios". */
 const unitWord = (key, n) => t(key, { n }).replace(num(n), '').trim();
 
-function show(name) { for (const n of SCREENS) $(`#s-${n}`).hidden = n !== name; }
+function show(name) { const all = inBands(name); for (const n of SCREENS) $(`#s-${n}`).hidden = all ? !BANDS.includes(n) : n !== name; }
 /** A sentence with one part set apart: t(key) is split around the blank named `mark`. */
 function withEm(node, key, vars, mark, tail = '') {
   const [a, b = ''] = t(key, { ...vars, [mark]: '\u0001' }).split('\u0001');
@@ -70,6 +82,16 @@ function renderTop() {
     const day = S.me.today;
     chip.classList.toggle('open', !!day && day.isWork && day.conversations < 1);   // today has not earned its place in the streak yet
   }
+  // A rep's week in points, and their own face with the day as its arc: the face opens their profile.
+  const rep = !!(S.me && S.me.today && S.me.week && !S.mgr), meBtn = $('#meBtn');
+  $('#ptsChip').hidden = !rep; meBtn.hidden = !rep;
+  if (rep) {
+    const now = S.me.today;
+    countTo($('#ptsN'), S.me.week.points);
+    putFace($('#meLens'), S.me.me, (person) => portrait(person, { share: 0 }));
+    setPortrait($('#meLens .portrait'), now.isWork ? now.habits.filter(Boolean).length / 4 : 0);
+    if (S.tab === 'profile') meBtn.setAttribute('aria-current', 'page'); else meBtn.removeAttribute('aria-current');
+  }
   const waiting = myQueue().length;
   $('#queueChip').hidden = !waiting;
   $('#queueN').textContent = t('top.queue', { n: waiting });
@@ -80,22 +102,25 @@ function renderTop() {
 }
 function renderNav() {
   const nav = $('#nav'), canLog = !S.mgr && !readOnly() && !!S.me.today;
-  const tabs = S.mgr ? ['team', 'needs', 'reps'] : ['today', 'table', 'profile'];
+  const tabs = S.mgr ? ['team', 'needs', 'reps'] : BANDS;
   const count = S.mgr ? manager.needsCount() : 0;
   put(nav, h('div', { class: 'tabs' }, tabs.map((id) => h('button', { class: 'tab', type: 'button', 'data-tab': id, 'aria-label': id === 'needs' && count ? `${t('nav.needs')}: ${count}` : t(`nav.${id}`), 'aria-current': S.tab === id ? 'page' : null, onclick: () => setTab(id) },
     icon(id), h('span', { text: t(`nav.${id}`) }), id === 'needs' && count ? h('span', { class: 'count num', text: String(count), 'aria-hidden': 'true' }) : null))),
-  canLog ? h('button', { class: 'btn primary log', type: 'button', id: 'logBtn', onclick: openLog }, icon('plus'), t('nav.log')) : null);
+  canLog ? h('button', { class: 'btn log', type: 'button', id: 'logBtn', onclick: openLog }, icon('plus'), t('nav.log')) : null);
   nav.classList.toggle('three', !canLog);
   markTab();
   nav.hidden = false;
 }
-/** The marker over the tabs sits on the open one. */
+/** The marker over the tabs sits on the open one; a screen that has no tab (the profile) leaves none marked. */
 function markTab() {
   const box = $('#nav .tabs');
-  if (box) box.style.setProperty('--i', String(Math.max(0, [...box.children].findIndex((b) => b.dataset.tab === S.tab))));
+  if (!box) return;
+  const i = [...box.children].findIndex((b) => b.dataset.tab === S.tab);
+  box.classList.toggle('none', i < 0);
+  if (i >= 0) box.style.setProperty('--i', String(i));
 }
 function setTab(name, { instant = false } = {}) {
-  const changed = S.tab !== name;
+  const from = S.tab, changed = from !== name;
   S.tab = name;
   // The screen shown is always the last one asked for: two quick taps may run this twice, in either order.
   const go = () => {
@@ -103,30 +128,44 @@ function setTab(name, { instant = false } = {}) {
     show(open); hidePop();
     for (const b of $$('#nav .tab')) { if (b.dataset.tab === open) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
     markTab();
-    scrollTo({ top: 0 });
+    if ($('#meBtn')) { if (open === 'profile') $('#meBtn').setAttribute('aria-current', 'page'); else $('#meBtn').removeAttribute('aria-current'); }
+    // On a wide screen a zone is already there: the page only moves to it.
+    if (inBands(open) && open !== BANDS[0]) $(`#s-${open}`).scrollIntoView({ block: 'start', behavior: reduce || instant ? 'auto' : 'smooth' });
+    else scrollTo({ top: 0, behavior: inBands(open) && !reduce && !instant ? 'smooth' : 'auto' });
   };
-  if (instant || !changed) { go(); return; }
+  const sameSheet = inBands(name) && BANDS.includes(from);
+  if (instant || !changed || sameSheet) { go(); return; }
   swap(go);
   const mark = $(`#nav [data-tab="${name}"] svg`);
   if (mark) lock(mark);
   // A screen puts itself together the first time it is opened in a visit; after that it is simply there.
-  if (!S.arrived.has(name)) { S.arrived.add(name); setTimeout(() => arrive(name), reduce ? 0 : 90); }
+  for (const n of inBands(name) ? BANDS : [name]) if (!S.arrived.has(n)) { S.arrived.add(n); setTimeout(() => arrive(n), reduce ? 0 : 90); }
 }
-/** A screen has just arrived: its headline rises, its arcs draw and its rows come in, once. */
-function arrive(name, { fast = false, landed = false } = {}) {
-  if (reduce || !S.me || S.tab !== name) return;
+/** A screen has just arrived: its headline rises, its picture and its rows come in, once. */
+function arrive(name, { fast = false, landed: lensLanded = false } = {}) {
+  if (reduce || !S.me) return;
+  if (S.tab !== name && !(inBands(name) && BANDS.includes(S.tab))) return;
   const zero = (nodes, read, write) => { for (const n of nodes) { const v = read(n); write(n, true); void n.getBoundingClientRect(); setTimeout(() => write(n, false, v), 40); } };
+  const there = (nodes) => nodes.filter((n) => n && !n.hidden);
   if (name === 'today' && S.me.today) {
     reveal($('#todayGiant'));
-    replayHand($('#hand'), { fast });
-    if (!landed) drawIn($('#heroLens'), 140);   // after the entrance the lens lands already drawn
-    drawIn($('#lenses'), 280, 90);
-    for (const n of $$('#lenses .vn, #heroPtsN')) recount(n);
-    stagger($$('#habits li'), { delay: 180, step: 50 }); stagger($$('#rsRows .trow'), { delay: 300 });
+    const dio = $('#dio');
+    if (dio.animate) dio.animate([{ opacity: 0, transform: 'translateY(-34px) scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 760, delay: 160, easing: EASE.lock, fill: 'backwards' });
+    stagger(there([$('#stopChip'), $('#stopCopy'), $('#nextBtn'), ...$$('#route .stop'), $('#closeCard')]), { delay: 380, step: 60 });
+    if (!lensLanded) drawIn($('#meLens'), 140);   // after the entrance the lens lands already drawn
+    recount($('#ptsN'));
+  } else if (name === 'week' && S.me.week) {
+    reveal($('#weekGiant'));
+    const took = replayHand($('#hand'), { fast });
+    stagger(there([$('.handcard'), $('#legend'), $('#goalBox'), ...$$('#results .result'), $('.chart')]), { delay: 120, step: 70 });
+    zero($$('#bars li'), (n) => n.style.getPropertyValue('--v'), (n, empty, v) => n.style.setProperty('--v', empty ? '0' : v));
+    recount($('#weekPts'));
+    // A week with no light yet shows how the hand works, once in a visit.
+    if (!S.taught && !fast && S.me.week.marks === 0 && !readOnly()) { S.taught = true; setTimeout(() => { if (S.me && !stopTeach && (S.tab === 'week' || inBands('week')) && !$('dialog[open]')) teach(); }, took + 1100); }
   } else if (name === 'table') {
-    reveal($('#tableGiant'));
-    lockIn($$('#squad .fl .pt'), { delay: 60 }); drawIn($('#squad'), 220, 60); drawIn($('#teamgoal'), 420);
-    stagger($$('#tableRows .trow, #restRows .trow'), { delay: 160, step: 45 });
+    reveal($('#goalGiant'));
+    lockIn($$('#squad .fl .pt'), { delay: 60 }); drawIn($('#squad'), 220, 60);
+    stagger(there([$('#climb'), ...$$('#tableRows .trow, #restRows .trow')]), { delay: 160, step: 45 });
     zero($$('#tableRows .trow'), (n) => n.style.getPropertyValue('--share'), (n, empty, v) => n.style.setProperty('--share', empty ? '0' : v));
   } else if (name === 'profile') {
     reveal($('#profileGiant'));
@@ -144,7 +183,7 @@ function renderAll(animate = false) {
   S.lastPaint = Date.now();
   const run = () => {
     renderTop(); renderNav();
-    if (S.mgr) manager.render(animate); else { renderToday(animate); renderTable(); renderProfile(); renderRules(); }
+    if (S.mgr) manager.render(animate); else { renderToday(animate); renderWeek(animate); renderTable(animate); renderProfile(); renderRules(); }
   };
   if (animate) run(); else quiet(run);
 }
@@ -156,30 +195,24 @@ async function switchLang(next) {
   toast(t('toast.lang'));
 }
 
-// ---- today ----
+// ---- today: a route of four stops, and the one the day stands on fills the stage ----
+const stage = createStage({ onPick: (i) => { if (S.hold != null || !S.me || !S.me.today || !S.me.today.isWork) return; S.stop = i; paintStage(true); } });
 function renderToday(animate) {
-  const { me, today, week, goal, goalPick, rules } = S.me;
+  const { me, today } = S.me;
   if (!today) return;
   $('#dateChip').textContent = `${upper(wdShort(today.day))} ${upper(dayMonth(today.day))} · ${upper(t('time.week', { n: isoWeek(today.day) }))}`;
   $('#sampleChip').hidden = !S.me.sample;
-  const done = today.habits.filter(Boolean).length, head = $('#todayGiant'), by = hourName(rules.closeBy);
-  // The person leads the screen: their face, with the day as the arc around it. A full finger floods the hero with signal.
-  putFace($('#heroLens'), me, (person) => portrait(person, { share: 0 }));
-  setPortrait($('#heroLens .portrait'), today.isWork ? done / 4 : 0);
-  countTo($('#heroPtsN'), week.points); $('#heroPts').hidden = week.points === 0;
-  $('#hero').classList.toggle('full', today.isWork && done === 4);
-  // A working day with nothing logged leads with the start, not with a zero: the count waits in a chip.
-  const idle = untouched(today);
-  $('#countChip').hidden = !idle; $('#countChip').textContent = t('today.of', { a: 0, b: 4 });
-  $('#hero').classList.toggle('idle', idle);
+  const done = today.habits.filter(Boolean).length, head = $('#todayGiant'), sup = $('#todaySupport');
+  head.classList.toggle('full', today.isWork && done === 4);   // a full finger: the count turns to signal
+  sup.hidden = today.isWork;
   if (!today.isWork) {
     $('#todayLead').textContent = t('today.lead.rest', { name: me.first });
     giant(head, t('today.rest.giant'));
-    $('#todaySupport').replaceChildren(t('today.rest.support'));
-  } else if (idle) {
+    sup.textContent = t('today.rest.support');
+  } else if (untouched(today)) {
+    // A working day with nothing logged leads with the start, not with a zero.
     $('#todayLead').textContent = t('today.lead.zero', { name: me.first });
     giant(head, t('today.zero.giant'));
-    $('#todaySupport').replaceChildren(...bold(t('today.zero.b'), t('today.zero.s', { pts: t('pts.plus', { n: rules.points.visit }) })));
   } else {
     $('#todayLead').textContent = t('today.lead', { name: me.first });
     // The count keeps its own node, so only the number that changed moves.
@@ -187,29 +220,102 @@ function renderToday(animate) {
     if (first) head.replaceChildren(h('span', { class: 'gl' }), h('em', { text: '.' }));
     roll($('.gl', head), t('today.of', { a: done, b: 4 }));
     if (first && animate) reveal(head);   // the count takes the headline over from the invitation
-    const miss = [];
-    if (!today.habits[0]) miss.push(t('miss.0'));
-    if (!today.habits[1]) miss.push(t(today.conversations >= 1 ? 'miss.1.one' : 'miss.1.two'));
-    if (!today.habits[2]) miss.push(t('miss.2'));
-    if (!today.habits[3]) miss.push(t('miss.3'));
-    $('#todaySupport').replaceChildren(...(miss.length ? bold(t('today.missing', { n: miss.length }), `${joinList(miss)}.`) : bold(t('today.full'), t('today.full.s'))));
   }
-  // The next step, and what it pays.
-  const step = readOnly() ? null : nextStep(today, rules, localMinutes(S.me.serverTime, tz())), nextBtn = $('#nextBtn');
-  nextBtn.hidden = !step || step.habit == null;
-  if (!nextBtn.hidden) {
-    const what = step.code === 'visit' ? t('miss.0') : step.code === 'conversation' ? t(step.left >= 2 ? 'miss.1.two' : 'miss.1.one') : step.code === 'followup' ? t('miss.2') : t('miss.3');
-    const pays = step.pts > 0 ? t('pts.plus', { n: step.pts }) : '';
-    $('#nextText').textContent = cap(what); $('#nextPts').textContent = pays;
-    nextBtn.dataset.step = step.code;
-    nextBtn.setAttribute('aria-label', `${step.code === 'close' ? t('next.aria.close') : t('next.aria', { what })} ${pays}`.trim());
+  paintStage(animate);
+  renderCloseCard();
+}
+/** What the stage shows: the stop the day stands on, or the one the person tapped. While a log is being answered
+ *  (S.hold) the stop it landed on keeps its picture, and nothing here moves until the answer has played. */
+function paintStage(animate = false) {
+  const { today, rules } = S.me, chip = $('#stopChipT'), cta = $('#nextBtn'), copy = $('#stopCopy'), dio = $('#dio');
+  const work = today.isWork;
+  $('#route').hidden = !work; copy.hidden = !work;
+  if (!work) {
+    stage.show('rest', REST_LOOP, { swap: animate });
+    dio.setAttribute('aria-label', t('art.rest')); chip.textContent = t('stop.chip.rest'); cta.hidden = true;
+    return;
   }
+  if (S.hold != null) return;
+  const stops = stopsOf(today, rules), at = standOn(stops), sel = S.stop != null ? S.stop : at, stop = stops[sel];
+  stage.show(STOPS[sel], loopOf(sel, stop), { swap: animate });
+  dio.setAttribute('aria-label', t(`art.${sel}`));
+  chip.textContent = today.closed && sel === 3 ? t('stop.chip.closed') : stop.done ? t('stop.chip.done', { n: sel + 1 }) : sel === at ? t('stop.chip.next') : t('stop.chip', { n: sel + 1 });
+  $('#stopTitle').textContent = t(`habit.${sel}`);
+  $('#stopSub').textContent = sel === 3 ? t('habit.3.s', { time: hourName(rules.closeBy) }) : t(`habit.${sel}.s`);
+  if (animate && copy.dataset.sel != null && copy.dataset.sel !== String(sel)) stagger([$('#stopTitle'), $('#stopSub')], { step: 60, y: 8 });
+  copy.dataset.sel = String(sel);
+  // One button: log this stop, or go on to the next one when this one is done. A closed day has none, and neither
+  // does a manager who is only looking.
+  const step = readOnly() ? null : nextStep(today, rules, localMinutes(S.me.serverTime, tz()));
+  cta.hidden = !step || today.closed || step.habit == null;
+  if (!cta.hidden) {
+    const onward = stop.done;
+    cta.classList.toggle('onward', onward);
+    if (onward) { $('#nextText').textContent = t('stop.next'); $('#nextPts').textContent = ''; cta.dataset.step = 'next'; cta.removeAttribute('aria-label'); }
+    else {
+      const P = rules.points, [hh, mm] = String(rules.closeBy).split(':').map(Number), onTime = localMinutes(S.me.serverTime, tz()) < hh * 60 + mm;
+      const worth = [P.visit, P.conversation, P.followup, onTime ? P.dayClosedOnTime : 0][sel], pays = worth > 0 ? t('pts.plus', { n: worth }) : '';
+      $('#nextText').textContent = t(`stop.cta.${sel}`); $('#nextPts').textContent = pays;
+      cta.dataset.step = sel === 3 ? 'close' : 'log';
+      cta.setAttribute('aria-label', `${sel === 3 ? t('next.aria.close') : t('next.aria', { what: t(`habit.${sel}`) })} ${pays}`.trim());
+    }
+    $('#nextPts').hidden = !$('#nextPts').textContent;
+  }
+  stage.paintRoute(stops, { sel, at: today.closed ? null : at });
+}
+/** A log, or the close, landed on a stop: the stage shows that stop as it was, plays what happened there with the
+ *  tracking ring around it, and only then lets the day move on. `before` and `after` are the day on each side. */
+async function answer(hit, before, after) {
+  const rules = S.me.rules, a = stopsOf(before, rules)[hit], b = stopsOf(after, rules)[hit];
+  S.hold = hit; S.stop = null;
+  try {
+    await stage.hold(STOPS[hit], loopOf(hit, a)[0][0]);
+    stage.burst(); buzz(12);
+    await stage.play(STOPS[hit], rewardOf(hit, a.have, b.have, b.need), { once: true });
+  } finally {
+    S.hold = null;
+    if (S.me && S.me.today) paintStage(true);
+  }
+}
+
+// ---- the week: a hand whose joints are lights, and what the week has brought ----
+let stopTeach = null;
+function handCaption(text = null) {
+  const { week, today } = S.me, full = !!today && today.isWork && today.habits.every(Boolean);
+  $('#handCap').textContent = text || (week.marks === 0 ? t('hand.cap.zero') : full ? t('hand.cap.full') : t('hand.cap', { a: week.marks, b: week.marksMax }));
+}
+function resultCard(key, art, why) {
+  const n = src(h('button', { class: 'src num', type: 'button' }), () => t('c.source'), why);
+  return h('div', { class: 'result', 'data-result': key }, h('span', { class: 'robj', 'data-art': art, 'aria-hidden': 'true' }, h('i', { class: 'base' }), h('i', { class: 'glow' })),
+    h('h3'), h('div', { class: 'row' }, h('span', { class: 'pips', 'aria-hidden': 'true' }), h('span', { class: 'n' }, n, h('small'))), h('p'));
+}
+function paintResult(key, have, of) {
+  const el = $(`[data-result="${key}"]`), pips = $('.pips', el);
+  $('h3', el).textContent = t(`result.${key}`); $('p', el).textContent = t(`result.${key}.s`);
+  if (pips.childElementCount !== of) pips.replaceChildren(...Array.from({ length: of }, () => h('i')));
+  [...pips.children].forEach((pip, i) => pip.classList.toggle('on', i < have));
+  countTo($('.src', el), have); $('small', el).textContent = ` ${t('result.of', { n: of })}`;
+  el.classList.toggle('lit', have > 0);
+}
+function renderWeek(animate) {
+  const { today, week, goal, goalPick, rules } = S.me;
+  if (!week) return;
+  const ws = week.start;
+  $('#weekLead').textContent = `${t('time.week', { n: isoWeek(ws) })} · ${t('time.range', { a: dayMonth(ws), b: dayMonth(addDays(ws, 6)) })}`;
+  giant($('#weekGiant'), t('week.giant'));
+  $('#weekSupport').replaceChildren(...bold(t('week.sup.b'), t('week.sup')));
   const hand = $('#hand');
-  if (!hand.childElementCount) buildHand(hand);
-  const open = today.isWork && !today.closed ? today.habits.findIndex((x) => !x) : -1;
-  paintHand(hand, week.days, { wrist: week.anyLog, today: today.day, animate, next: open >= 0 ? open : null, target: $('#handTarget') });
-  $('#handHudT').textContent = t('hand.hud', { a: week.marks, b: week.marksMax });
-  $('#handCap').textContent = t('hand.caption', { a: week.marks, b: week.marksMax });
+  if (!hand.hand) buildHand(hand);
+  if (!stopTeach) {
+    const open = today && today.isWork && !today.closed ? today.habits.findIndex((x) => !x) : -1;
+    paintHand(hand, week.days, { wrist: week.anyLog, today: today ? today.day : null, animate, next: open >= 0 ? open : null });
+    handCaption();
+  }
+  $('#teachT').textContent = t(stopTeach ? 'teach.stop' : 'teach.play');
+  // which light is each habit: the four stops again, small and lit
+  const legend = $('#legend');
+  if (!legend.childElementCount) legend.append(...STOPS.map((art) => h('li', {}, h('span', { class: 'sl' }, h('i', { 'data-art': art })), h('b', { class: 'slabel' }), h('small', { class: 'tag' }))));
+  [...legend.children].forEach((li, i) => { $('b', li).textContent = t(`stop.short.${i}`); $('small', li).textContent = t(`legend.n.${i}`); });
 
   // the weekly goal
   const box = $('#goalBox');
@@ -221,42 +327,43 @@ function renderToday(animate) {
     $('#goalBtn').textContent = t(goalPick && goalPick.which === 'next' ? 'goal.pick.next' : 'c.change');
   }
 
-  // the four habits
-  const list = $('#habits');
-  if (!list.childElementCount) for (let i = 0; i < 4; i += 1) list.append(h('li', {}, h('i', { class: 'j' }), h('span', { class: 't' }, h('span', { class: 'tt' }), h('small')), h('span', { class: 'n num' })));
-  const counts = [[Math.min(today.visits, rules.habits.visits), rules.habits.visits], [Math.min(today.conversations, rules.habits.conversations), rules.habits.conversations],
-    [Math.min(today.followups, rules.habits.followups), rules.habits.followups], [today.closed ? 1 : 0, 1]];
-  [...list.children].forEach((li, i) => {
-    const was = li.classList.contains('done');
-    li.classList.toggle('done', !!today.habits[i]);
-    $('.tt', li).textContent = t(`habit.${i}`);
-    $('small', li).textContent = i === 3 ? t('habit.3.s', { time: by }) : t(`habit.${i}.s`);
-    $('.n', li).textContent = `${counts[i][0]}/${counts[i][1]}`;
-    if (animate && today.habits[i] && !was) lock($('.j', li));
+  // what the week has brought: each a small scene that lights when there is something in it
+  const results = $('#results');
+  if (!results.childElementCount) results.append(resultCard('meet', 'meeting', () => t('src.meetings', { goal: S.me.rules.goals.meetings })), resultCard('con', 'contract', () => t('src.contract', { goal: S.me.rules.goals.contracts })));
+  paintResult('meet', week.counts.meetings, rules.goals.meetings);
+  paintResult('con', week.counts.contracts, rules.goals.contracts);
+
+  // points, day by day
+  const bars = $('#bars'), row = $('#dayRow');
+  if (!bars.childElementCount) { bars.append(...week.days.map(() => h('li', {}, h('i'), h('em', { class: 'num' })))); row.append(...week.days.map(() => h('span', { class: 'flabel' }))); }
+  const top = Math.max(20, ...week.days.map((d) => d.points || 0));
+  week.days.forEach((d, i) => {
+    const li = bars.children[i], isToday = !!today && d.day === today.day, v = d.points || 0;
+    li.classList.toggle('today', isToday); li.classList.toggle('has', v > 0);
+    li.style.setProperty('--v', (v / top).toFixed(3)); $('em', li).textContent = num(v);
+    li.setAttribute('aria-label', `${cap(wdLong(d.day))}: ${pts(v)}`);
+    row.children[i].textContent = upper(wdShort(d.day)); row.children[i].classList.toggle('today', isToday);
   });
-
-  // the week's outcomes
-  const lenses = $('#lenses');
-  if (!lenses.childElementCount) {
-    lenses.append(
-      src(lens('meetings', ''), () => t('c.source'), () => t('src.meetings', { goal: S.me.rules.goals.meetings })),
-      src(lens('contract', ''), () => t('c.source'), () => t('src.contract', { goal: S.me.rules.goals.contracts })),
-      src(lens('points', ''), () => t('c.source'), () => t('src.points')));
-  }
-  for (const id of ['meetings', 'contract', 'points']) $(`[data-lens="${id}"] .l`, lenses).textContent = t(`lens.${id}`);
-  setLens($('[data-lens="meetings"]', lenses), week.counts.meetings, rules.goals.meetings);
-  setLens($('[data-lens="contract"]', lenses), week.counts.contracts, rules.goals.contracts);
-  setLens($('[data-lens="points"]', lenses), week.points, 0, t('u.pts'));
-
-  renderRank(); renderCloseCard(); renderFeed($('#feed'), $('#feedEmpty'), animate); renderPlay();
-  // An empty feed on a day that can still be logged shows who is on the field and where to start.
-  const zero = $('#feedZero'), none = !S.me.feed.length && !readOnly() && !today.closed;
-  zero.hidden = !none;
-  if (none) {
-    $('#feedEmpty').hidden = true;
-    const T = S.me.table.week, people = [...(T.me ? [T.me] : []), ...T.podium.filter((r) => !r.mine), ...T.rest].slice(0, 6), key = people.map((r) => `${r.id}:${r.photo || ''}`).join('|');
-    if (zero.dataset.key !== key) { zero.dataset.key = key; $('#feedFaces').replaceChildren(...people.map((r) => face(r))); }
-  }
+  countTo($('#weekPts'), week.points);
+}
+/** "Cómo se enciende": the hand explains itself on the real object, then shows what is true again. */
+function teach() {
+  if (stopTeach) { stopTeach(); return; }
+  if (!S.me || !S.me.week) return;
+  const hand = $('#hand'), bars = $$('#teachSteps i'), btn = $('#teachBtn'), today = S.me.today;
+  const f = today ? S.me.week.days.findIndex((d) => d.day === today.day && d.kind === 'work') : -1;
+  hidePop();
+  $('#teachSteps').classList.add('show'); btn.classList.add('playing'); $('use', btn).setAttribute('href', '#i-pause'); $('#teachT').textContent = t('teach.stop');
+  stopTeach = teachHand(hand, { finger: f >= 0 ? f : 2,
+    say: (n) => { handCaption(t(`teach.${n}`)); stagger([$('#handCap')], { y: 6 }); },
+    beat: (n, ms) => { bars.forEach((b, i) => { b.className = i < n ? 'was' : ''; }); bars[n].style.setProperty('--ms', `${ms}ms`); void bars[n].getBoundingClientRect(); bars[n].classList.add('on'); },
+    hot: (j) => [...$('#legend').children].forEach((li, i) => li.classList.toggle('hot', i === j)),
+    done: () => {
+      stopTeach = null;
+      $('#teachSteps').classList.remove('show'); bars.forEach((b) => { b.className = ''; });
+      btn.classList.remove('playing'); $('use', btn).setAttribute('href', '#i-play');
+      if (S.me && S.me.week) renderWeek(true);
+    } });
 }
 function goalName(k, fingers) { return k >= 5 && k === fingers ? t('goal.name.hand') : t('goal.name', { n: k }); }
 
@@ -298,18 +405,34 @@ function shownRows(table) {
   if (table.me && !table.me.onPodium) rows.push({ ...table.me, mine: true });
   return rows;
 }
-function renderRank() {
-  const table = S.me.table.week, mine = table.me, title = $('#rsTitle');
-  if (mine && mine.place != null) withEm(title, 'rank.place', { ord: ord(mine.place), n: table.ranked }, 'ord');
-  else title.textContent = mine && mine.isNew ? t('rank.new', { n: 14 }) : t('rank.none');
-  const first = firstDays(S.me), days = $('#rsDays');
-  days.hidden = !first;
-  if (first && days.dataset.key !== `${first.day}:${lang()}`) { days.dataset.key = `${first.day}:${lang()}`; days.replaceChildren(daysBone(first.day, first.of, t('rank.days.aria', { d: first.day, n: first.of }))); }
-  const lead = table.podium[0] ? table.podium[0].score : 0;
-  flipList($('#rsRows'), shownRows(table), (r) => r.id, newRow('span'), (row, r) => paintRow(row, r, 'week', lead));
+/** The team's shared number as a staircase: everybody stands on the same step, and each meeting takes them one up. */
+function renderClimb(animate) {
+  const { team, table } = S.me, climb = $('#climb'), crew = $('#crew');
+  climb.hidden = !team.players;
+  giant($('#goalGiant'), `${t('today.of', { a: num(team.meetings), b: num(team.target) })}.`);
+  const reached = team.target > 0 && team.meetings >= team.target, sup = $('#goalSupport');
+  let n = $('.src', sup);
+  if (!n) n = src(h('button', { class: 'src num', type: 'button' }), () => t('c.source'), () => t('src.team', { target: S.me.team.target, per: Math.round(S.me.team.target / Math.max(1, S.me.team.players)) }));
+  n.textContent = t('today.of', { a: num(team.meetings), b: num(team.target) });
+  const [a, b = ''] = t('team.sup', { n: '\u0001' }).split('\u0001');
+  sup.replaceChildren(a, n, `${b} ${t(reached ? 'team.flag' : 'team.climb')}`);
+  // everybody on the team, as faces on the same step
+  const T = table.week, people = [...(T.me ? [T.me] : []), ...T.podium.filter((r) => !r.mine), ...T.rest].sort((x, y) => x.name.localeCompare(y.name, 'es')).slice(0, 5);
+  const key = people.map((r) => `${r.id}:${r.photo || ''}`).join('|');
+  if (crew.dataset.key !== key) { crew.dataset.key = key; crew.replaceChildren(...people.map((r) => face(r))); }
+  const at = stepOf(team.meetings, team.target), [x, y] = STEPS[at];
+  const was = crew.getBoundingClientRect();
+  for (const node of [crew, $('.crewshadow', climb)]) { node.style.left = `${(x * 100).toFixed(2)}%`; node.style.top = `${(y * 100).toFixed(2)}%`; }
+  if (animate && !reduce && crew.dataset.at != null && crew.dataset.at !== String(at) && crew.animate && was.width) {
+    const now = crew.getBoundingClientRect(), dx = was.left - now.left, dy = was.top - now.top;
+    crew.animate([{ translate: `${dx}px ${dy}px` }, { translate: `${dx / 2}px ${dy / 2 - 24}px`, offset: 0.5 }, { translate: '0 0' }], { duration: 620, easing: EASE.out });
+  }
+  crew.dataset.at = String(at);
+  climb.classList.toggle('reached', reached);
 }
-function renderTable() {
-  const { table, team } = S.me, T = table[S.period], mine = T.me, period = S.period;
+function renderTable(animate = false) {
+  const { table } = S.me, T = table[S.period], mine = T.me, period = S.period;
+  renderClimb(animate);
   const day = S.me.today ? S.me.today.day : S.me.serverTime.slice(0, 10), ws = S.me.week ? S.me.week.start : addDays(day, -((new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7));
   $('#weekChip').textContent = `${upper(t('time.week', { n: isoWeek(day) }))} · ${upper(t('time.range', { a: dayMonth(ws), b: dayMonth(addDays(ws, 6)) }))}`;
   $('#tableLead').textContent = period === 'day' ? t('table.lead.day', { date: dayMonth(day) }) : period === 'month' ? t('table.lead.month', { month: cap(monthName(day)) }) : t('table.lead.week', { date: dayMonth(ws) });
@@ -338,14 +461,16 @@ function renderTable() {
       h('span', { class: 'who' }, h('b', { text: r.name }), h('small', {}, cityName(r.city), r.isNew ? h('span', { class: 'tag', text: t('table.new') }) : null)), sc);
   }));
   renderSquad(T, period);
-  // the team's shared number
-  const tg = $('#teamgoal');
-  if (!tg.childElementCount) tg.append(src(lens('team', ''), () => t('c.source'), () => t('src.team', { target: S.me.team.target, per: Math.round(S.me.team.target / Math.max(1, S.me.team.players)) })), h('p', {}, h('b'), h('span')));
-  $('[data-lens="team"] .l', tg).textContent = t('lens.team');
-  setLens($('[data-lens="team"]', tg), team.meetings, team.target);
-  $('p b', tg).textContent = t('team.title');
-  $('p span', tg).textContent = team.meetings >= team.target ? t('team.done') : t('team.p', { n: team.target - team.meetings });
-  tg.hidden = !team.players;
+  // the field: the last play and what the team is doing
+  renderFeed($('#feed'), $('#feedEmpty'), animate); renderPlay();
+  // An empty feed on a day that can still be logged shows who is on the field and where to start.
+  const zero = $('#feedZero'), now = S.me.today, none = !S.me.feed.length && !readOnly() && !!now && !now.closed;
+  zero.hidden = !none;
+  if (none) {
+    $('#feedEmpty').hidden = true;
+    const W = S.me.table.week, people = [...(W.me ? [W.me] : []), ...W.podium.filter((r) => !r.mine), ...W.rest].slice(0, 6), key = people.map((r) => `${r.id}:${r.photo || ''}`).join('|');
+    if (zero.dataset.key !== key) { zero.dataset.key = key; $('#feedFaces').replaceChildren(...people.map((r) => face(r))); }
+  }
 }
 
 /** The team as lenses over the table: the podium larger, the viewer framed. Every arc is the marks of that person's hand,
@@ -422,6 +547,7 @@ function submitClose() {
     try {
       const res = await api('POST', 'close', { tomorrow: $('#fTomorrow').value.trim(), blocker: $('#fBlock').value.trim() });
       const was = S.me.today.points, before = S.me;
+      if (before.today && !before.today.closed && res.me.today && res.me.today.closed) { S.hold = 3; S.stop = null; S.owed = { hit: 3, before: before.today, after: res.me.today }; }
       baseReport = res.report; adopt(res.me); paintCloseSheet();
       const earned = Math.max(0, res.me.today.points - was);
       playMoments(moments(before, res.me).map((m) => ({ ...m, gained: earned, streak: 0 })));   // closing can fill the finger: its moment plays when this sheet closes
@@ -682,7 +808,8 @@ function saveLog() {
   });
 }
 function logged(res, body) {
-  const before = S.me, wasLit = new Set($$('#hand .joint.on'));
+  const before = S.me, hit = res.repeat || !before.today || !res.me.today ? null : landed(before.today, res.me.today, before.rules);
+  if (hit != null) { S.hold = hit; S.stop = null; }   // the stop this landed on keeps its picture while the rest repaints
   adopt(res.me); renderAll(true);
   const label = t(`kind.${body.kind}`);
   if (res.repeat) toast(t(res.updated ? 'toast.repeat.updated' : 'toast.repeat'));
@@ -694,29 +821,29 @@ function logged(res, body) {
     if (res.streakUp) text += `. ${t('toast.streak', { n: res.me.streak.current })}`;
     if (res.gained > 0 || res.pending > 0) toast(text, res.gained > 0 ? t('pts.plus', { n: res.gained }) : ''); else toast(t('toast.zero'));
   }
-  // Points travel to where the person is: a joint leaves the mark that was just lit (or the button, when no mark lit),
-  // reaches the tag on their lens, and there the lens answers and the points show.
+  // The stop answers first: its frames play with the tracking ring around it. Then the points travel from the stop
+  // (or from the button, when no habit moved) to where they are counted, in the top bar.
+  const played = hit != null ? answer(hit, before.today, res.me.today).catch(() => {}) : Promise.resolve();
   if (!res.repeat && res.gained > 0) {
-    const tag = $('#heroPts'), from = $$('#hand .joint.on').find((j) => !wasLit.has(j)) || $('#logBtn');
-    flyDot(from, tag, () => { ringAt($('#heroLens .portrait'), { whole: true }); lock(tag); floatUp(tag, t('pts.plus', { n: res.gained })); });
+    const tag = $('#ptsChip');
+    setTimeout(() => flyDot(hit != null ? $('#dio') : $('#logBtn'), tag, () => { ringAt($('#meLens .portrait'), { whole: true }); lock(tag); floatUp(tag, t('pts.plus', { n: res.gained })); }), hit != null && !reduce ? 520 : 0);
   }
   if (res.streakUp) { lock($('#streakChip')); ringAt($('#streakChip .dot')); }
   const facts = { gained: res.gained, streak: res.streakUp ? res.me.streak.current : 0 };
   const list = res.repeat ? [] : moments(before, res.me, { tookLead: !!res.tookLead }).map((m) => ({ ...m, ...facts }));
   const after = () => { if (body.kind === 'meeting' && !res.repeat) askPlay(res.logId); };
-  setTimeout(() => playMoments(list).then(after), list.length ? (reduce ? 0 : 820) : 1400);
+  played.then(() => new Promise((r) => { setTimeout(r, reduce ? 0 : list.length ? 420 : 900); })).then(() => playMoments(list)).then(after);
 }
 
 // ---- the moments: taking the lead, a full finger or hand, a new step or level, a badge ----
 /** What a moment shows: a title in two parts, one line under it, and a large number or a drawing. When there is a photo
  *  of the person the moment shows them instead, with the arc of their lens closing and that drawing pinned to it. */
 function describe(m) {
-  const me = S.me, T = me.table.week, who = me.me, done = me.today ? me.today.habits.filter(Boolean).length : 0;
+  const me = S.me, T = me.table.week, who = me.me;
   const face = (from, to) => (who.photo ? { person: who, from, to } : null);
   // What the log itself brought: said under a moment whose own line would only repeat its title.
   const earned = m.gained > 0 ? [`${t('pts.plus', { n: m.gained })}.`, m.streak > 0 ? t('toast.streak', { n: m.streak }) : ''].filter(Boolean).join(' ') : '';
   if (m.kind === 'lead') return { n: ord(1), face: face(0, 1), a: t('lockon.title.a'), b: t('lockon.title.b'), sub: T.behind ? t('lockon.s.behind', { name: T.behind.name, gap: pts(T.behind.pts) }) : t('lockon.s') };
-  if (m.kind === 'finger') return { glyph: fingerGlyph(), face: face(Math.max(0, done - 1) / 4, 1), a: t('cel.finger.a'), b: t('cel.finger.b'), sub: [t('cel.finger.s'), me.streak && me.streak.current > 1 ? t('toast.streak', { n: me.streak.current }) : ''].filter(Boolean).join(' ') };
   if (m.kind === 'hand') return { glyph: handGlyph(me.week.days, me.week.anyLog), face: face(0, 1), a: t('cel.hand.a'), b: t('cel.hand.b'), sub: t('cel.hand.s') };
   if (m.kind === 'badge') {
     const levels = ONE_LEVEL.has(m.code) ? 1 : 3;
@@ -736,10 +863,24 @@ async function playMoments(list = []) {
   playing = true;
   try {
     while (waiting.length && S.me && !readOnly() && !$('dialog[open]') && !isGreeting()) {
-      const d = describe(waiting.shift());
+      const m = waiting.shift();
+      if (m.kind === 'finger') { await fullFinger(); continue; }
+      const d = describe(m);
       await celebrate({ ...d, label: t('cel.aria', { title: `${cap(d.a)} ${d.b}` }) });
     }
   } finally { playing = false; }
+}
+
+/** The four habits of today are done: the screen closes in and today's finger comes on, light by light, on the hand.
+ *  A tap takes the person to their week. */
+async function fullFinger() {
+  const { week, today, streak } = S.me, i = week.days.findIndex((d) => d.day === today.day);
+  const hand = buildHand(h('span', { class: 'ahand mini big', 'aria-hidden': 'true' }), { mini: true });
+  paintHand(hand, week.days.map((d, k) => (k === i ? { ...d, habits: [false, false, false, false] } : d)), { wrist: week.anyLog });
+  setTimeout(() => paintHand(hand, week.days, { wrist: week.anyLog, animate: true, step: 230 }), reduce ? 0 : 760);
+  const sub = [t('cel.finger.sub'), streak && streak.current > 1 ? t('toast.streak', { n: streak.current }) : ''].filter(Boolean).join(' ');
+  const go = await dayDone({ title: t('cel.finger.title'), sub, glyph: hand, from: $('#nextBtn').hidden ? $('#dio') : $('#nextBtn'), label: t('cel.aria', { title: t('cel.finger.title') }) });
+  if (go && S.me && !S.mgr) setTab('week');
 }
 
 // ---- logs that wait for signal ----
@@ -784,13 +925,15 @@ function enter(me) {
   // after that the screen just puts itself together.
   const tab = S.tab, day = me.today ? me.today.day : dayOf(me.serverTime, me.me.tz), seen = store.get(KEY.greet, null) || {};
   const how = S.as ? 'short' : entrance({ lastDay: seen.day, lastId: seen.id, today: day, id: me.me.id });
-  S.arrived = new Set([tab]);
-  if (how === 'full') { store.set(KEY.greet, { id: me.me.id, day }); welcome(tab, day, ready); }
-  else ready.then(() => arrive(tab, { fast: true }));
+  const here = inBands(tab) ? BANDS : [tab];
+  S.arrived = new Set(here);
+  const arriveAll = (opts) => here.forEach((n, i) => setTimeout(() => arrive(n, opts), reduce ? 0 : i * 160));
+  if (how === 'full') { store.set(KEY.greet, { id: me.me.id, day }); welcome(day, ready, arriveAll); }
+  else ready.then(() => arriveAll({ fast: true }));
   flush();
 }
 /** The entrance: the lens finds the person, says where they stand, and hands them their screen. */
-function welcome(tab, day, ready) {
+function welcome(day, ready, arriveAll) {
   const me = S.me, who = me.me, st = stake(me), today = me.today;
   const line = st.kind === 'team' ? [t('greet.team.a', { w: st.working, p: st.players }), t('greet.team.b', { c: st.closed })]
     : st.kind === 'lead' ? [t('greet.lead.a'), st.behind ? t('table.sup.behind', { name: st.behind.name, gap: pts(st.behind.pts) }) : t('greet.lead.b', { pts: pts(st.score) })]
@@ -803,8 +946,8 @@ function welcome(tab, day, ready) {
     share: today ? (today.isWork ? today.habits.filter(Boolean).length / 4 : 0) : (me.team.working ? me.team.closedToday / me.team.working : 0),
     chip: `${upper(wdShort(day))} ${upper(dayMonth(day))} · ${upper(t('time.week', { n: isoWeek(day) }))}${streak}`,
     lead: `${t(`greet.${dayPart(localMinutes(me.serverTime, who.tz))}`)},`,
-    land: () => (S.tab === 'today' ? $('#heroLens .portrait') : null),
-    onLeave: () => ready.then(() => arrive(S.tab, { landed: true })),
+    land: () => (BANDS.includes(S.tab) && !$('#meBtn').hidden ? $('#meLens .portrait') : null),   // the lens lands on the person's own face, in the top bar
+    onLeave: () => ready.then(() => arriveAll({ landed: true })),
   }).then(() => playMoments());
 }
 /** The quiet check while the app is open. The screen is redrawn only when something moved, or every five minutes so
@@ -889,21 +1032,29 @@ function wire() {
   src($('#streakChip'), () => t('top.streak'), () => { const st = S.me.streak; return t('src.streak', { spares: st.spares, max: S.me.rules.spares, best: t('u.days', { n: st.best }) }); });
   $('#queueChip').addEventListener('click', flush);
   document.addEventListener('click', (e) => { const o = e.target.closest('[data-open]'); if (o) openSheet($(`#${o.dataset.open}`)); });
-  $('#hand').addEventListener('click', (e) => { const hit = e.target.closest('.hit'); if (hit) { e.stopPropagation(); fingerDetail(hit); } });
-  $('#hand').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('hit')) { e.preventDefault(); fingerDetail(e.target); } });
+  $('#hand').addEventListener('click', (e) => { const hit = e.target.closest('.ahit'); if (hit) { e.stopPropagation(); if (stopTeach) stopTeach(); fingerDetail(hit); } });
+  $('#teachBtn').addEventListener('click', teach);
+  $('#meBtn').addEventListener('click', () => setTab('profile'));
   $('#goalBtn').addEventListener('click', openGoal);
-  $('#nextBtn').addEventListener('click', () => ($('#nextBtn').dataset.step === 'close' ? openClose() : openLog()));
-  src($('#handHud'), () => t('hand.aria'), () => t('hand.caption', { a: S.me.week.marks, b: S.me.week.marksMax }));
-  src($('#heroPts'), () => t('c.source'), () => t('src.points'));
+  $('#nextBtn').addEventListener('click', () => {
+    const step = $('#nextBtn').dataset.step;
+    if (step === 'next') { S.stop = null; paintStage(true); } else if (step === 'close') openClose(); else openLog();
+  });
+  src($('#ptsChip'), () => t('c.source'), () => t('src.points'));
+  src($('#weekPts'), () => t('c.source'), () => t('src.points'));
+  stage.lean($('#s-today'));
   $('#feedLog').addEventListener('click', openLog);
   $('#ledgerMore').addEventListener('click', () => { S.ledgerAll = true; quiet(renderProfile); });
   // On a wide screen the tabs live in the top bar, which stays in view; on a phone they are the bar at the thumb.
   const wide = matchMedia('(min-width:980px)'), dock = () => { const nav = $('#nav'); if (wide.matches) $('.top').insertBefore(nav, $('.top-r')); else $('#app').append(nav); };
   wide.addEventListener('change', dock); dock();
-  alive($('#handBox'), $('.handstage'));
-  // A moment that had to wait for a form plays once the form is gone.
-  for (const dlg of $$('dialog.sheet')) dlg.addEventListener('close', () => setTimeout(() => playMoments(), 260));
-  $('#rankstrip').addEventListener('click', () => setTab('table'));
+  // An answer or a moment that had to wait for a form plays once the form is gone: first the stop, then the moment.
+  for (const dlg of $$('dialog.sheet')) dlg.addEventListener('close', () => setTimeout(() => {
+    const owed = S.owed; S.owed = null;
+    (owed && S.me && S.me.today ? answer(owed.hit, owed.before, owed.after).catch(() => {}) : Promise.resolve()).then(() => playMoments());
+  }, 260));
+  // Crossing between a narrow and a wide screen changes how many zones show at once.
+  WIDE.addEventListener('change', () => { if (S.me && S.tab) { show(S.tab); markTab(); } });
   $('#tableSeg').addEventListener('click', (e) => { const b = e.target.closest('button[data-period]'); if (!b) return; S.period = b.dataset.period; quiet(renderTable); });
   $('#closeBtn').addEventListener('click', openClose);
   $('#closeSubmit').addEventListener('click', submitClose);
@@ -920,5 +1071,7 @@ function wire() {
 }
 
 setLang(store.get(KEY.lang, null) || ((navigator.language || 'es').toLowerCase().startsWith('en') ? 'en' : 'es'));
+// The illustrations are named once, on the page itself; the stylesheet picks each one by its name.
+for (const [k, v] of Object.entries(ART)) document.documentElement.style.setProperty(`--art-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`, `url("${v}")`);
 applyStatic(); grain(); wire(); renderTop();
 start();

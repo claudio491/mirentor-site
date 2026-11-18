@@ -1,132 +1,150 @@
-// hand.js: the drawings that carry the numbers. The week is a tracked hand of 21 keypoints: the wrist plus five fingers
-// of four joints. Each finger is a day and each joint is one habit, from the base: visit, conversations, follow-up, closing.
-// A joint lights when its own habit is done, and a bone lights only between two lit points, so a gap shows what was missed.
+// hand.js: the drawings that carry the numbers. The week is a hand: an articulated model whose 21 joints are lights,
+// the wrist plus five fingers of four. Each finger is a day and each light is one habit, from the base: visit,
+// conversations, follow-up, closing. A light is on when its own habit is done, so a gap shows what was missed.
+// The hand is an illustration (team/art); a light is the same spot of a second image in which every joint is lit,
+// so what turns on is the real thing and sits exactly on its joint. Where the joints are comes from art.js.
 import { h, s, t, lock, reduce, EASE, buzz, upper, wdShort, wdLong, num, face, countTo } from './ui.js';
+import { HAND } from './art.js';
 
-const VIEW = [320, 346];   // the hand's drawing area
+const GLOW = 1.72;   // a light is shown a little wider than its joint, so its halo comes with it
 
-const WRIST = [160, 322];
-const FINGERS = [
-  [[118, 286], [86, 250], [62, 212], [46, 176]],
-  [[122, 196], [112, 146], [106, 106], [102, 70]],
-  [[158, 186], [158, 130], [158, 86], [158, 46]],
-  [[194, 196], [204, 146], [210, 108], [214, 74]],
-  [[228, 220], [246, 180], [258, 148], [268, 120]],
-];
-const LABELS = [[30, 156], [96, 50], [158, 26], [220, 54], [282, 104]];
-const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+/** One light: the piece of the lit image that sits on this joint. The image itself is named in the stylesheet. */
+function light(j) {
+  const R = j.r * GLOW, node = h('span', { class: 'jt' }), st = node.style;
+  st.left = `${((j.x - R) * 100).toFixed(3)}%`; st.top = `${((j.y - R) * 100).toFixed(3)}%`;
+  st.width = `${(R * 200).toFixed(3)}%`; st.height = `${(R * 200).toFixed(3)}%`;
+  st.backgroundSize = `${(100 / (2 * R)).toFixed(2)}% ${(100 / (2 * R)).toFixed(2)}%`;
+  st.backgroundPosition = `${(((j.x - R) / (1 - 2 * R)) * 100).toFixed(3)}% ${(((j.y - R) / (1 - 2 * R)) * 100).toFixed(3)}%`;
+  return node;
+}
 
-/** Build the hand once. `mini` is the small one on a table row: no labels, nothing to tap. */
-export function buildHand(svg, { mini = false } = {}) {
-  svg.replaceChildren();
-  const bones = s('g', { class: 'bones' }), joints = s('g', { class: 'joints' });
-  for (let i = 1; i < 4; i += 1) { const a = FINGERS[i][0], b = FINGERS[i + 1][0]; bones.append(s('line', { x1: a[0], y1: a[1], x2: b[0], y2: b[1], class: 'bone base palm' })); }
-  FINGERS.forEach((finger, i) => {
-    const group = s('g', { class: 'finger', 'data-f': i });
-    let prev = WRIST;
-    finger.forEach((pt, j) => {
-      const len = dist(prev, pt).toFixed(1);
-      bones.append(s('line', { x1: prev[0], y1: prev[1], x2: pt[0], y2: pt[1], class: 'bone base', 'data-f': i, 'data-j': j }));
-      bones.append(s('line', { x1: prev[0], y1: prev[1], x2: pt[0], y2: pt[1], class: 'bone on', 'data-f': i, 'data-j': j, 'stroke-dasharray': len, 'stroke-dashoffset': len, 'data-len': len }));
-      prev = pt;
-    });
-    finger.forEach((pt, j) => group.append(s('circle', { cx: pt[0], cy: pt[1], r: mini ? 12 : 5.6, class: 'joint', 'data-j': j })));
-    if (!mini) {
-      group.append(s('text', { x: LABELS[i][0], y: LABELS[i][1], class: 'flabel' }));
-      // The tap area follows the finger from its first joint to past the tip, so two fingers never share a target.
-      const tip = finger[3], before = finger[2], k = 16 / dist(before, tip), far = [tip[0] + (tip[0] - before[0]) * k, tip[1] + (tip[1] - before[1]) * k];
-      group.append(s('path', { d: `M${[...finger, far].map((p) => p.map((v) => v.toFixed(1)).join(' ')).join(' L')}`, class: 'hit', tabindex: 0, role: 'button', 'data-day': i }));
-    }
-    joints.append(group);
-  });
-  joints.append(s('circle', { cx: WRIST[0], cy: WRIST[1], r: mini ? 13 : 6.6, class: 'joint wrist' }));
-  svg.append(bones, joints);
+/** Build the hand once, inside `el`. `mini` is the small one on a row: no labels, no bones, nothing to tap. */
+export function buildHand(el, { mini = false } = {}) {
+  el.replaceChildren();
+  el.classList.add('ahand'); el.classList.toggle('mini', mini);
+  const nodes = { wrist: light(HAND.wrist), joints: [], bones: [], labels: [], hits: [], ring: null };
   if (!mini) {
-    const hot = (e, on) => { const hit = e.target.closest && e.target.closest('.hit'); if (!hit) return;
-      hit.parentNode.classList.toggle('hot', on); for (const b of svg.querySelectorAll(`.bone.base[data-f="${hit.dataset.day}"]`)) b.classList.toggle('hot', on); };
-    svg.addEventListener('pointerover', (e) => { if (e.pointerType === 'mouse') hot(e, true); });
-    svg.addEventListener('pointerout', (e) => hot(e, false));
+    // a bone runs between two lights of the same finger, from the edge of one joint to the edge of the next
+    const svg = s('svg', { viewBox: '0 0 1000 1000', 'aria-hidden': 'true', focusable: 'false' });
+    HAND.fingers.forEach((finger, f) => {
+      nodes.bones[f] = [0, 1, 2].map((k) => {
+        const a = finger[k], b = finger[k + 1], d = Math.hypot(b.x - a.x, b.y - a.y), ux = (b.x - a.x) / d, uy = (b.y - a.y) / d;
+        const x1 = (a.x + ux * a.r * 1.05) * 1000, y1 = (a.y + uy * a.r * 1.05) * 1000, x2 = (b.x - ux * b.r * 1.05) * 1000, y2 = (b.y - uy * b.r * 1.05) * 1000;
+        const len = Math.hypot(x2 - x1, y2 - y1).toFixed(1);
+        const bone = s('line', { class: 'abone', x1: x1.toFixed(1), y1: y1.toFixed(1), x2: x2.toFixed(1), y2: y2.toFixed(1), 'stroke-dasharray': len, 'stroke-dashoffset': len, 'data-len': len });
+        svg.append(bone);
+        return bone;
+      });
+    });
+    nodes.ring = s('circle', { class: 'nextring', r: 30 });
+    svg.append(nodes.ring);
+    el.append(svg);
   }
-  return svg;
+  el.append(nodes.wrist);
+  HAND.fingers.forEach((finger, f) => { nodes.joints[f] = finger.map((j) => { const n = light(j); el.append(n); return n; }); });
+  if (!mini) {
+    HAND.fingers.forEach((finger, f) => {
+      const base = finger[0], prev = finger[2], tip = finger[3], d = Math.hypot(tip.x - prev.x, tip.y - prev.y), ux = (tip.x - prev.x) / d, uy = (tip.y - prev.y) / d;
+      const label = h('span', { class: 'aday flabel' });
+      label.style.left = `${((tip.x + ux * 0.085) * 100).toFixed(2)}%`; label.style.top = `${((tip.y + uy * 0.075) * 100).toFixed(2)}%`;
+      // The tap area lies along the finger, from its base to past its tip, so two fingers never share a target.
+      const hit = h('button', { class: 'ahit', type: 'button', 'data-day': String(f) });
+      hit.style.left = `${(((base.x + tip.x) / 2) * 100).toFixed(2)}%`; hit.style.top = `${(((base.y + tip.y) / 2) * 100).toFixed(2)}%`;
+      hit.style.setProperty('--a', `${((Math.atan2(tip.x - base.x, -(tip.y - base.y)) * 180) / Math.PI).toFixed(1)}deg`);
+      el.append(label, hit);
+      nodes.labels[f] = label; nodes.hits[f] = hit;
+    });
+  }
+  el.hand = nodes;
+  return el;
 }
 
-/** Paint the week on the hand. days: five entries { day?, kind: 'work'|'rest'|'future', habits: [4] }. */
-export function paintHand(svg, days, { wrist = false, today = null, animate = false, next = null, target = null } = {}) {
-  const live = animate && !reduce;
-  svg.classList.toggle('live', live);
-  const wristNode = svg.querySelector('.joint.wrist'), wristWas = wristNode.classList.contains('on');
-  wristNode.classList.toggle('on', wrist);
-  if (live && wrist && !wristWas) ping(svg, wristNode);
-  let locked = 0;
-  days.slice(0, 5).forEach((d, i) => {
-    const group = svg.querySelector(`.finger[data-f="${i}"]`);
-    group.classList.toggle('future', d.kind === 'future'); group.classList.toggle('rest', d.kind === 'rest'); group.classList.toggle('today', !!today && d.day === today);
-    const lit = d.kind === 'work' ? d.habits : [false, false, false, false];
-    const isNext = next != null && !!today && d.day === today && d.kind === 'work';
-    group.querySelectorAll('.joint').forEach((joint, j) => {
-      const was = joint.classList.contains('on');
-      joint.classList.toggle('on', !!lit[j]);
-      joint.classList.toggle('next', isNext && j === next && !lit[j]);
-      if (live && lit[j] && !was) { ping(svg, joint); locked += 1; }
+/** Light the week on the hand. days: five entries { day?, kind: 'work'|'rest'|'future', habits: [4] }. `next` is the
+ *  habit today still asks for: its joint carries a ring. Returns how long the lights take to come on, in milliseconds. */
+export function paintHand(el, days, { wrist = false, today = null, animate = false, next = null, labels = true, step = 70 } = {}) {
+  const nodes = el.hand, live = animate && !reduce;
+  let k = 0, ringAt = null;
+  const set = (node, on) => {
+    if (node.classList.contains('on') === on) return;
+    if (on && live) { const wait = k * step; k += 1; setTimeout(() => node.classList.add('on'), wait); } else node.classList.toggle('on', on);
+  };
+  set(nodes.wrist, !!wrist);
+  days.slice(0, 5).forEach((d, f) => {
+    const lit = d.kind === 'work' ? d.habits : [false, false, false, false], isToday = !!today && d.day === today;
+    lit.forEach((on, j) => set(nodes.joints[f][j], !!on));
+    (nodes.bones[f] || []).forEach((bone, j) => {
+      const on = !!(lit[j] && lit[j + 1]);
+      bone.style.transitionDelay = on && live ? `${k * step + 90}ms` : '0ms';
+      bone.setAttribute('stroke-dashoffset', on ? '0' : bone.dataset.len);
+      bone.classList.toggle('on', on);
     });
-    for (let j = 0; j < 4; j += 1) {
-      const bone = svg.querySelector(`.bone.on[data-f="${i}"][data-j="${j}"]`), on = (j === 0 ? wrist : lit[j - 1]) && lit[j];
-      bone.setAttribute('stroke-dashoffset', on ? 0 : bone.dataset.len);
+    if (isToday && d.kind === 'work' && next != null && !lit[next]) ringAt = HAND.fingers[f][next];
+    const label = nodes.labels[f], hit = nodes.hits[f];
+    if (label && labels && d.day) {
+      label.textContent = upper(wdShort(d.day));
+      label.classList.toggle('today', isToday); label.classList.toggle('rest', d.kind === 'rest'); label.classList.toggle('full', d.kind === 'work' && lit.every(Boolean) && !isToday);
     }
-    for (const base of svg.querySelectorAll(`.bone.base[data-f="${i}"]`)) { base.classList.toggle('rest', d.kind === 'rest'); base.classList.toggle('now', !!today && d.day === today && d.kind === 'work'); }
-    const label = group.querySelector('.flabel'), hit = group.querySelector('.hit');
-    if (label && d.day) label.textContent = upper(wdShort(d.day));
-    if (hit && d.day) hit.setAttribute('aria-label', d.kind === 'rest' ? t('hand.finger.rest.aria', { day: wdLong(d.day) }) : t('hand.finger.aria', { day: wdLong(d.day), a: lit.filter(Boolean).length }));
+    if (hit) {
+      hit.classList.toggle('rest', d.kind === 'rest');
+      if (d.day) hit.setAttribute('aria-label', d.kind === 'rest' ? t('hand.finger.rest.aria', { day: wdLong(d.day) }) : t('hand.finger.aria', { day: wdLong(d.day), a: lit.filter(Boolean).length }));
+    }
   });
-  if (locked) buzz(12);
-  // The ring over the next joint is drawn outside the SVG, so it costs nothing while it loops.
-  if (target) {
-    const joint = svg.querySelector('.joint.next');
-    target.hidden = !joint;
-    if (joint) { target.style.left = `${(100 * joint.getAttribute('cx')) / VIEW[0]}%`; target.style.top = `${(100 * joint.getAttribute('cy')) / VIEW[1]}%`; }
+  if (nodes.ring) {
+    nodes.ring.classList.toggle('show', !!ringAt);
+    if (ringAt) { nodes.ring.setAttribute('cx', (ringAt.x * 1000).toFixed(1)); nodes.ring.setAttribute('cy', (ringAt.y * 1000).toFixed(1)); nodes.ring.setAttribute('r', (ringAt.r * 1000).toFixed(1)); }
   }
+  if (k) buzz(12);
+  return k * step;
 }
 
-/** The hand puts itself together: the wrist, then each finger from the base, lit joints locking and their bones drawing.
- *  Returns how long it takes, in milliseconds. */
-export function replayHand(svg, { fast = false } = {}) {
-  if (reduce || !svg.animate || !svg.querySelector('.joint')) return 0;
-  const k = fast ? 0.5 : 1, at = (i, j) => (80 + i * 68 + j * 44) * k;
-  const fade = (node, delay) => node.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220 * k, delay: Math.max(0, delay), easing: 'linear', fill: 'backwards' });
-  const pop = (joint, delay) => joint.animate([{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 190, delay: Math.max(0, delay), easing: EASE.lock, fill: 'backwards' });
-  pop(svg.querySelector('.joint.wrist'), 0);
-  for (const palm of svg.querySelectorAll('.bone.palm')) fade(palm, 150 * k);
-  for (const base of svg.querySelectorAll('.bone.base:not(.palm)')) fade(base, at(Number(base.dataset.f), Number(base.dataset.j)) - 50 * k);
-  for (const group of svg.querySelectorAll('.finger')) {
-    const i = Number(group.dataset.f);
-    group.querySelectorAll('.joint').forEach((joint, j) => {
-      pop(joint, at(i, j));
-      if (joint.classList.contains('on') && !svg.classList.contains('mini')) setTimeout(() => { if (joint.isConnected) ring(svg, joint); }, at(i, j));
-    });
-    const label = group.querySelector('.flabel');
-    if (label) fade(label, at(i, 3) + 60 * k);
-  }
-  for (const bone of svg.querySelectorAll('.bone.on')) {
-    if (Number(bone.getAttribute('stroke-dashoffset')) !== 0) continue;
-    bone.animate([{ strokeDashoffset: bone.dataset.len }, { strokeDashoffset: 0 }], { duration: 320 * k, delay: at(Number(bone.dataset.f), Number(bone.dataset.j)) + 110 * k, easing: EASE.track, fill: 'backwards' });
-  }
-  return (80 + 4 * 68 + 3 * 44 + 430) * k;
+/** The hand puts itself together: every light that is on goes out and locks on again, the wrist first, then each
+ *  finger from its base. Returns how long it takes, in milliseconds. */
+export function replayHand(el, { fast = false } = {}) {
+  if (reduce || !el || !el.hand) return 0;
+  const step = fast ? 35 : 70, lit = [el.hand.wrist, ...el.hand.joints.flat()].filter((n) => n.classList.contains('on'));
+  lit.forEach((n, i) => { n.classList.remove('on'); setTimeout(() => { if (n.isConnected) n.classList.add('on'); }, 80 + i * step); });
+  return 80 + lit.length * step + 220;
 }
 
-/** A joint locks on: it snaps in with a small overshoot and a ring leaves it. */
-function ping(svg, joint) { lock(joint); ring(svg, joint); }
-function ring(svg, joint) {
-  const node = s('circle', { cx: joint.getAttribute('cx'), cy: joint.getAttribute('cy'), r: 6, class: 'ping' });
-  svg.append(node);
-  node.animate([{ transform: 'scale(1)', opacity: 0.9 }, { transform: 'scale(3.4)', opacity: 0 }], { duration: 560, easing: EASE.track }).onfinish = () => node.remove();
+/** The hand explains itself on the real object, in four beats: each finger is a day; each light is a habit, from the
+ *  base to the tip; four lights are a finger; five fingers are the hand. `say(n)` is told which beat started,
+ *  `beat(n, ms)` how long it lasts, `hot(j)` which habit is being lit (-1 for none), and `done()` runs once, when it
+ *  ends or is stopped: the caller then paints what is true. Returns the function that stops it. */
+export function teachHand(el, { finger = 2, say = () => {}, beat = () => {}, hot = () => {}, done = () => {} } = {}) {
+  let alive = true;
+  const timers = [], labels = el.hand.labels;
+  const wait = (ms) => new Promise((r) => { timers.push(setTimeout(r, reduce ? 0 : ms)); });
+  const demo = [0, 1, 2, 3, 4].map(() => [false, false, false, false]);
+  const show = (wrist = false, animate = false) => paintHand(el, demo.map((habits) => ({ kind: 'work', habits })), { wrist, animate, labels: false });
+  const point = (f) => labels.forEach((l, i) => l.classList.toggle('point', i === f));
+  const end = () => { if (!alive) return; alive = false; timers.forEach(clearTimeout); point(-1); hot(-1); done(); };
+  (async () => {
+    show();
+    beat(0, 2300); say(1);
+    for (let f = 0; f < 5 && alive; f += 1) { demo[f][0] = true; show(); point(f); await wait(340); }
+    await wait(600); if (!alive) return;
+    for (let f = 0; f < 5; f += 1) demo[f][0] = false;
+    show(); point(finger);
+    beat(1, 3000); say(2);
+    for (let j = 0; j < 4 && alive; j += 1) { demo[finger][j] = true; show(); hot(j); await wait(640); }
+    await wait(440); if (!alive) return;
+    hot(-1); beat(2, 1700); say(3);
+    await wait(1700); if (!alive) return;
+    point(-1); beat(3, 2600); say(4);
+    for (const f of [0, 1, 2, 3, 4].filter((x) => x !== finger)) { if (!alive) return; demo[f] = [true, true, true, true]; show(true, true); await wait(330); }
+    await wait(1300);
+    end();
+  })();
+  return end;
 }
 
+/** A small hand for a row: the same object, its lights only. */
 export function miniHand(days, wrist) {
-  const svg = buildHand(s('svg', { viewBox: '0 0 320 346', class: 'hand mini', 'aria-hidden': 'true', focusable: 'false' }), { mini: true });
-  paintHand(svg, days, { wrist });
-  return svg;
+  const el = buildHand(h('span', { class: 'ahand mini', 'aria-hidden': 'true' }), { mini: true });
+  paintHand(el, days, { wrist });
+  return el;
 }
-/** A row's hand from the table payload: the wrist is lit when the count holds one mark more than the joints. */
+/** A row's hand from the table payload: the wrist is lit when the count holds one light more than the joints. */
 export const rowWrist = (row) => row.marks > row.hand.reduce((a, d) => a + (d.kind === 'work' ? d.habits.filter(Boolean).length : 0), 0);
 
 // ---- lenses: a round gauge with the recording arc ----
@@ -237,10 +255,10 @@ export function fingerGlyph() {
 }
 /** The week's hand as it stands, large, putting itself together. */
 export function handGlyph(days, wrist) {
-  const svg = buildHand(s('svg', { viewBox: '0 0 320 346', class: 'hand mini big', 'aria-hidden': 'true', focusable: 'false' }), { mini: true });
-  paintHand(svg, days, { wrist });
-  setTimeout(() => replayHand(svg), 240);
-  return svg;
+  const el = buildHand(h('span', { class: 'ahand mini big', 'aria-hidden': 'true' }), { mini: true });
+  paintHand(el, days, { wrist });
+  setTimeout(() => replayHand(el), 240);
+  return el;
 }
 /** The steps of a level as a row of joints: the ones reached lock from the left and their bones draw; the rest wait. */
 export function stepsGlyph(lit, total) {
