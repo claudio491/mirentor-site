@@ -23,6 +23,7 @@ export async function start({ clock = MON_10, sample = false, dev = false, previ
   writeFileSync(path.join(staticDir, 'index.html'), '<!doctype html><title>t</title><script type="module" src="app.js"></script>');
   writeFileSync(path.join(staticDir, 'app.js'), 'export const ok = 1;');
   mkdirSync(path.join(staticDir, 'fonts'), { recursive: true }); writeFileSync(path.join(staticDir, 'fonts', 'geist-v1.woff2'), Buffer.from([0x77, 0x4f, 0x46, 0x32, 1, 2, 3]));
+  mkdirSync(path.join(staticDir, 'art'), { recursive: true }); writeFileSync(path.join(staticDir, 'art', 'visit.webp'), Buffer.from('RIFF\u0004\u0000\u0000\u0000WEBP', 'latin1'));
   const time = { now: clock };
   const said = [];   // what the service wrote to its error log: a test can check that nothing unexpected happened
   const team = createTeam({ dir, identify, domain: DOMAIN, pushToken: 'push-token', now: () => new Date(time.now), staticDir, origins: [ORIGIN], dev, previewOffsetMs, bootstrapOpen, log: (m) => said.push(String(m)) });

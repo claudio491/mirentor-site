@@ -151,6 +151,13 @@ test('each mark of a finger is its own habit, so a gap shows which one was misse
   assert.deepEqual(w.days.map((d) => d.kind), ['work', 'future', 'future', 'future', 'future']);
 });
 
+test('each day of the week carries the points earned that day, for the chart of the week', () => {
+  const s = build([rep('a'), log('a', MON, '09:00', 'talk', 'L1'), log('a', '2026-11-17', '10:00', 'call', 'L2'), close('a', '2026-11-17', '18:00')]);
+  const w = weekOf(s, 'a', MON, ctx('2026-11-18'));
+  assert.deepEqual(w.days.map((d) => d.points), [8, 7, 0, 0, 0]);
+  assert.equal(w.points, 15);
+});
+
 test('a part-time rep has rest fingers and points scaled to a five-day week', () => {
   const s = build([rep('a', { workdays: [1, 3, 5] }), log('a', MON, '10:00', 'talk'), log('a', '2026-11-18', '10:00', 'call', 'L2')]);
   const w = weekOf(s, 'a', MON, ctx('2026-11-20'));

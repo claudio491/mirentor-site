@@ -272,6 +272,9 @@ test('requests from another site are refused, and the page ships with a strict p
   assert.equal((await fetch(`${s.url}/equipo/app.js`, { headers: { 'if-none-match': js.headers.get('etag') } })).status, 304);
   const font = await s.call('GET', '/equipo/fonts/geist-v1.woff2');
   assert.deepEqual([font.status, font.headers.get('content-type'), font.headers.get('cache-control')], [200, 'font/woff2', 'public, max-age=31536000, immutable']);
+  // The illustrations travel as they are: an image that is already compressed is not compressed again.
+  const art = await fetch(`${s.url}/equipo/art/visit.webp`, { headers: { cookie: m.cookie, 'accept-encoding': 'br' } });
+  assert.deepEqual([art.status, art.headers.get('content-type'), art.headers.get('content-encoding'), art.headers.get('cache-control')], [200, 'image/webp', null, 'no-cache']);
   assert.equal(page.headers.get('cache-control'), 'no-store');
   assert.equal((await s.call('GET', '/equipo/../server.mjs')).status, 404);
   assert.equal((await s.call('GET', '/equipo/%2e%2e/package.json')).status, 404);
