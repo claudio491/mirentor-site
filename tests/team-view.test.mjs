@@ -84,6 +84,17 @@ test('the rep payload carries today, the hand, the goal, the streak and the leve
   assert.equal('email' in v.me, false);   // a person's view names nobody's address, not even their own: that is the viewer's
 });
 
+test('the person ahead and the person behind are named so two people with the same first name are not confused', () => {
+  const two = [rep('ana', { name: 'Ana Ruiz' }), rep('beto', { name: 'Ana Soto' }), ...five().slice(2)];
+  const s = build(two);
+  // third place looks up at second: "Ana" alone would be either of the two on the podium
+  assert.equal(repView(s, 'caro', ctx()).table.week.gap.aheadName, 'Ana S.');
+  // first place is told who is behind
+  assert.equal(repView(s, 'ana', ctx()).table.week.behind.name, 'Ana S.');
+  // with nobody sharing a first name, the first name is enough
+  assert.equal(repView(build(five()), 'caro', ctx()).table.week.gap.aheadName, 'BETO');
+});
+
 test('the rep payload says what Saturday and Sunday brought, so the chart of the week can give them their bar', () => {
   const v = repView(build([rep('ana'), log('ana', MON, '09:00', 'talk'), log('ana', '2026-11-21', '10:00', 'talk')]), 'ana', ctx('20:00', '2026-11-21')).week;
   assert.equal(v.weekendPoints, 8);
