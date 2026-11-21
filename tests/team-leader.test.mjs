@@ -52,6 +52,7 @@ test('a leader reads the view and can write nothing', async (t) => {
     ['POST', `install/${siteId}/workers`, { id: 'w_99999999', name: 'Persona Dos', email: 'p2@equipo.test' }], ['POST', `install/${siteId}/prep`, { what: 'signs' }],
     ['POST', `install/${siteId}/coordinator`, { name: 'Coord Uno', phone: '5075550101' }], ['POST', `install/${siteId}/close`, {}],
     ['POST', `worker/${W1}/phone`, { imei: '356938035643809' }], ['POST', `worker/${W1}/clip`, {}], ['POST', `worker/${W1}/phone/return`, {}],
+    ['POST', 'zones', { zones: ['a', 'b'] }], ['POST', 'ladder', { step: 'video' }], ['POST', 'ladder', { step: 'hour', rep: ana.id }], ['POST', 'seen', { video: 'pitch' }],
     ['DELETE', `install/${siteId}/workers`, undefined],
   ];
   for (const [method, p, body] of writes) {
@@ -61,7 +62,7 @@ test('a leader reads the view and can write nothing', async (t) => {
   const up = await fetch(`${s.url}${API}/worker/${W1}/consent`, { method: 'PUT', headers: { 'content-type': 'image/jpeg', cookie: lia.cookie }, body: JPG });
   assert.deepEqual([up.status, (await up.json()).error], [403, 'read_only']);
   // reads outside the allow-list are closed too: the install screen, the team table, the CRM search, a made-up route
-  for (const p of [`install/${siteId}`, 'team', 'leads', 'export', 'worker/x/consent']) {
+  for (const p of [`install/${siteId}`, 'team', 'leads', 'zones', 'export', 'worker/x/consent']) {
     const r = await s.call('GET', `${API}/${p}`, undefined, { cookie: lia.cookie });
     assert.equal(r.status === 403 || r.status === 404 || r.status === 401, true, p);
     assert.notEqual(r.status, 200, p);
