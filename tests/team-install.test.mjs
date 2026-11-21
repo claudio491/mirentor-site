@@ -151,8 +151,8 @@ test('siteState follows the site from phones to installed; legacy and practice t
   assert.equal(st([site(S, { legacy: true })]), 'legacy');
 });
 
-test('siteRecord lists worker, email, signature day, form version and IMEI', () => {
+test('siteRecord lists worker, email, signature day, form version, IMEI and the worker id', () => {
   const s = replay([rep, site(S), worker(W1, S), worker(W2, S), consent(W1, { t: '2026-11-12T03:00:00Z' }), phone(W1, IMEI_A, '2026-11-13T15:00:00Z')]);
-  assert.deepEqual(siteRecord(s, S), [{ worker: `Persona ${W1}`, email: `${W1}@equipo.test`, signedOn: '2026-11-11', form: 'f1', imei: IMEI_A, givenOn: '2026-11-13', returnedOn: null }]);
+  assert.deepEqual(siteRecord(s, S), [{ worker: `Persona ${W1}`, email: `${W1}@equipo.test`, signedOn: '2026-11-11', form: 'f1', workerId: W1, imei: IMEI_A, givenOn: '2026-11-13', returnedOn: null }]);
   assert.deepEqual(siteRecord(s, 's_nothere01'), []);
 });

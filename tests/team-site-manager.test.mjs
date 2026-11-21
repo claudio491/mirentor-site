@@ -1,16 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { start } from './team-helper.mjs';
 import { emptyState, applyEvent } from '../lib/team/state.mjs';
 import { siteRecord } from '../lib/team/install.mjs';
+import { ledger } from '../lib/team/score.mjs';
+import { leaderView } from '../lib/team/leader.mjs';
 
 const JPG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]), Buffer.from('JFIF consent bytes'), Buffer.from([0xff, 0xd9])]);
 const API = '/equipo/api';
 const W1 = 'w_11111111', W2 = 'w_22222222', W3 = 'w_33333333';
 const IMEI_A = '490154203237518', IMEI_B = '356938035643809';
-const HEADER = 'worker,email,signed_on,form,imei,given_on,returned_on';
+const HEADER = 'worker,email,signed_on,form,imei,given_on,returned_on,worker_id,consent';
 
 /** An admin, a rep who installs, and a helper that makes a site for that rep. */
 async function setup(t) {
@@ -130,9 +132,9 @@ test('record.csv has one line per worker and phone with consent and is refused t
   const rows = r.text.trim().split('\n');
   assert.equal(rows[0], HEADER);
   assert.equal(rows.length, 4, r.text);
-  assert.ok(rows[1].startsWith(`"'=HYPERLINK(""http://x"",""clic"")","p1@equipo.test","2026-11-16","v1","${IMEI_A}","2026-11-16","2026-11-16"`), rows[1]);
-  assert.ok(rows[2].includes(`"${IMEI_B}","2026-11-16",""`), rows[2]);
-  assert.equal(rows[3], '"Persona Sin Telefono","p2@equipo.test","2026-11-16","v1","","",""');
+  assert.equal(rows[1], `"'=HYPERLINK(""http://x"",""clic"")","p1@equipo.test","2026-11-16","v1","${IMEI_A}","2026-11-16","2026-11-16","${W1}","${API}/consent/${W1}"`);
+  assert.ok(rows[2].endsWith(`"${IMEI_B}","2026-11-16","","${W1}","${API}/consent/${W1}"`), rows[2]);
+  assert.equal(rows[3], `"Persona Sin Telefono","p2@equipo.test","2026-11-16","v1","","","","${W2}","${API}/consent/${W2}"`);
   const rep = await s.call('GET', `${API}/site/${id}/record.csv`, undefined, { cookie: ana.cookie });
   assert.deepEqual([rep.status, rep.json.error], [403, 'manager_only']);
   const none = await s.call('GET', `${API}/site/${id}/record.csv`);
@@ -183,4 +185,72 @@ test('the team view lists each site with what the manager\'s controls need: stat
   assert.deepEqual({ state: row.state, city: row.city, eligible: row.eligible, phones: row.phones, legacy: row.legacy, practice: row.practice, closed: row.closed, workers: row.workers, consents: row.consents },
     { state: 'installing', city: 'Panama City', eligible: 6, phones: 2, legacy: false, practice: false, closed: null, workers: 1, consents: 1 });
   assert.deepEqual([old.state, old.legacy, old.eligible, old.city], ['legacy', true, null, '']);
+});
+
+test('voiding a site gives back every phone it held: the IMEI is free for another site, and the phone log says returned', async (t) => {
+  const { s, a, ana, site, addWorker, upload, phone, manage } = await setup(t);
+  const first = await site(), second = await site({ lead: { name: 'Taller Segundo' } });
+  await addWorker(first.id, W1); await upload(W1);
+  assert.equal((await phone(W1, IMEI_A)).status, 200);
+  assert.equal((await manage(first.id, { what: 'void' })).status, 200);
+  await addWorker(second.id, W2); await upload(W2);
+  const again = await phone(W2, IMEI_A);
+  assert.equal(again.status, 200, JSON.stringify(again.json));
+  const state = s.lines().reduce((x, e) => applyEvent(x, e), emptyState());
+  const voidAt = s.lines().find((e) => e.type === 'site.void').t;
+  assert.deepEqual(state.phoneLog.filter((p) => p.site === first.id).map((p) => [p.imei, p.what]), [[IMEI_A, 'given'], [IMEI_A, 'returned']]);
+  assert.equal(state.phoneLog.find((p) => p.site === first.id && p.what === 'returned').t, voidAt);
+  assert.equal(state.imeis.get(IMEI_A), W2);
+  assert.equal(state.workers.get(W1).imei, null);
+  void a; void ana;
+});
+
+test('a voided practice site can still be removed, and its consent files go with it', async (t) => {
+  const { s, a, site, addWorker, upload, manage } = await setup(t);
+  const practice = await site({ practice: true });
+  await addWorker(practice.id, W1); await upload(W1);
+  const file = path.join(s.dir, 'team', 'consents');
+  const held = () => existsSync(file) && readdirSync(file).some((f) => f.startsWith(W1));
+  assert.equal(held(), true);
+  assert.equal((await manage(practice.id, { what: 'void' })).status, 200);
+  assert.equal((await manage(practice.id, { what: 'remove' })).status, 200);
+  assert.equal(held(), false);
+  assert.equal(s.lines().filter((e) => e.type === 'site.removed').length, 1);
+  // a voided real site still cannot be removed, nor anything else done to it
+  const real = await site();
+  await manage(real.id, { what: 'void' });
+  assert.equal((await manage(real.id, { what: 'remove' })).status, 404);
+  assert.equal((await manage(real.id, { what: 'phones', count: 3 })).status, 404);
+  void a;
+});
+
+test('a legacy site pays no points and adds no feed line, like practice, and still shows to the manager and the leaders', () => {
+  const T = (d, h = 15) => `2026-11-${d}T${h}:00:00Z`;
+  const ev = [
+    { type: 'rep.created', t: T(10), id: 'r1', handle: 'r1', name: 'Rep Uno', role: 'rep', country: 'PA', tz: 'America/Panama', startDate: '2026-10-01' },
+    { type: 'site', id: 's_legacy01', rep: 'r1', lead: { id: null, name: 'Taller Antiguo' }, legacy: true, t: T(16) },
+    { type: 'site.step', siteId: 's_legacy01', what: 'installed', t: T(17) },
+    { type: 'site.step', siteId: 's_legacy01', what: 'first_hour', t: T(18) },
+    { type: 'site', id: 's_real0001', rep: 'r1', lead: { id: null, name: 'Taller Nuevo' }, t: T(16) },
+  ];
+  const state = ev.reduce((x, e) => applyEvent(x, e), emptyState());
+  const entries = ledger(state, 'r1', { now: T(18, 20) });
+  assert.deepEqual(entries.filter((e) => e.siteId === 's_legacy01'), []);
+  assert.equal(entries.filter((e) => e.siteId === 's_real0001').length, 3, 'a real site still pays');
+  assert.deepEqual(state.feed.filter((f) => f.ref === 's_legacy01'), []);
+  assert.equal(state.feed.filter((f) => f.ref === 's_real0001').length, 1);
+  assert.equal(leaderView(state, { now: T(18, 20) }).cities.flatMap((c) => c.sites).some((x) => x.id === 's_legacy01'), true);
+});
+
+test('a lone admin with no reps opens a site for themself: the team answer names them, and the install then works', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin();
+  const team = (await s.call('GET', `${API}/team`, undefined, { cookie: a.cookie })).json;
+  assert.equal(team.reps.length, 0);
+  const me = team.others.find((r) => r.id === a.id);
+  assert.deepEqual([me.name, me.role, me.active], ['Jefe Uno', 'admin', true]);
+  const r = await s.call('POST', `${API}/site`, { rep: a.id, lead: { name: 'Negocio de Prueba' } }, { cookie: a.cookie });
+  assert.equal(r.status, 200);
+  const siteId = s.lines().find((e) => e.type === 'site').id;
+  assert.equal((await s.call('POST', `${API}/install/${siteId}/workers`, { id: W1, name: 'Persona Uno', email: 'p1@equipo.test', phone: true }, { cookie: a.cookie })).status, 200);
 });

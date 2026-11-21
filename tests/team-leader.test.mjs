@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { appendFileSync } from 'node:fs';
+import path from 'node:path';
 import { start, mail, as, logBody } from './team-helper.mjs';
 import { emptyState, applyEvent } from '../lib/team/state.mjs';
 import { leaderView } from '../lib/team/leader.mjs';
@@ -247,4 +249,21 @@ test('hours where accepted is more than delivered are refused, and a manager ret
   assert.equal(s.lines().length, n + 1);
   await s.call('POST', `${API}/hours`, ok, { cookie: mgr.cookie });
   assert.equal(s.lines().length, n + 1);
+});
+
+test('a site event written by hand without a lead still replays: the leadership view and the team view answer 200', async (t) => {
+  const { s, a, lia, ana } = await setup(t);
+  s.srv.close();
+  const file = path.join(s.dir, 'team', 'events.jsonl'), at = '2026-11-16T15:00:00.000Z';
+  appendFileSync(file, [{ type: 'site', id: 's_nolead001', rep: ana.id, by: a.id, t: at }, { type: 'site', id: 's_nolead002', rep: ana.id, lead: 'texto', by: a.id, t: at },
+    { type: 'site', id: 's_nolead003', rep: ana.id, lead: { name: 7 }, by: a.id, t: at }].map((e) => `${JSON.stringify(e)}\n`).join(''));
+  const again = await start({ dir: s.dir }); t.after(() => again.srv.close());
+  const lead = await again.call('GET', `${API}/lead`, undefined, { cookie: lia.cookie });
+  assert.equal(lead.status, 200, lead.text);
+  const team = await again.call('GET', `${API}/team`, undefined, { cookie: a.cookie });
+  assert.equal(team.status, 200, team.text);
+  const row = team.json.sites.find((x) => x.id === 's_nolead001');
+  assert.deepEqual(row.lead, { id: null, name: '' });
+  assert.deepEqual(team.json.sites.find((x) => x.id === 's_nolead003').lead, { id: null, name: '' });
+  assert.deepEqual(again.said.filter((m) => m.includes('failed')), []);
 });
