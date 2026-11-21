@@ -1,6 +1,6 @@
 // leader.js: the leadership view. One page, read only, every city at once. On top, the hours of video: the newest
 // week's accepted hours as the headline, the share of what was delivered as a ring, and a track whose far end is the
-// Scorecard's weekly goal (the Scorecard's number, shown as theirs), then the last weeks on one scale. Under it, each
+// Scorecard's goal for accepted hours (the Scorecard's number, shown as theirs), then the last weeks on one scale. Under it, each
 // city is its own band: its sites on porcelain, its reps on deep graphite, as on the install screens.
 // A leader lands here and has nothing else; a manager or admin opens it from the team view. Nothing here writes.
 // Every number opens into where it comes from.

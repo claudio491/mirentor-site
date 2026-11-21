@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { hm, siteCard, practiceNote, shellFor, hoursModel, siteStateKey, cityFacts, repFacts, SOURCES } from '../team/leader-steps.js';
-import { makeT } from '../team/i18n.js';
+import { makeT, DICT } from '../team/i18n.js';
 import { emptyState, applyEvent } from '../lib/team/state.mjs';
 import { leaderView } from '../lib/team/leader.mjs';
 
@@ -111,4 +111,11 @@ test('every number the city bands write carries its source: counts, site figures
   assert.equal(repFacts(city.reps[1]).some((n) => n.key === 'ladder'), false);
   // the headline with no hours has its own words, with no full stop to cut
   for (const t of [es, en]) assert.equal(/\.$/.test(t('lead.giant.none')), false);
+});
+
+test('the Scorecard goal names no period: the Scorecard lists 3,750 on its Accepted Hours row and does not say per what', () => {
+  for (const [lang, words] of [['es', /semana|semanal/i], ['en', /week/i]]) {
+    for (const key of ['lead.goal.label', 'lead.goal.per', 'lead.goal.of', 'lead.goal.src', 'lead.goal.aria']) assert.doesNotMatch(DICT[lang][key], words, `${lang} ${key}`);
+  }
+  assert.match(DICT.es['lead.goal.label'], /meta del Scorecard/i);
 });
