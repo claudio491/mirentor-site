@@ -28,12 +28,13 @@ export function workerSteps(w) {
 }
 
 /** The Hoy card for one of `me.installs`, or null. It needs the phones marked; a practice site reports `practice` at any
- *  stage, so its workers say whether it starts or continues. A closed or installed site has nothing left to do here. */
+ *  stage, so its workers say whether it starts or continues. A closed one stays as `closed` until a manager confirms it. */
 export function installCard(inst) {
-  if (!inst || inst.phones == null || inst.closed) return null;   // closed: it waits for a manager, nothing left to do here
-  const open = inst.practice || inst.state === 'ready_to_install' || inst.state === 'installing';
+  if (!inst || inst.phones == null) return null;
+  // closed and not yet confirmed (a confirmed one is no longer in me.installs): the card stays and waits for the manager
+  const open = inst.closed || inst.practice || inst.state === 'ready_to_install' || inst.state === 'installing';
   if (!open) return null;
-  return { id: inst.id, kind: inst.total > 0 ? 'continue' : 'start', practice: !!inst.practice, ready: inst.ready, total: inst.total, phones: inst.phones };
+  return { id: inst.id, kind: inst.closed ? 'closed' : inst.total > 0 ? 'continue' : 'start', practice: !!inst.practice, ready: inst.ready, total: inst.total, phones: inst.phones };
 }
 
 /** "Antes de grabar": the signs are up, the no-recording zones are marked, the site's coordinator is on file. */
@@ -103,3 +104,19 @@ export function closeState(view) {
   if (view.site.closed) return { kind: 'closed', at: view.site.closed, installed: !!view.site.installed };
   return { kind: view.progress.ready > 0 ? 'ready' : 'nobody' };
 }
+
+/** Which controls a screen offers. A manager looking through a rep's screens (view-as) reads only: no control that writes.
+ *  Otherwise each one shows only when it can act: the phone with a consent and no phone yet, the return and the clip with
+ *  a phone, the close until the install is closed. Late workers can still be added to a closed install. */
+export function controls({ readOnly, site, worker }) {
+  const none = { prep: false, addWorker: false, close: false, consent: false, phone: false, returnPhone: false, clip: false };
+  if (readOnly) return none;
+  const out = { ...none, prep: true, addWorker: true, close: !(site && site.closed) };
+  if (!worker) return out;
+  const records = worker.phone !== false;
+  return { ...out, consent: true, phone: records && !!worker.consent && !worker.imei, returnPhone: records && !!worker.imei, clip: records && !!worker.imei && !worker.clip };
+}
+
+/** A consent photo is kept for "Reintentar con la misma foto" only when the signal or the server failed. A refusal of the
+ *  photo itself (too big, not an image) or of the person asks for a new photo or explains; retrying it would fail again. */
+export const keepForRetry = (e) => !!e && (e.code === 'offline' || e.status >= 500);

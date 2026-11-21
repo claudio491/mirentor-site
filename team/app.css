@@ -1082,6 +1082,10 @@ html.greeting{overflow:hidden}
 .inst-body .hint.ok{color:var(--porcelain)}
 .inst-body .hint.ok::before{content:"";display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:50%;background:var(--signal);vertical-align:1px}
 .inst-done{margin-top:14px;padding:12px;border:1px solid var(--rule);border-radius:var(--r-input)}
+.inst-done .btn{margin-top:12px}
+#wkReturn.armed{border-color:var(--signal);color:var(--signal)}
+.inst-ro{padding:10px 12px;border:1px solid var(--signal);border-radius:var(--r-input);color:var(--porcelain)}
+.inst-card.waiting .btn{background:transparent;color:var(--graphite);border-color:rgba(27,29,32,.32)}
 .inst-imei{font-family:var(--mono);letter-spacing:.04em}
 .inst-clipq{margin-top:14px}
 .inst-clipq b{display:block;font-weight:600}

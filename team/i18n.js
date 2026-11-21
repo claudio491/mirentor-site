@@ -389,6 +389,10 @@ const es = {
   'install.c.record.title': 'registro del sitio', 'install.c.record.p': '{site}: quién firmó, qué día y qué teléfono tiene.',
   // the Hoy card
   'install.card.label': 'Instalación', 'install.card.phones': 'Teléfonos recibidos', 'install.card.phones.s': 'Llegaron al sitio', 'install.card.ready': 'Trabajadores listos', 'install.card.ready.s': 'Consentimiento, teléfono y clip',
+  'install.card.closed': 'Instalación cerrada', 'install.card.closed.s': 'Cerrada, esperando a tu líder. Con su confirmación el sitio queda instalado.', 'install.card.closed.go': 'Ver el cierre', 'install.card.view': 'Ver la instalación',
+  'install.ro': 'Solo lectura: estás viendo las pantallas de un vendedor. Los cambios los hace quien instala.', 'err.read_only': 'Solo lectura: estás viendo las pantallas de otra persona. No se guardó nada.',
+  'install.w.return': 'Devolver teléfono', 'install.w.return.again': 'Toca otra vez para devolverlo', 'install.w.returned': 'Teléfono devuelto. Ya puede recibir otro.',
+  'install.w.failed.server': 'El servidor no respondió y la foto no llegó. Quedó en este teléfono; reintenta en un momento.',
   'install.card.start': 'Empezar instalación', 'install.card.go': 'Seguir instalación', 'install.card.more': ['Y {n} instalación más después de esta.', 'Y {n} instalaciones más después de esta.'],
   'err.imei_taken.site': 'Ese teléfono ya está asignado a otra persona en {site}. Usa otro teléfono o registra primero la devolución.',
 };
@@ -775,6 +779,10 @@ const en = {
   'install.c.record.title': 'site record', 'install.c.record.p': '{site}: who signed, on which day, and which phone they hold.',
   // the Hoy card
   'install.card.label': 'Install', 'install.card.phones': 'Phones received', 'install.card.phones.s': 'They reached the site', 'install.card.ready': 'Workers ready', 'install.card.ready.s': 'Consent, phone and clip',
+  'install.card.closed': 'Install closed', 'install.card.closed.s': 'Closed, waiting for your manager. Their confirmation makes the site installed.', 'install.card.closed.go': 'See the close', 'install.card.view': 'See the install',
+  'install.ro': 'Read only: you are viewing a rep\'s screens. Changes are made by the person who installs.', 'err.read_only': 'Read only: you are viewing someone else\'s screens. Nothing was saved.',
+  'install.w.return': 'Return the phone', 'install.w.return.again': 'Tap again to return it', 'install.w.returned': 'Phone returned. They can receive another one.',
+  'install.w.failed.server': 'The server did not answer and the photo did not arrive. It is kept on this phone; try again in a moment.',
   'install.card.start': 'Start the install', 'install.card.go': 'Continue the install', 'install.card.more': ['And {n} more install after this one.', 'And {n} more installs after this one.'],
   'err.imei_taken.site': 'That phone is already assigned to someone at {site}. Use another phone or record the return first.',
 };

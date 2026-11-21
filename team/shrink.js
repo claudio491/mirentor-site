@@ -17,7 +17,7 @@ async function decode(file) {
 const toJpeg = (canvas, quality) => new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('encode'))), 'image/jpeg', quality));
 
 /** The photo as a JPEG whose longer side is at most `maxSide` and whose size is at most `maxBytes`. Throws when the
- *  browser cannot read the file as an image. */
+ *  browser cannot read the file as an image, and with code `too_big` when it cannot be brought under `maxBytes`. */
 export async function shrink(file, { maxSide = 1600, maxBytes = 800 * 1024 } = {}) {
   const src = await decode(file);
   const w0 = src.width || src.naturalWidth, h0 = src.height || src.naturalHeight;
@@ -35,5 +35,7 @@ export async function shrink(file, { maxSide = 1600, maxBytes = 800 * 1024 } = {
     if (quality > 0.66) quality -= 0.1; else side = Math.round(side * 0.8);
   }
   if (src.close) src.close();
+  // still too heavy after every pass: the screen asks for another photo instead of sending one the server refuses
+  if (!out || out.size > maxBytes) throw Object.assign(new Error('too_big'), { code: 'too_big' });
   return out;
 }

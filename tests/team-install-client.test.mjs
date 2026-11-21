@@ -36,15 +36,15 @@ test('the install card shows for ready_to_install and installing, never for wait
     [{ state: 'ready_to_install' }, 'start'],
     [{ state: 'installing', ready: 1, total: 3 }, 'continue'],
     [{ state: 'waiting_phones', phones: null }, null],
-    [{ state: 'closed', ready: 3, total: 3 }, null],
     [{ state: 'installed' }, null],
     [{ state: 'legacy' }, null],
     // the practice site reports `practice` whatever its stage: phones and workers decide
     [{ state: 'practice', practice: true }, 'start'],
     [{ state: 'practice', practice: true, total: 2, ready: 1 }, 'continue'],
     [{ state: 'practice', practice: true, phones: null }, null],
-    // a closed practice site still reports `practice`: the closed flag says there is nothing left to do
-    [{ state: 'practice', practice: true, total: 2, ready: 2, closed: true }, null],
+    // closed and not yet confirmed: the card stays, waiting for the manager, and opens the close screen
+    [{ state: 'closed', ready: 3, total: 3, closed: true }, 'closed'],
+    [{ state: 'practice', practice: true, total: 2, ready: 2, closed: true }, 'closed'],
     // phones not marked never shows a card, whatever the state says
     [{ state: 'ready_to_install', phones: null }, null],
   ];
@@ -125,4 +125,33 @@ test('the close screen can close with whoever is ready, and after closing it wai
   assert.equal(closeState(v({}, { ready: 1 })).kind, 'ready');
   assert.equal(closeState(v({ closed: '2026-11-21T20:00:00Z' }, { ready: 1 })).kind, 'closed');
   assert.equal(closeState(v({ closed: '2026-11-21T20:00:00Z', installed: true }, { ready: 1 })).kind, 'closed');
+});
+
+test('the controls a screen offers: none at all when a manager looks through view-as, and each one only when it can act', async () => {
+  const { controls } = await import('../team/install-steps.js');
+  const site = { closed: null }, closed = { closed: '2026-11-21T20:00:00Z' };
+  const w = (over = {}) => ({ phone: true, consent: null, imei: null, clip: null, ...over });
+  const on = (c) => Object.entries(c).filter(([, v]) => v).map(([k]) => k).sort();
+  // read only: whatever the site and the worker, nothing that writes
+  for (const wk of [null, w(), w({ consent: { v: 'v1' } }), w({ consent: { v: 'v1' }, imei: IMEI_A })]) for (const st of [site, closed]) {
+    assert.deepEqual(on(controls({ readOnly: true, site: st, worker: wk })), [], JSON.stringify({ st, wk }));
+  }
+  // the site screen
+  assert.deepEqual(on(controls({ readOnly: false, site, worker: null })), ['addWorker', 'close', 'prep']);
+  assert.deepEqual(on(controls({ readOnly: false, site: closed, worker: null })), ['addWorker', 'prep'], 'a closed install cannot close again; late workers still come in');
+  // a worker: the consent always (a new photo replaces the old), the phone only with a consent, the return only with a phone
+  assert.deepEqual(on(controls({ readOnly: false, site, worker: w() })), ['addWorker', 'close', 'consent', 'prep']);
+  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' } }) })), ['addWorker', 'close', 'consent', 'phone', 'prep']);
+  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' }, imei: IMEI_A }) })), ['addWorker', 'clip', 'close', 'consent', 'prep', 'returnPhone']);
+  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' }, imei: IMEI_A, clip: 'x' }) })), ['addWorker', 'close', 'consent', 'prep', 'returnPhone']);
+  // after a return the phone step is open again
+  assert.equal(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' } }) }).phone, true);
+  // a coworker who signs only never gets a phone control
+  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ phone: false, consent: { v: 'v1' } }) })), ['addWorker', 'close', 'consent', 'prep']);
+});
+
+test('a failed consent upload keeps the photo for a retry only when the failure was the signal or the server', async () => {
+  const { keepForRetry } = await import('../team/install-steps.js');
+  for (const e of [{ code: 'offline', status: 0 }, { code: 'unknown', status: 502 }, { code: 'unknown', status: 500 }]) assert.equal(keepForRetry(e), true, JSON.stringify(e));
+  for (const e of [{ code: 'too_big', status: 413 }, { code: 'image', status: 400 }, { code: 'legacy', status: 409 }, { code: 'not_yours', status: 403 }, null]) assert.equal(keepForRetry(e), false, JSON.stringify(e));
 });

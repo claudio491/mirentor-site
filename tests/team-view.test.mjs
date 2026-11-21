@@ -179,3 +179,14 @@ test('a practice site earns no points, adds no feed line, is no signed site in t
   assert.equal(v.installs.length, 0, 'no phones marked yet');
   assert.deepEqual(teamView(s, ctx()).sites.map((x) => [x.id, x.practice]), [['s_prac', true]], 'the manager sees it labeled');
 });
+
+test('a closed install stays in me until a manager confirms it, and leaves once it is installed', () => {
+  const T0 = at('2026-11-12', '10:00');
+  const base = [rep('ana'), { type: 'site', t: T0, id: 's1', rep: 'ana', lead: { id: null, name: 'Taller' }, by: 'boss' }, { type: 'site.phones', t: T0, siteId: 's1', count: 1, by: 'boss' },
+    { type: 'worker.added', t: T0, id: 'w_aaaaaaaa', siteId: 's1', name: 'Persona', email: 'p@equipo.test', by: 'ana' },
+    { type: 'worker.consent', t: T0, workerId: 'w_aaaaaaaa', v: 'v1', ext: 'jpg', form: 'v1' }, { type: 'worker.phone', t: T0, workerId: 'w_aaaaaaaa', imei: '490154203237518' },
+    { type: 'worker.clip', t: T0, workerId: 'w_aaaaaaaa' }, { type: 'install.close', t: at('2026-11-13', '10:00'), siteId: 's1', by: 'ana' }];
+  assert.deepEqual(repView(build(base), 'ana', ctx()).installs.map((x) => [x.id, x.state, x.closed]), [['s1', 'closed', true]]);
+  const done = build([...base, { type: 'site.step', t: at('2026-11-14', '10:00'), siteId: 's1', what: 'installed', by: 'boss' }]);
+  assert.deepEqual(repView(done, 'ana', ctx()).installs, []);
+});

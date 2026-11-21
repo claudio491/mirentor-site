@@ -77,8 +77,8 @@ const LAST_LEADS = { andrea: ['P1', 'P3', 'P6'], omar: ['C1', 'C2', 'C4'], luis:
 
 /** `names` shows a sample person under another label, by handle: { andrea: 'Vendedor A' }, and `handles` gives them
  *  another username: { andrea: 'vendedor.a' }. The person and their week of work stay the same. */
-// A blank 1x1 PNG stands in for a signed consent: the sample has the file on disk, and it shows nothing of anyone.
-const BLANK_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN8/58BAAAEAQH/7k3ULwAAAABJRU5ErkJggg==', 'base64');
+// A 1x1 PNG the color of paper stands in for a signed consent: the sample has the file on disk, and it shows nothing of anyone.
+const BLANK_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP49OEVAAWkAs0fqFFdAAAAAElFTkSuQmCC', 'base64');
 /** The practice site of the sample's first rep (it reaches her Hoy as a card), with its phones marked and three placeholder workers: one ready, one who still
  *  needs a consent, one with a consent who still needs a phone. Every name says it is a placeholder. */
 function practiceSite(dir, rep, boss, day) {

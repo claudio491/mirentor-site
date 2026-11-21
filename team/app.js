@@ -63,7 +63,7 @@ const MAIN_KINDS = ['talk', 'absent', 'call', 'message', 'meeting', 'contract'],
 const LEDGER_RULE = { visit: 'visit', conversation: 'conversation', followup: 'followup', message: 'message', reply: 'reply', meeting_booked: 'meetingBooked', meeting_held: 'meetingHeld',
   contract_sent: 'contractSent', contract_signed: 'contractSigned', site_signed: 'siteSigned', site_installed: 'siteInstalled', site_first_hour: 'siteFirstHour', day_closed: 'dayClosedOnTime' };
 const readOnly = () => !!S.as;
-const INSTALL_TABS = new Set(['install', 'worker', 'iclose']);   // the install's own screens: no tab of the bar is marked
+const INSTALL_TABS = new Set(['install', 'worker', 'iclose']);   // the install's own screens: renderAll draws the open one again, so a language change or a poll reaches it
 const tz = () => S.me.me.tz;
 const pts = (n) => t('u.points', { n });
 /** The word of a counted unit without its number: "sitios" from "3 sitios". */
