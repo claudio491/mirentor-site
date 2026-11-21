@@ -73,3 +73,15 @@ test('the leader seed gives the leadership view a leader, two weeks of hours and
   const plain = fresh(); seed(plain, { now: THU_3PM });
   assert.deepEqual([[...openTeamStore(plain).state.reps.values()].some((r) => r.role === 'leader'), openTeamStore(plain).state.hours.size], [false, 0]);
 });
+
+test('the lone seed is one admin and nothing else, so the screens can be seen as a team that has not started', () => {
+  const dir = fresh(), r = seed(dir, { now: THU_3PM, lone: true });
+  const store = openTeamStore(dir), ctx = { now: THU_3PM.toISOString(), leads: store.leads() };
+  assert.deepEqual([...store.state.reps.values()].map((x) => [x.handle, x.role]), [['lider', 'admin']]);
+  assert.deepEqual(r.reps, ['lider (admin)']);
+  assert.deepEqual([store.state.sites.size, store.state.logs.size, store.state.feed.length], [0, 0, 0]);
+  const team = teamView(store.state, ctx);
+  assert.deepEqual([team.reps.length, team.others.map((x) => x.id)], [0, ['r_sample_lider']]);
+  // the default seed still has its six people
+  assert.equal(seed(fresh(), { now: THU_3PM }).reps.length, 6);
+});

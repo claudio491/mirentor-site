@@ -123,8 +123,9 @@ function leadership(dir, rep, boss, ws) {
 }
 
 /** `practice` adds a practice site for the rep andrea with three placeholder workers, for looking at the install screens.
- *  `leader` adds what the leadership view needs (see leadership above). */
-export function seed(dir, { now = new Date(), names = {}, handles = {}, practice = false, leader = false } = {}) {
+ *  `leader` adds what the leadership view needs (see leadership above). `lone` is the admin alone, with no reps and no
+ *  work: a team that has not started, the way a new account opens (the other options are ignored with it). */
+export function seed(dir, { now = new Date(), names = {}, handles = {}, practice = false, leader = false, lone = false } = {}) {
   const events = path.join(dir, 'team', 'events.jsonl');
   if (existsSync(events) && readFileSync(events, 'utf8').trim()) throw new Error(`${events} already holds events: the seed only fills an empty folder`);
   mkdirSync(path.join(dir, 'team'), { recursive: true });
@@ -133,13 +134,17 @@ export function seed(dir, { now = new Date(), names = {}, handles = {}, practice
   const out = [];
   const push = (e) => { if (e.t <= nowIso) out.push(e); };
 
-  for (const r of leader ? [...SAMPLE_REPS, SAMPLE_LEADER] : SAMPLE_REPS) {
+  const people = lone ? SAMPLE_REPS.filter((r) => r.role === 'admin') : leader ? [...SAMPLE_REPS, SAMPLE_LEADER] : SAMPLE_REPS;
+  for (const r of people) {
     const start = r.isNew ? addDays(today, -5) : addDays(today, -60), t = at(start, '08:00');
     const handle = typeof handles[r.handle] === 'string' && /^[a-z0-9][a-z0-9._-]{1,39}$/.test(handles[r.handle]) ? handles[r.handle] : r.handle;
     // An address under .test, the ending kept for examples: it can never be anyone's.
     out.push({ type: 'rep.created', id: r.id, handle, email: `${handle}@ejemplo.test`, name: (typeof names[r.handle] === 'string' && names[r.handle].trim()) || r.name, role: r.role, country: 'PA', city: r.city, tz: TZ, workdays: [1, 2, 3, 4, 5], startDate: start, lang: 'es', t });
   }
   const id = (handle) => `r_sample_${handle}`;
+  const store = openTeamStore(dir);
+  const leads = () => store.setLeads(Object.entries(LEADS).map(([key, [company, zone, city, known]]) => ({ id: leadId(key), company, zone, city, stage: known ? 'Contacted' : 'New', ...(known ? { lastContact: addDays(ws, -16) } : {}) })));
+  if (lone) { for (const e of out) store.append(e); leads(); return { events: out.length, reps: people.map((r) => `${r.handle} (${r.role})`) }; }
   let n = 0;
   const log = (handle, day, time, kind, key, x = {}) => {
     const logId = `sample-${handle}-${day}-${String(n += 1).padStart(3, '0')}`, t = at(day, time);
@@ -188,10 +193,9 @@ export function seed(dir, { now = new Date(), names = {}, handles = {}, practice
   if (leader) out.push(...leadership(dir, id('luis'), id('lider'), ws).filter((e) => e.t <= nowIso));
 
   out.sort((x, y) => (x.t < y.t ? -1 : x.t > y.t ? 1 : 0));
-  const store = openTeamStore(dir);
   for (const e of out) store.append(e);
-  store.setLeads(Object.entries(LEADS).map(([key, [company, zone, city, known]]) => ({ id: leadId(key), company, zone, city, stage: known ? 'Contacted' : 'New', ...(known ? { lastContact: addDays(ws, -16) } : {}) })));
-  return { events: out.length, reps: (leader ? [...SAMPLE_REPS, SAMPLE_LEADER] : SAMPLE_REPS).map((r) => `${r.handle} (${r.role})`) };
+  leads();
+  return { events: out.length, reps: people.map((r) => `${r.handle} (${r.role})`) };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
