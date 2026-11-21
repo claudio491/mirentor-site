@@ -3,7 +3,8 @@
 // With a roster file (data-sample/team.json, which git ignores; see tools/team-roster.mjs) it shows the actual team:
 // their names and photos, the real time, and no activity, because nothing is made up. --sample forces the fictional
 // sample below even when the roster file is there.
-// Each start writes a fresh sample folder in the system's temp directory, with fictional people and businesses.
+// Each start writes a fresh sample folder in the system's temp directory, with fictional people and businesses, and
+// the admin's practice site with three placeholder workers, to look at the install screens.
 // The preview clock starts on the Thursday of this week at 3:00 pm in Panama, so the week on screen is half lived:
 // full days, gaps, things waiting for the manager. --day=5 moves it to that day of the week (1 is Monday), for example
 // to see the Friday when next week's goal can be picked. Pass --now to use the real time instead.
@@ -26,7 +27,7 @@ const moment = at(addDays(weekStart(localDay(new Date().toISOString(), 'America/
 const offset = real ? 0 : Date.parse(moment) - Date.now();
 const clock = () => new Date(Date.now() + offset);
 const dir = mkdtempSync(path.join(tmpdir(), 'cancha-sample-'));
-const started = roster ? seedRoster(dir, { now: clock(), ...roster }) : seed(dir, { now: clock() });
+const started = roster ? seedRoster(dir, { now: clock(), ...roster }) : seed(dir, { now: clock(), practice: true });
 const app = previewApp({ dir, now: clock, previewOffsetMs: offset });
 
 http.createServer(app.listener).listen(port, '127.0.0.1', () => {

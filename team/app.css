@@ -970,3 +970,82 @@ html.greeting{overflow:hidden}
   .jt,.abone,.stick,.bars i,.stop:not(:last-child)::after,.daydone,.daydone.on,.teachsteps i::after,.teachsteps i.on::after{transition:none}
   .daydone.on .dd-hand,.daydone.on .giant,.daydone.on .dd-sub,.daydone.on .dd-go,.burst.fire circle,.burst.fire line{animation:none}
 }
+
+/* =====================================================================================================================
+   INSTALL A SITE. Two zones on their own ground: "before recording" on porcelain (it explains what the site needs),
+   the workers on the deep graphite of the team zone (it is where the work happens). Ticks lock in and draw their check,
+   the meter lights one cell per phone as each worker becomes ready, and a row that changes state moves to its group.
+   ===================================================================================================================== */
+.inst{container-type:inline-size}
+.inst-back{margin-right:2px}
+.inst-a>.lead{margin-top:22px}.inst-a>.giant{margin-top:4px}.inst-a>.support{margin-top:12px}
+.inst-prac{border-color:var(--signal);color:var(--signal)}
+.inst-pnote{max-width:46ch}
+.inst-lenses{grid-template-columns:repeat(2,minmax(0,1fr));max-width:280px}
+.inst-zones{display:grid;gap:14px;margin-top:26px}
+.inst-zone{position:relative;border-radius:var(--r-media);padding:16px 14px 18px;background-size:56px 56px;background-position:15px -1px,-1px 15px}
+.inst-prep{background-color:var(--porcelain);color:var(--graphite);color-scheme:light;
+  background-image:linear-gradient(to right,rgba(27,29,32,.07) 1px,transparent 1px),linear-gradient(to bottom,rgba(27,29,32,.07) 1px,transparent 1px)}
+.inst-crew{background-color:var(--deep);box-shadow:inset 0 0 0 1px var(--rule);
+  background-image:linear-gradient(to right,rgba(233,235,236,.06) 1px,transparent 1px),linear-gradient(to bottom,rgba(233,235,236,.06) 1px,transparent 1px)}
+.inst-zh{display:flex;align-items:center;gap:10px}
+.inst-zh h2{flex:1;min-width:0;font-size:22px;font-weight:700;letter-spacing:-.04em;text-transform:lowercase;line-height:1}
+.inst-k{flex:none;padding:5px 7px;border-radius:var(--r-hud);background:var(--signal);color:var(--graphite);font:600 12px/1 var(--mono)}
+.inst-prep .label{color:var(--slate)}
+.inst-prep .mini-btn{border-color:rgba(27,29,32,.32)}
+.inst-prep :focus-visible{outline-color:var(--signal-ink)}
+@media (hover:hover) and (pointer:fine){.inst-prep .mini-btn:hover{background:rgba(27,29,32,.07)}}
+.inst-rows{margin-top:10px}
+.inst-row{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:4px 12px;align-items:center;min-height:62px;padding:9px 0;border-top:1px solid var(--rule)}
+.inst-row:first-child{border-top:0}
+.inst-prep .inst-row{border-top-color:rgba(27,29,32,.12)}
+.inst-n{min-width:0}
+.inst-n b{display:block;font-weight:600;letter-spacing:-.01em;line-height:1.25;overflow-wrap:anywhere}
+.inst-n small{display:block;font-size:13px;line-height:1.35;color:var(--mist)}
+.inst-prep .inst-n small{color:var(--slate)}
+.inst-crew .inst-row{grid-template-rows:auto auto}
+.inst-crew .inst-tick,.inst-crew .inst-n{grid-row:1 / span 2}
+.inst-tag{grid-column:3;grid-row:1;justify-self:end;align-self:end;padding:5px 6px;border-radius:var(--r-hud);font:600 11px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.inst-tag.ok{background:var(--porcelain);color:var(--graphite)}
+.inst-tag.miss{box-shadow:inset 0 0 0 1px var(--signal);color:var(--signal)}
+.inst-steps{grid-column:3;grid-row:2;justify-self:end;align-self:start;display:flex;gap:4px;margin-top:3px}
+.inst-steps i{width:6px;height:6px;border-radius:50%;box-shadow:inset 0 0 0 1px var(--hair)}
+.inst-steps i.on{background:var(--signal);box-shadow:none}
+/* the tick: a disc that locks in, then a check that draws itself */
+.inst-tick{position:relative;display:block;width:24px;height:24px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--hair)}
+.inst-prep .inst-tick{box-shadow:inset 0 0 0 1.5px rgba(27,29,32,.3)}
+.inst-tick>i{position:absolute;inset:0;border-radius:50%;background:var(--signal);transform:scale(.4);opacity:0;transition:transform 260ms var(--ease-lock),opacity 160ms ease}
+.inst-tick.on>i{transform:scale(1);opacity:1}
+.inst-tick svg{position:absolute;inset:0;width:100%;height:100%;fill:none;stroke:var(--graphite);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.inst-tick .ck{stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 320ms var(--ease-track) 120ms}
+.inst-tick.on .ck{stroke-dashoffset:0}
+/* the next thing to do is ringed in signal, and the ring breathes out from it */
+.inst-tick.now,.inst-prep .inst-tick.now{box-shadow:inset 0 0 0 1.5px var(--signal)}
+.inst-tick.now::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1.5px solid var(--signal);opacity:0;animation:instnow 1.9s var(--ease-out) infinite}
+@keyframes instnow{0%{transform:scale(.72);opacity:.75}100%{transform:scale(1.3);opacity:0}}
+/* the meter: one cell per phone that reached the site */
+.inst-meter{display:flex;gap:3px;height:8px;margin-top:16px}
+.inst-meter i{position:relative;flex:1;min-width:0;border-radius:2px;background:rgba(233,235,236,.12);overflow:hidden}
+.inst-meter i::after{content:"";position:absolute;inset:0;background:var(--signal);transform:scaleX(0);transform-origin:left;transition:transform 420ms var(--ease-track) calc(var(--k,0) * 80ms)}
+.inst-meter i.on::after{transform:scaleX(1)}
+.inst-mt{margin-top:9px}
+.inst-adv{display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 12px;border:1px solid var(--rule);border-radius:var(--r-input);font-size:14px;line-height:1.35}
+.inst-adv .inst-tick{flex:none}
+.inst-add{margin-top:14px;border-style:dashed}
+/* the temporary way in, until the Hoy card */
+.inst-slot{margin-top:24px;max-width:520px}
+.inst-entry-h{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.inst-entry-h .sec-h{margin-top:0}
+.inst-entry{display:grid;gap:8px;margin-top:10px}
+.inst-entry .leadopt{width:100%}
+.inst-entry-k{display:inline-flex;align-items:center;gap:8px}
+@container (min-width:860px){
+  .inst-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 48px;align-items:end}
+  .inst-lenses{margin-top:0;width:280px}
+  .inst-zones{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:18px;align-items:start;margin-top:32px}
+  .inst-zone{padding:22px 24px 24px}
+}
+@media (prefers-reduced-motion:reduce){
+  .inst-tick>i,.inst-tick .ck,.inst-meter i::after{transition:none}
+  .inst-tick.now::after{animation:none;opacity:0}
+}

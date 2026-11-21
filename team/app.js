@@ -10,6 +10,7 @@ import { STOPS, stopsOf, standOn, loopOf, rewardOf, landed, stepOf } from './sto
 import { createStage } from './stage.js';
 import { ART, STEPS } from './art.js';
 import { createManager } from './manager.js';
+import { createInstall } from './install.js';
 import { verdict, mine as waitingOf } from './queue.js';
 import { sessionMove, HOME, LEAVE } from './door.js';
 
@@ -44,7 +45,7 @@ const S = { me: null, sig: '', tab: null, period: 'week', as: null, mgr: false, 
   hold: null,     // the stop a log landed on, kept on the stage until its answer has played
   owed: null,     // an answer that waits for a sheet to close
   taught: false };
-const SCREENS = ['boot', 'gate', 'today', 'week', 'table', 'profile', 'team', 'needs', 'reps'];
+const SCREENS = ['boot', 'gate', 'today', 'week', 'table', 'profile', 'team', 'needs', 'reps', 'install'];
 // A rep's three zones. On a wide screen they are one page, a band under the other; anywhere else one shows at a time.
 const BANDS = ['today', 'week', 'table'], WIDE = matchMedia('(min-width:1080px)');
 const banded = () => WIDE.matches && !S.mgr && !!S.me;
@@ -194,6 +195,9 @@ function renderAll(animate = false) {
   const run = () => {
     renderTop(); renderNav();
     if (S.mgr) manager.render(animate); else { renderToday(animate); renderWeek(animate); renderTable(animate); renderProfile(); renderRules(); }
+    // The installs that wait: a temporary way in from the profile and the team view, until the Hoy card.
+    install.entry($(S.mgr ? '#installEntryMgr' : '#installEntryRep'));
+    if (S.tab === 'install') install.render(false);
   };
   if (animate) run(); else quiet(run);
 }
@@ -1063,8 +1067,9 @@ async function viewAs(id = null) {
 }
 // ---- wiring ----
 const manager = createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs });
+const install = createInstall({ api, S, errText, refresh, setTab });
 function wire() {
-  initPop(); initSheets();
+  initPop(); initSheets(); install.wire();
   $('#home').addEventListener('click', (e) => { if (!S.me) return; e.preventDefault(); if (S.as) viewAs(null); else setTab(S.mgr ? 'team' : 'today'); });
   $('#asExit').addEventListener('click', (e) => { e.preventDefault(); viewAs(null); });
   // Back and forward move between the team and a rep's screens, as the address says.

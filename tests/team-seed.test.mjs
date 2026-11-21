@@ -43,3 +43,16 @@ test('the seed never touches a folder that already holds events', () => {
   const dir = fresh(); seed(dir, { now: THU_3PM });
   assert.throws(() => seed(dir, { now: THU_3PM }), /already holds events/);
 });
+
+test('the practice seed gives the admin a practice site with phones marked and three placeholder workers in three states', () => {
+  const dir = fresh(); seed(dir, { now: THU_3PM, practice: true });
+  const store = openTeamStore(dir), ctx = { now: THU_3PM.toISOString(), leads: store.leads() };
+  const me = repView(store.state, 'r_sample_lider', ctx);
+  assert.deepEqual(me.installs, [{ id: 's_sample_practice', name: 'Sitio de práctica', state: 'practice', ready: 1, total: 3, phones: 3, practice: true }]);
+  const workers = store.state.sites.get('s_sample_practice').workers.map((id) => store.state.workers.get(id));
+  assert.deepEqual(workers.map((w) => [w.name, !!w.consent, !!w.imei]), [['Trabajador 1', true, true], ['Trabajador 2', false, false], ['Trabajador 3', true, false]]);
+  assert.equal(existsSync(path.join(dir, 'team', 'consents', `${workers[0].id}.png`)), true);
+  // without the option the sample stays as it was
+  const plain = fresh(); seed(plain, { now: THU_3PM });
+  assert.equal(openTeamStore(plain).state.sites.has('s_sample_practice'), false);
+});

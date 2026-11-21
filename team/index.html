@@ -171,6 +171,7 @@
         <p class="lead" data-t="profile.lead"></p>
         <h1 class="giant word" id="profileGiant"></h1>
         <div class="lvl" id="lvl"></div>
+        <div class="inst-slot" id="installEntryRep" hidden></div>
       </div>
       <div class="col-b">
         <h2 class="sec-h" data-t="profile.badges"></h2>
@@ -197,6 +198,7 @@
       <div class="wall" id="wall" role="group" data-t-aria="wall.aria"></div>
     </div>
     <div class="blenses" id="teamLenses"></div>
+    <div class="inst-slot" id="installEntryMgr" hidden></div>
     <div class="hud-row gap"><div class="seg scroll" role="group" id="citySeg" data-t-aria="mgr.filter.aria"></div></div>
     <div class="btable" id="teamTable"></div>
     <p class="note" id="teamEmpty" hidden data-t="mgr.none"></p>
@@ -220,6 +222,36 @@
       <div class="acts"><button class="btn" type="button" id="dayoffBtn" data-t="reps.dayoff"></button> <button class="btn primary" type="button" id="addRepBtn" data-t="reps.add"></button></div>
     </div>
     <div id="repsBody"></div>
+  </section>
+
+  <!-- INSTALL A SITE. Before recording (signs, zones, the coordinator) on porcelain; the workers on graphite, each one
+       ready with a signed consent, a phone and a test clip. -->
+  <section class="screen inst" id="s-install" hidden aria-labelledby="instGiant">
+    <div class="inst-head">
+      <div class="inst-a">
+        <div class="hud-row"><button class="mini-btn inst-back" type="button" id="instBack" data-t="install.back"></button><span class="chip"><i class="dot"></i><span id="instSite"></span></span><span class="chip inst-prac" id="instPractice" hidden data-t="install.practice"></span><span class="chip ghost" id="instCity"></span></div>
+        <p class="lead" data-t="install.lead"></p>
+        <h1 class="giant" id="instGiant"></h1>
+        <p class="support" data-t="install.support"></p>
+        <p class="note inst-pnote" id="instPracticeNote" hidden data-t="install.practice.note"></p>
+      </div>
+      <div class="blenses inst-lenses" id="instLenses"></div>
+    </div>
+    <div class="inst-zones">
+      <section class="inst-zone inst-prep" id="instPrepZone" aria-labelledby="instPrepH">
+        <div class="inst-zh"><b class="inst-k" aria-hidden="true">01</b><h2 id="instPrepH" data-t="install.zone.prep"></h2><span class="label num" id="instPrepCount"></span></div>
+        <ul class="inst-rows" id="instPrep"></ul>
+      </section>
+      <section class="inst-zone inst-crew" id="instCrewZone" aria-labelledby="instCrewH">
+        <div class="inst-zh"><b class="inst-k" aria-hidden="true">02</b><h2 id="instCrewH" data-t="install.zone.crew"></h2><span class="label num" id="instCrewCount"></span></div>
+        <div class="inst-meter" id="instMeter" role="img"></div>
+        <p class="label inst-mt" id="instMeterT"></p>
+        <p class="inst-adv" id="instAdv" hidden><span class="inst-tick" aria-hidden="true"><i></i><svg viewBox="0 0 24 24" focusable="false"><path class="ck" d="M7.2 12.6l3.2 3.2 6.6-7" pathLength="1"/></svg></span><span data-t="install.adv"></span></p>
+        <ul class="inst-rows" id="instList" data-t-aria="install.list.aria"></ul>
+        <p class="note" id="instEmpty" hidden data-t="install.empty"></p>
+        <button class="btn wide inst-add" type="button" id="instAdd"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg><span data-t="install.add"></span></button>
+      </section>
+    </div>
   </section>
 
   <nav class="nav" id="nav" hidden data-t-aria="nav.aria"></nav>

@@ -139,3 +139,32 @@ test('the manager sees what needs confirming, who is silent after noon and which
   applyEvent(s, { type: 'confirm', t: at(MON, '14:00'), logId: c.id, what: 'contract_sent', by: 'boss' });
   assert.deepEqual(teamView(s, ctx('15:00')).needs.confirm.map((x) => x.what), ['meeting_held', 'contract_signed']);
 });
+
+test('me lists the installs that wait for the rep: phones marked, not voided, not legacy, not confirmed installed', () => {
+  const T0 = at('2026-11-12', '10:00');
+  const site = (id, over = {}) => ({ type: 'site', t: T0, id, rep: 'ana', lead: { id: null, name: `Taller ${id}` }, city: 'Panama City', eligible: 8, by: 'boss', ...over });
+  const phones = (siteId, count = 4) => ({ type: 'site.phones', t: T0, siteId, count, by: 'boss' });
+  const worker = (id, siteId) => ({ type: 'worker.added', t: at('2026-11-13', '09:00'), id, siteId, name: `Persona ${id}`, email: `${id}@equipo.test`, by: 'ana' });
+  const s = build([rep('ana'), rep('beto'),
+    site('s_wait'),                                         // no phones yet: nothing to install
+    site('s_ready'), phones('s_ready'),                     // ready to install
+    site('s_doing'), phones('s_doing', 3), worker('w_aaaaaaaa', 's_doing'),
+    { type: 'worker.consent', t: at('2026-11-13', '09:05'), workerId: 'w_aaaaaaaa', v: 'v1', ext: 'jpg', form: 'v1' },
+    { type: 'worker.phone', t: at('2026-11-13', '09:06'), workerId: 'w_aaaaaaaa', imei: '490154203237518' },
+    { type: 'worker.clip', t: at('2026-11-13', '09:07'), workerId: 'w_aaaaaaaa' },
+    worker('w_bbbbbbbb', 's_doing'),
+    site('s_done'), phones('s_done'), { type: 'site.step', t: T0, siteId: 's_done', what: 'installed', by: 'boss' },
+    site('s_void'), phones('s_void'), { type: 'site.void', t: T0, siteId: 's_void', by: 'boss' },
+    site('s_old', { legacy: true }), phones('s_old'),
+    site('s_prac', { practice: true }), phones('s_prac', 2),
+    site('s_beto', { rep: 'beto' }), phones('s_beto')]);
+  const mine = repView(s, 'ana', ctx()).installs;
+  assert.deepEqual(mine, [
+    { id: 's_ready', name: 'Taller s_ready', state: 'ready_to_install', ready: 0, total: 0, phones: 4, practice: false },
+    { id: 's_doing', name: 'Taller s_doing', state: 'installing', ready: 1, total: 2, phones: 3, practice: false },
+    { id: 's_prac', name: 'Taller s_prac', state: 'practice', ready: 0, total: 0, phones: 2, practice: true },
+  ]);
+  assert.deepEqual(repView(s, 'beto', ctx()).installs.map((x) => x.id), ['s_beto']);
+  // A site the manager installs is not on the manager's list unless the manager is its rep.
+  assert.deepEqual(repView(build([rep('ana'), rep('boss', { role: 'admin' }), site('s_ready'), phones('s_ready')]), 'boss', ctx()).installs, []);
+});

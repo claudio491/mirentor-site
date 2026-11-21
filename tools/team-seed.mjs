@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { openTeamStore } from '../lib/team/store.mjs';
+import { saveConsent } from '../lib/team/consent.mjs';
 import { channelOf, weekStart, monthStart, addDays, localDay } from '../lib/team/rules.mjs';
 
 const TZ = 'America/Panama', UTC_OFFSET_H = 5;   // Panama is UTC-5 all year
@@ -76,7 +77,26 @@ const LAST_LEADS = { andrea: ['P1', 'P3', 'P6'], omar: ['C1', 'C2', 'C4'], luis:
 
 /** `names` shows a sample person under another label, by handle: { andrea: 'Vendedor A' }, and `handles` gives them
  *  another username: { andrea: 'vendedor.a' }. The person and their week of work stay the same. */
-export function seed(dir, { now = new Date(), names = {}, handles = {} } = {}) {
+// A blank 1x1 PNG stands in for a signed consent: the sample has the file on disk, and it shows nothing of anyone.
+const BLANK_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN8/58BAAAEAQH/7k3ULwAAAABJRU5ErkJggg==', 'base64');
+/** The practice site of the sample's admin, with its phones marked and three placeholder workers: one ready, one who still
+ *  needs a consent, one with a consent who still needs a phone. Every name says it is a placeholder. */
+function practiceSite(dir, rep, day) {
+  const site = 's_sample_practice', T = (hhmm) => at(day, hhmm), by = rep, out = [];
+  out.push({ type: 'site', id: site, rep, lead: { id: null, name: 'Sitio de práctica' }, city: 'Panama City', eligible: 3, practice: true, by, t: T('09:00') });
+  out.push({ type: 'site.phones', siteId: site, count: 3, by, t: T('09:05') });
+  out.push({ type: 'site.prep', siteId: site, what: 'signs', by, t: T('09:20') });
+  const worker = (n, hhmm) => { const id = `w_sampleWorker${n}`; out.push({ type: 'worker.added', siteId: site, id, name: `Trabajador ${n}`, email: `trabajador${n}@ejemplo.test`, phone: true, by, t: T(hhmm) }); return id; };
+  const consent = (id, hhmm) => { const kept = saveConsent(dir, id, BLANK_PNG); out.push({ type: 'worker.consent', workerId: id, ext: kept.ext, v: kept.v, form: 'v1', by, t: T(hhmm) }); };
+  const w1 = worker(1, '09:30'); consent(w1, '09:34');
+  out.push({ type: 'worker.phone', workerId: w1, imei: '490154203237518', by, t: T('09:36') }, { type: 'worker.clip', workerId: w1, by, t: T('09:40') });
+  worker(2, '09:45');
+  const w3 = worker(3, '09:50'); consent(w3, '09:55');
+  return out;
+}
+
+/** `practice` adds the admin's practice site with three placeholder workers, for looking at the install screens. */
+export function seed(dir, { now = new Date(), names = {}, handles = {}, practice = false } = {}) {
   const events = path.join(dir, 'team', 'events.jsonl');
   if (existsSync(events) && readFileSync(events, 'utf8').trim()) throw new Error(`${events} already holds events: the seed only fills an empty folder`);
   mkdirSync(path.join(dir, 'team'), { recursive: true });
@@ -135,6 +155,8 @@ export function seed(dir, { now = new Date(), names = {}, handles = {} } = {}) {
   const ms = monthStart(today), signed = addDays(ms, 2) < ws ? addDays(ms, 2) : addDays(ws, -3);
   push({ type: 'site', id: 's_sample_1', rep: id('omar'), lead: { id: null, name: 'Astillero El Faro' }, by: id('lider'), t: at(signed, '16:00') });
   push({ type: 'site.step', siteId: 's_sample_1', what: 'installed', by: id('lider'), t: at(addDays(signed, 3), '11:00') });
+
+  if (practice) out.push(...practiceSite(dir, id('lider'), addDays(today, -1)));
 
   out.sort((x, y) => (x.t < y.t ? -1 : x.t > y.t ? 1 : 0));
   const store = openTeamStore(dir);
