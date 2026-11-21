@@ -111,6 +111,14 @@ export function stake(view) {
 /** How far a score is along the race to the leader's, from 0 to 1. */
 export const raceShare = (score, lead) => (lead > 0 ? Math.max(0, Math.min(1, score / lead)) : 0);
 
+/** What a counter shows at `k` (0 to 1) of its run from `from` to `to`: whole numbers on the way, eased out, and the
+ *  exact value on the last frame, so a percentage with a decimal ends as it is written beside it. */
+export function countFrame(from, to, k) {
+  if (k >= 1) return to;
+  const e = 1 - (1 - Math.max(0, k)) ** 4;
+  return Math.round(from + (to - from) * e);
+}
+
 /** Which characters of a number changed, so only those roll. Another length rolls them all; a first paint rolls none. */
 export function changedChars(from, to) {
   const b = String(to);

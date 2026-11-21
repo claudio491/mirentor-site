@@ -1,6 +1,7 @@
 // ui.js: the small tools every screen uses. Elements are always built node by node, never from a string of markup,
 // so a name or a note typed by a person can never become part of the page's structure.
 import { DICT, LANGS, LOCALE, makeT } from './i18n.js';
+import { countFrame } from './moments.js';
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -138,8 +139,8 @@ export function countTo(node, to, show = num) {
   const t0 = performance.now(), dur = 620;
   const tick = (now) => {
     if (Number(node.dataset.v) !== to) return;   // a newer value took over
-    const k = Math.min(1, (now - t0) / dur), e = 1 - (1 - k) ** 4;
-    node.textContent = show(Math.round(from + (to - from) * e));
+    const k = Math.min(1, (now - t0) / dur);
+    node.textContent = show(countFrame(from, to, k));   // the last frame writes the value itself, decimals and all
     if (k < 1) requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);

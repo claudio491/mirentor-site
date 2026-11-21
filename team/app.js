@@ -14,7 +14,7 @@ import { createInstall } from './install.js';
 import { createLadder } from './ladder.js';
 import { createLeader } from './leader.js';
 import { shellFor } from './leader-steps.js';
-import { verdict, mine as waitingOf } from './queue.js';
+import { verdict, mine as waitingOf, requestTimeout } from './queue.js';
 import { sessionMove, HOME, LEAVE } from './door.js';
 
 const API = 'api';   // every address is relative to the page, so the app works wherever it is mounted
@@ -30,7 +30,8 @@ class ApiError extends Error { constructor(code, status, data = null) { super(co
 async function api(method, path, body) {
   let res;
   // A request that hangs is treated as no signal: a log then waits on the phone and goes out again with the same id.
-  const stop = new AbortController(), timer = setTimeout(() => stop.abort(), 15000);
+  // A consent photo gets longer than the rest (queue.js says how long).
+  const stop = new AbortController(), timer = setTimeout(() => stop.abort(), requestTimeout(body));
   try {
     // A photo goes as its own bytes (the server reads what it is from them); everything else goes as JSON.
     const blob = typeof Blob !== 'undefined' && body instanceof Blob;

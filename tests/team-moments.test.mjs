@@ -1,7 +1,7 @@
 // What deserves a moment on screen is decided in team/moments.js, apart from the screens, so it is tested without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, changedChars, tableNote, firstDays, untouched, anyLog, shortNames, closeCard, crewOf, historyRows } from '../team/moments.js';
+import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, changedChars, countFrame, tableNote, firstDays, untouched, anyLog, shortNames, closeCard, crewOf, historyRows } from '../team/moments.js';
 
 const RULES = { points: { visit: 3, conversation: 5, followup: 2, dayClosedOnTime: 2 }, habits: { visits: 1, conversations: 2, followups: 1 }, closeBy: '19:00' };
 const today = (over = {}) => ({ day: '2026-11-17', isWork: true, habits: [false, false, false, false], visits: 0, conversations: 0, followups: 0, closed: false, ...over });
@@ -185,4 +185,14 @@ test('in the history, a meeting the person still has to report as held comes fir
   assert.deepEqual(historyRows(ledger, pending).map((e) => e.id), ['m1', 'a', 'b', 'c', 'm2']);
   assert.deepEqual(historyRows(ledger, []).map((e) => e.id), ['a', 'b', 'm1', 'c', 'm2']);
   assert.deepEqual(historyRows([], pending), []);
+});
+
+test('a counter ends on its exact value, a percentage with a decimal included; the frames before it are whole numbers', () => {
+  assert.equal(countFrame(0, 88.5, 1), 88.5);
+  assert.equal(countFrame(0, 88.5, 1.2), 88.5, 'a late frame past the end still writes the value');
+  assert.equal(countFrame(0, 88.5, 0), 0);
+  assert.equal(Number.isInteger(countFrame(0, 88.5, 0.5)), true);
+  assert.equal(countFrame(3, 12, 1), 12, 'whole numbers end where they always did');
+  assert.equal(countFrame(12, 3, 1), 3);
+  assert.equal(countFrame(0, 4144, 1), 4144);
 });

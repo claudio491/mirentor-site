@@ -13,3 +13,7 @@ export function verdict(err) {
 
 /** A phone can be shared: each waiting log remembers whose it is, and only its owner sends it. */
 export const mine = (queue, repId) => (Array.isArray(queue) ? queue.filter((q) => q && typeof q === 'object' && q.rep === repId && q.body) : []);
+
+/** How long a request may hang before it counts as no signal. A photo goes as its own bytes and can take long on a weak
+ *  signal, so it gets ninety seconds; everything else, fifteen. */
+export const requestTimeout = (body) => (typeof Blob !== 'undefined' && body instanceof Blob ? 90000 : 15000);

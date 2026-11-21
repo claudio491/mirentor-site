@@ -1,7 +1,7 @@
 // The rule for a log that could not be sent, tested without a browser: it lives in team/queue.js, apart from the screens.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { verdict, mine } from '../team/queue.js';
+import { verdict, mine, requestTimeout } from '../team/queue.js';
 import { sessionMove, HOME, LEAVE } from '../team/door.js';
 
 test('a log that could not be sent is kept, unless the server refused it for good', () => {
@@ -33,4 +33,10 @@ test('what the app does when the server says this person cannot go on', () => {
   // anything else is not about who is signed in
   for (const e of [{ status: 403, code: 'origin' }, { status: 403, code: 'manager_only' }, { status: 500 }, { code: 'offline', status: 0 }, null]) assert.equal(sessionMove(e, { lastReload: 0, now }), null, JSON.stringify(e));
   assert.deepEqual([HOME, LEAVE], ['./', 'salir']);
+});
+
+test('a photo sent as its own bytes gets ninety seconds before it counts as no signal; everything else keeps fifteen', () => {
+  const photo = new Blob([new Uint8Array(800 * 1024)], { type: 'image/jpeg' });
+  assert.equal(requestTimeout(photo), 90000);
+  for (const body of [undefined, null, { id: 'g1' }, 'texto', [1]]) assert.equal(requestTimeout(body), 15000, JSON.stringify(body));
 });
