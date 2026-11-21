@@ -76,7 +76,7 @@ test('installed is refused until the rep closed', async (t) => {
   await manage(id, { what: 'phones', count: 5 });
   await addWorker(id, W1); await upload(W1); await phone(W1, IMEI_A);
   const early = await manage(id, { what: 'installed' });
-  assert.deepEqual([early.status, early.json.error], [409, 'not_closed']);
+  assert.deepEqual([early.status, early.json.error], [409, 'install_not_closed']);
   assert.equal(s.lines().some((e) => e.type === 'site.step'), false);
   await s.call('POST', `${API}/worker/${W1}/clip`, {}, { cookie: ana.cookie });
   assert.equal((await s.call('POST', `${API}/install/${id}/close`, {}, { cookie: ana.cookie })).status, 200);
@@ -92,7 +92,7 @@ test('a legacy site and a site with no workers keep the old installed behavior',
   assert.equal((await manage(bare.id, { what: 'installed' })).status, 200);
   const crowded = await site();
   await addWorker(crowded.id, W1);
-  assert.equal((await manage(crowded.id, { what: 'installed' })).json.error, 'not_closed');
+  assert.equal((await manage(crowded.id, { what: 'installed' })).json.error, 'install_not_closed');
   assert.equal(s.lines().filter((e) => e.type === 'site.step').length, 2);
 });
 

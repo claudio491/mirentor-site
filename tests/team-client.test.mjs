@@ -66,6 +66,18 @@ test('every code the server can send has its words', () => {
   for (const k of need) for (const lang of LANGS) assert.ok(k in DICT[lang], `${lang} is missing ${k}`);
 });
 
+test('the dictionary source has no duplicate key in either language', () => {
+  // A parsed object cannot show a duplicate: the later one silently wins. So the source text is read, one language block at a time.
+  const src = read('team/i18n.js');
+  const blocks = { es: src.slice(src.indexOf('const es = {'), src.indexOf('const en = {')), en: src.slice(src.indexOf('const en = {'), src.indexOf('export const DICT')) };
+  for (const lang of LANGS) {
+    const seen = new Map();
+    for (const m of blocks[lang].matchAll(/^\s*'([^']+)':/gm)) seen.set(m[1], (seen.get(m[1]) || 0) + 1);
+    const dup = [...seen].filter(([, n]) => n > 1).map(([k]) => k);
+    assert.deepEqual(dup, [], `${lang} repeats keys: ${dup.join(', ')}`);
+  }
+});
+
 test('t fills the blanks, picks the plural and never returns a bare key', () => {
   const es = makeT('es'), en = makeT('en');
   assert.equal(es('today.of', { a: 1, b: 4 }), '1 de 4');
