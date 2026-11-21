@@ -54,6 +54,9 @@ const es = {
   'err.not_found': 'Eso no existe.',
   'err.manager_only': 'Esto solo lo ve un líder.',
   'err.admin_only': 'Esto solo lo puede hacer un administrador.',
+  'err.read_only': 'Un líder solo puede mirar: no cambia nada.',
+  'err.week': 'La semana debe empezar un lunes, con el formato AAAA-MM-DD.',
+  'err.minutes': 'Los minutos deben ser números enteros entre 0 y 100000.',
   'err.what': 'Eso no se puede confirmar en este registro.',
   'err.order': 'Primero confirma que el contrato se envió.',
   'err.patch': 'No hay cambios que guardar.',
@@ -316,7 +319,7 @@ const es = {
   'reps.dayoff': 'Día libre', 'reps.dayoff.title': 'marcar un día libre', 'reps.dayoff.p': 'Ese día no cuenta para la mano ni para la racha.', 'reps.dayoff.date': 'Fecha', 'reps.dayoff.scope': 'Para quién',
   'reps.dayoff.all': 'Todo el equipo', 'reps.dayoff.country': 'Todo {country}', 'reps.dayoff.submit': 'Marcar día libre', 'reps.dayoff.done': 'Día libre marcado.',
   'reps.badge': 'Dar un reconocimiento', 'reps.badge.title': 'reconocimiento', 'reps.badge.p': 'Una línea sobre lo que hizo bien. Lo ve todo el equipo.', 'reps.badge.text': 'Por qué', 'reps.badge.ph': 'Ej.: volvió tres veces hasta encontrar al dueño', 'reps.badge.submit': 'Dar el reconocimiento', 'reps.badge.done': 'Reconocimiento dado.',
-  'reps.start': 'Desde {date}', 'role.rep': 'Vendedor', 'role.manager': 'Líder', 'role.admin': 'Administrador',
+  'reps.start': 'Desde {date}', 'role.rep': 'Vendedor', 'role.manager': 'Líder', 'role.leader': 'Líder', 'role.admin': 'Administrador',
   'void.row': 'Anular este registro',
 };
 const en = {
@@ -367,6 +370,9 @@ const en = {
   'err.not_found': 'That does not exist.',
   'err.manager_only': 'Only a manager can see this.',
   'err.admin_only': 'Only an admin can do this.',
+  'err.read_only': 'A leader can only look: nothing can be changed.',
+  'err.week': 'The week must start on a Monday, written YYYY-MM-DD.',
+  'err.minutes': 'Minutes must be whole numbers from 0 to 100000.',
   'err.what': 'That cannot be confirmed on this log.',
   'err.order': 'First confirm that the contract was sent.',
   'err.patch': 'There are no changes to save.',
@@ -629,7 +635,7 @@ const en = {
   'reps.dayoff': 'Day off', 'reps.dayoff.title': 'mark a day off', 'reps.dayoff.p': 'That day does not count against the hand or the streak.', 'reps.dayoff.date': 'Date', 'reps.dayoff.scope': 'For whom',
   'reps.dayoff.all': 'The whole team', 'reps.dayoff.country': 'All of {country}', 'reps.dayoff.submit': 'Mark the day off', 'reps.dayoff.done': 'Day off marked.',
   'reps.badge': 'Give a recognition', 'reps.badge.title': 'recognition', 'reps.badge.p': 'One line about what they did well. The whole team sees it.', 'reps.badge.text': 'Why', 'reps.badge.ph': 'E.g. went back three times until the owner was there', 'reps.badge.submit': 'Give the recognition', 'reps.badge.done': 'Recognition given.',
-  'reps.start': 'Since {date}', 'role.rep': 'Rep', 'role.manager': 'Manager', 'role.admin': 'Admin',
+  'reps.start': 'Since {date}', 'role.rep': 'Rep', 'role.manager': 'Manager', 'role.leader': 'Leader', 'role.admin': 'Admin',
   'void.row': 'Void this log',
 };
 export const DICT = { es, en };
