@@ -46,6 +46,8 @@ test('a rep ticks only video, kit and whatsapp', async (t) => {
   for (const step of ['zones', 'talk', 'report', 'meeting', 'contract', 'install']) assert.deepEqual([(await tick({ step })).status, (await tick({ step })).json.error], [403, 'step_locked'], step);
   assert.deepEqual([(await tick({ step: 'hour' })).status], [403]);
   assert.deepEqual([(await tick({ step: 'video', rep: mgr.id })).status], [403]);
+  const own = await tick({ step: 'video', rep: me.me.id });
+  assert.deepEqual([own.status, own.json.error], [403, 'step_locked']);
   const bad = await tick({ step: 'bailar' });
   assert.deepEqual([bad.status, bad.json.error], [400, 'step']);
   assert.equal((await tick({ step: 5 })).status, 400);
@@ -124,8 +126,11 @@ test('an install on a practice site does not tick the install step', () => {
   const close = (id) => ({ type: 'install.close', siteId: id, by: 'r1', t: '2026-11-11T15:00:00Z' });
   assert.deepEqual(done(world([site('s_practice1', { practice: true }), close('s_practice1')])), []);
   assert.deepEqual(done(world([site('s_real0001'), close('s_real0001')])), ['install']);
-  // closed by someone else, or on a site voided afterwards, or never closed
-  assert.deepEqual(done(world([site('s_real0001'), { type: 'install.close', siteId: 's_real0001', by: 'other', t: '2026-11-11T15:00:00Z' }])), []);
+  // closed by a manager for the site's rep: the rep's step ticks, and nobody else's does
+  const byManager = world([site('s_real0001'), { type: 'rep.created', id: 'r2', handle: 'beto', name: 'Beto Rep', role: 'rep', city: 'Panama City', t: '2026-11-02T14:00:00Z' }, { type: 'install.close', siteId: 's_real0001', by: 'r2', t: '2026-11-11T15:00:00Z' }]);
+  assert.deepEqual(done(byManager), ['install']);
+  assert.deepEqual(done(byManager, 'r2'), []);
+  // a site voided afterwards, or never closed
   assert.deepEqual(done(world([site('s_real0001'), close('s_real0001'), { type: 'site.void', siteId: 's_real0001', t: '2026-11-12T15:00:00Z' }])), []);
   assert.deepEqual(done(world([site('s_real0001')])), []);
   // a real site closed after a practice one still ticks
@@ -137,7 +142,6 @@ test('an install on a practice site does not tick the install step', () => {
 test('only a manager ticks the first approved hour', async (t) => {
   const s = await start(); t.after(() => s.srv.close());
   const a = await s.admin(), ana = await s.addRep(a.cookie, 'ana'), beto = await s.addRep(a.cookie, 'beto'), mgr = await s.addRep(a.cookie, 'mara', { role: 'manager' });
-  const lia = (await s.call('POST', `${API}/reps`, { email: 'lia@equipo.test', name: 'Lia Lider', role: 'leader' }, { cookie: a.cookie }));
   const post = (body, cookie) => s.call('POST', `${API}/ladder`, body, { cookie });
   assert.deepEqual([(await post({ step: 'hour', rep: ana.id }, ana.cookie)).status], [403]);
   assert.deepEqual([(await post({ step: 'hour' }, ana.cookie)).status], [403]);
@@ -158,7 +162,6 @@ test('only a manager ticks the first approved hour', async (t) => {
   assert.equal(mine.find((x) => x.step === 'hour').by, 'manager');
   const other = (await s.call('GET', `${API}/me`, undefined, { cookie: beto.cookie })).json.ladder;
   assert.equal(other.find((x) => x.step === 'hour').done, false);
-  void lia;
 });
 
 test('a video with no address reports hasVideo false', () => {
