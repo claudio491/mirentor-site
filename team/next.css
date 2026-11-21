@@ -27,7 +27,7 @@ body.nx:not(.nx-in) .nx-page{visibility:hidden}
 .nx-orderh{margin-top:30px}
 .nx-orderw{position:relative;margin-top:10px}
 .nx-rail{position:absolute;left:15px;top:20px;width:2px;height:calc(100% - 40px);overflow:visible}
-.nx-rail path{fill:none;stroke:var(--hair);stroke-width:2;vector-effect:non-scaling-stroke;stroke-dasharray:1 1;stroke-dashoffset:0}
+.nx-rail path{fill:none;stroke:var(--hair);stroke-width:4;stroke-dasharray:1 1;stroke-dashoffset:0}
 .nx-order{position:relative}
 .nx-step{display:grid;grid-template-columns:32px minmax(0,1fr);gap:14px;align-items:start;padding:9px 0}
 .nx-k{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;font:600 13px/1 var(--mono);box-shadow:inset 0 0 0 1px var(--hair)}
@@ -91,7 +91,7 @@ body.nx:not(.nx-in) .nx-page{visibility:hidden}
 .nx-who span{display:block;margin-top:3px;font:500 10.5px/1.2 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mist)}
 .nx-voice{display:flex;align-items:center;gap:9px;margin-top:9px;padding:7px 11px;border-radius:999px;background:rgba(233,235,236,.07)}
 .nx-voice .nx-wave{height:20px}
-.nx-tri{flex:none;width:0;height:0;border-left:9px solid var(--signal);border-top:6px solid transparent;border-bottom:6px solid transparent}
+.nx-tri{flex:none;width:10px;height:12px;fill:var(--signal)}
 .nx-pd{margin-top:8px;color:var(--mist);font-size:13.5px;line-height:1.35}
 
 /* 3. the table: who leads, who is close. The bars are illustration and say so. */
@@ -111,6 +111,106 @@ body.nx:not(.nx-in) .nx-page{visibility:hidden}
 .nx-table .r3 .nx-bar i{background:rgba(233,235,236,.3);transform:scaleX(.44)}
 .nx-bars{margin-top:10px;padding-top:9px;border-top:1px dashed var(--hair);font:500 10.5px/1.3 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--mist)}
 
+/* ---------- the index of the five ---------- */
+.nx-index{margin-top:24px}
+.nx-index ol{display:flex;flex-wrap:wrap;gap:8px}
+.nx-index a{position:relative;display:inline-flex;align-items:center;gap:9px;min-height:40px;padding:0 13px 0 6px;border-radius:999px;box-shadow:inset 0 0 0 1px var(--rule);color:var(--porcelain);text-decoration:none;font-size:14px;font-weight:500;
+  transition:transform 140ms var(--ease-out),box-shadow 160ms ease}
+.nx-index a:active{transform:scale(.97)}
+.nx-in-n{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--panel-2);font:600 11px/1 var(--mono);color:var(--signal)}
+@media (hover:hover) and (pointer:fine){.nx-index a:hover{box-shadow:inset 0 0 0 1px var(--porcelain)}}
+.nx-sketch{scroll-margin-top:16px}
+
+/* ---------- shared bits of the phone screens ---------- */
+.nx-pchip{display:inline-flex;align-items:center;min-height:22px;padding:4px 7px;border-radius:var(--r-hud);background:var(--signal);color:var(--graphite);font:600 10.5px/1.1 var(--mono);letter-spacing:.07em;text-transform:uppercase}
+.nx-pchip.ghost{background:transparent;color:var(--porcelain);box-shadow:inset 0 0 0 1px var(--hair)}
+.nx-z1 .nx-pchip.ghost{color:var(--graphite);box-shadow:inset 0 0 0 1px rgba(27,29,32,.35)}
+.nx-pd2{margin-top:8px;font-size:13px;line-height:1.3}
+.nx-z1 .nx-pd2{color:var(--slate)}.nx-z2 .nx-pd2,.nx-z3 .nx-pd2{color:var(--mist)}
+.nx-z2 .nx-lines i,.nx-z3 .nx-lines i{background:rgba(233,235,236,.1)}
+.nx-z2 .nx-ph,.nx-z3 .nx-ph{color:var(--mist)}
+/* drawn buttons: they show the screen, they do nothing, so they are not controls */
+.nx-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.nx-fake{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 14px;border-radius:999px;box-shadow:inset 0 0 0 1px var(--hair);font-weight:600;font-size:13.5px;white-space:nowrap}
+.nx-z1 .nx-fake{box-shadow:inset 0 0 0 1px rgba(27,29,32,.32)}
+.nx-fake.primary{background:var(--signal);color:var(--graphite);box-shadow:none}
+.nx-fake.wide{display:flex;width:100%;margin-top:10px;min-height:44px}
+.nx-screen>.nx-bars{margin:10px 4px 0}
+
+/* 02. blockers: the report's line, the fork, the two paths, the kept answer */
+#b03 .giant.nx-ptitle{font-size:40px;line-height:.95}
+.nx-field{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start;margin-top:10px;padding:10px 12px;border-radius:var(--r-input);box-shadow:inset 0 0 0 1px var(--hair)}
+.nx-fl{font:600 10.5px/1.6 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--signal)}
+.nx-fork{display:block;width:100%;height:auto;margin:2px 0;overflow:visible}
+.nx-fork path{fill:none;stroke:var(--mist);stroke-linejoin:round;stroke-width:2;stroke-dasharray:1 1;stroke-dashoffset:0}
+.nx-paths{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.nx-paths .nx-z{margin-top:0;padding:11px 10px 12px}
+.nx-ans{margin-top:10px;padding-top:9px;border-top:1px solid rgba(27,29,32,.12)}
+.nx-due{display:flex;align-items:center;gap:8px;margin-top:10px}
+.nx-dring{position:relative;flex:none;width:40px;height:40px}
+.nx-dring svg{width:100%;height:100%;overflow:visible}
+.nx-dring .track{fill:none;stroke:rgba(233,235,236,.13);stroke-width:3.5}
+.nx-dring .arc{fill:none;stroke:var(--signal);stroke-width:3.5;stroke-linecap:round;stroke-dasharray:1 1;stroke-dashoffset:0}
+.nx-due small{display:block;font:500 10px/1.2 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--mist)}
+.nx-due b{display:block;font-size:18px;font-weight:700;letter-spacing:-.03em}
+.nx-keep svg{width:10px;height:12px;fill:var(--graphite)}
+
+/* 03. the voice note: the big button with its 30 s ring, the take, listen and send */
+.nx-recz{display:grid;justify-items:center;text-align:center}
+.nx-big{position:relative;display:grid;place-items:center;width:132px;height:132px;margin-top:6px}
+.nx-big svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.nx-big .track{fill:none;stroke:rgba(233,235,236,.13);stroke-width:4}
+.nx-big .arc{fill:none;stroke:var(--signal);stroke-width:4;stroke-linecap:round;stroke-dasharray:1 1;stroke-dashoffset:0}
+.nx-mic.big{width:84px;height:84px}
+.nx-mic.big svg{position:static;width:36px;height:36px}
+.nx-max{margin-top:8px;font:500 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mist)}
+.nx-recz .nx-voice{width:100%;margin-top:14px}
+.nx-recz .nx-acts{justify-content:center}
+.nx-then{display:grid;grid-template-columns:58px minmax(0,1fr);gap:12px;align-items:center}
+.nx-then .nx-who span{text-transform:none;letter-spacing:0;font:400 13px/1.3 var(--sans);margin-bottom:8px}
+
+/* 04. the map: drawn blocks and streets, leads as points, one opened */
+.nx-mapz{padding:8px}
+.nx-map{display:block;width:100%;height:auto;border-radius:10px;background:var(--graphite)}
+.nx-map .blocks rect{fill:rgba(233,235,236,.07)}
+.nx-map .blocks .park{fill:rgba(233,235,236,.03);stroke:rgba(233,235,236,.12);stroke-dasharray:3 3}
+.nx-map .streets path{fill:none;stroke:rgba(233,235,236,.2);stroke-width:4;stroke-linecap:round;stroke-dasharray:1 1;stroke-dashoffset:0}
+.nx-pt{transform-box:fill-box;transform-origin:center}
+.nx-pt.t{fill:var(--signal);stroke:var(--graphite);stroke-width:2}
+.nx-pt.f{fill:var(--graphite);stroke:var(--porcelain);stroke-width:2}
+.nx-pt.on{stroke:var(--porcelain);stroke-width:2.5}
+.nx-map .halo{fill:rgba(255,90,54,.16);stroke:var(--signal);stroke-width:1.5;transform-box:fill-box;transform-origin:center}
+.nx-legend{display:flex;gap:16px;padding:9px 4px 2px;font-size:12.5px;color:var(--mist)}
+.nx-legend>span{display:inline-flex;align-items:center;gap:7px}
+.nx-legend i{width:10px;height:10px;border-radius:50%}
+.nx-legend i.t{background:var(--signal)}.nx-legend i.f{box-shadow:inset 0 0 0 2px var(--porcelain)}
+.nx-sh{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.nx-sh b{font-size:16px;font-weight:600;letter-spacing:-.02em}
+.nx-holder{display:flex;align-items:center;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(27,29,32,.12)}
+.nx-holder .face{width:40px;height:40px;background:var(--graphite)}
+.nx-holder small{display:block;font:500 10.5px/1.2 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--slate)}
+.nx-holder b{display:block;font-size:15px;font-weight:600}
+
+/* 05. money: what was done, times an amount still to be defined; the points' track to a threshold */
+.nx-tbdnote{margin-top:16px;max-width:46ch;padding:12px 14px;border-radius:var(--r-input);box-shadow:inset 0 0 0 1px var(--hair);color:var(--porcelain);font-size:14.5px;line-height:1.4}
+.nx-eq{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid rgba(27,29,32,.12)}
+.nx-eq:first-child{margin-top:0;padding-top:0;border-top:0}
+.nx-q1 b{display:block;font-size:30px;font-weight:700;letter-spacing:-.05em;line-height:1}
+.nx-q1 small{display:block;margin-top:3px;font-size:12px;color:var(--slate);line-height:1.2}
+.nx-x{font-size:18px;color:var(--slate)}
+.nx-tbd{justify-self:end;padding:5px 7px;border:1px dashed rgba(27,29,32,.45);border-radius:var(--r-hud);font:500 10.5px/1.2 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--slate);text-align:right}
+.nx-cells{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin-top:10px}
+.nx-cells i{display:block;height:16px;border-radius:3px;background:rgba(27,29,32,.14);transform-origin:50% 100%}
+.nx-cells i:nth-child(-n+5){background:var(--graphite)}
+.nx-hrs{display:block;height:10px;margin-top:10px;border-radius:5px;background:rgba(27,29,32,.1);overflow:hidden}
+.nx-hrs i{display:block;height:100%;border-radius:5px;background:var(--graphite);transform:scaleX(.62);transform-origin:0 50%}
+.nx-sum{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding-top:11px;border-top:1.5px solid var(--graphite);font-weight:600;font-size:14.5px}
+.nx-ptsl{margin-top:12px}
+.nx-ptrack{position:relative;height:12px;margin-top:8px;border-radius:6px;background:rgba(233,235,236,.08)}
+.nx-ptrack i{position:absolute;inset:0;border-radius:6px;background:var(--signal);transform:scaleX(.58);transform-origin:0 50%}
+.nx-thr{position:absolute;top:-6px;bottom:-6px;left:78%;width:2px;border-radius:1px;background:var(--porcelain);transform-origin:50% 100%}
+.nx-thrl{display:flex;justify-content:flex-end;margin-top:10px}
+
 /* ---------- wide screens: the words on the left, the phone on the right ---------- */
 @media (min-width:960px){
   .nx-page{padding-left:36px;padding-right:36px}
@@ -118,6 +218,8 @@ body.nx:not(.nx-in) .nx-page{visibility:hidden}
   .nx-text{grid-area:text}.nx-fri{grid-area:fri}
   .nx-phone{grid-area:phone;margin:6px 0 0}
   .nx-rail{left:15px}
+  /* every other sketch puts its phone on the left, so the five read as separate pieces */
+  .nx-sketch.flip{grid-template-columns:380px minmax(0,1fr);grid-template-areas:"phone text" "phone fri"}
 }
 
 /* ---------- arrival, once: the headline, then the sketch's parts in their order ---------- */
@@ -130,7 +232,7 @@ body.nx:not(.nx-in) .nx-page{visibility:hidden}
 @keyframes nx-wave{from{transform:scaleY(.12)}}
 @media (prefers-reduced-motion:no-preference){
   .nx-in .nx-hero>*{animation:nx-rise 620ms var(--ease-reveal) backwards}
-  .nx-in .nx-hero>.lead{animation-delay:60ms}.nx-in .nx-hero>.nx-giant{animation-delay:120ms}.nx-in .nx-hero>.support{animation-delay:200ms}
+  .nx-in .nx-hero>.lead{animation-delay:60ms}.nx-in .nx-hero>.nx-giant{animation-delay:120ms}.nx-in .nx-hero>.support{animation-delay:200ms}.nx-in .nx-hero>.nx-index{animation-delay:280ms}
   .nx-in .nx-tag,.nx-in .nx-title,.nx-in .nx-what,.nx-in .nx-orderh{animation:nx-rise 620ms var(--ease-reveal) backwards}
   .nx-in .nx-tag{animation-delay:280ms}.nx-in .nx-title{animation-delay:340ms}.nx-in .nx-what{animation-delay:420ms}.nx-in .nx-orderh{animation-delay:520ms}
   /* A part waits, unseen, until it comes into view; then it plays. The steps play 1, then 2, then 3, as the rail draws. */
@@ -161,4 +263,34 @@ body.nx:not(.nx-in) .nx-page{visibility:hidden}
   .nx-fri.nx-seen{animation:nx-rise 620ms var(--ease-reveal) 300ms backwards}
   .nx-fri.nx-seen .nx-mic{animation:nx-pop 420ms var(--ease-lock) 500ms backwards}
   .nx-fri.nx-seen .nx-wave i{animation:nx-wave 520ms var(--ease-lock) 600ms backwards}
+  /* 02 to 05: the parts of each phone in their order. A part's clock starts when it comes into view; on a wide
+     screen the whole phone is seen at once, so the later parts wait for the earlier ones. */
+  #b02 .nx-bq.nx-seen{animation-delay:500ms}
+  #b02 .nx-phone.nx-seen .nx-fork path{animation:nx-draw 700ms var(--ease-track) 900ms backwards}
+  #b02 .nx-path.fast.nx-seen{animation-delay:1250ms}
+  #b02 .nx-path.wait.nx-seen{animation-delay:1500ms}
+  #b02 .nx-path.wait.nx-seen .nx-dring .arc{animation:nx-draw 1100ms var(--ease-track) 1800ms backwards}
+  #b02 .nx-saved.nx-seen{animation-delay:2300ms}
+  #b03 .nx-recz.nx-seen{animation-delay:500ms}
+  #b03 .nx-recz.nx-seen .nx-mic{animation:nx-pop 460ms var(--ease-lock) 800ms backwards}
+  #b03 .nx-recz.nx-seen .nx-big .arc{animation:nx-draw 1800ms linear 1000ms backwards}
+  #b03 .nx-recz.nx-seen .nx-wave i{animation:nx-wave 520ms var(--ease-lock) 2300ms backwards}
+  #b03 .nx-recz.nx-seen .nx-acts,#b03 .nx-recz.nx-seen .nx-fake.wide{animation:nx-rise 460ms var(--ease-reveal) 2700ms backwards}
+  #b03 .nx-then.nx-seen{animation-delay:3000ms}
+  #b03 .nx-then.nx-seen .arc{animation:nx-arc 760ms var(--ease-track) 3400ms backwards}
+  #b04 .nx-mapz.nx-seen{animation-delay:500ms}
+  #b04 .nx-mapz.nx-seen .streets path{animation:nx-draw 900ms var(--ease-track) 800ms backwards}
+  #b04 .nx-mapz.nx-seen .pts .nx-pt{animation:nx-pop 380ms var(--ease-lock) 1300ms backwards}
+  #b04 .nx-mapz.nx-seen .pts.b .nx-pt{animation-delay:1500ms}
+  #b04 .nx-mapz.nx-seen .open .nx-pt{animation:nx-pop 460ms var(--ease-lock) 1900ms backwards}
+  #b04 .nx-mapz.nx-seen .open .halo{animation:nx-pop 560ms var(--ease-lock) 2050ms backwards}
+  #b04 .nx-sheet.nx-seen{animation-delay:2300ms}
+  #b04 .nx-sheet.free.nx-seen{animation-delay:2550ms}
+  #b05 .nx-payz.nx-seen{animation-delay:500ms}
+  #b05 .nx-payz.nx-seen .nx-cells i{animation:nx-wave 420ms var(--ease-lock) 900ms backwards}
+  #b05 .nx-payz.nx-seen .nx-hrs i{animation:nx-bar 820ms var(--ease-track) 1150ms backwards}
+  #b05 .nx-payz.nx-seen .nx-tbd{animation:nx-rise 420ms var(--ease-reveal) 1500ms backwards}
+  #b05 .nx-bonus.nx-seen{animation-delay:1800ms}
+  #b05 .nx-bonus.nx-seen .nx-ptrack i{animation:nx-bar 900ms var(--ease-track) 2200ms backwards}
+  #b05 .nx-bonus.nx-seen .nx-thr{animation:nx-wave 420ms var(--ease-lock) 2900ms backwards}
 }

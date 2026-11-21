@@ -435,13 +435,24 @@ test('next.html is not served to a rep or without a session', async (t) => {
   assert.equal((await s.call('GET', '/equipo/nope.html', undefined, { cookie: a.cookie })).status, 404);
 });
 
-test('the sketches page says it is a sketch in both languages, with no em dash and nothing from another host', async () => {
+test('the sketches page holds five sketches, each says it is one, in both languages, with no em dash, no amount and nothing from another host', async () => {
   const { DICT } = await import('../team/i18n.js');
   const page = readFileSync(new URL('../team/next.html', import.meta.url), 'utf8');
   const style = readFileSync(new URL('../team/next.css', import.meta.url), 'utf8');
   const script = readFileSync(new URL('../team/next.js', import.meta.url), 'utf8');
   const keys = [...page.matchAll(/data-t="([^"]+)"/g)].map((m) => m[1]);
   assert.ok(keys.includes('next.sketch') && keys.includes('next.notbuilt'));
+  // five sketches, each stamped as one and saying it is not built
+  const sketches = page.split('<section class="nx-sketch').slice(1);
+  assert.equal(sketches.length, 5);
+  sketches.forEach((one, i) => {
+    assert.match(one, new RegExp(`<span class="nx-stamp"><span data-t="next.sketch"></span> 0${i + 1}</span>`), `sketch ${i + 1} stamp`);
+    assert.match(one, /data-t="next.notbuilt"/, `sketch ${i + 1} not-built line`);
+  });
+  // money per rep shows no amount: every amount is the words for "to be defined"
+  assert.equal(/US\$|\$\s?\d|\d+[.,]\d{2}/.test(sketches[4]), false);
+  assert.ok((sketches[4].match(/data-t="next.pay.amount"/g) || []).length >= 3);
+  assert.deepEqual([DICT.es['next.pay.amount'], DICT.en['next.pay.amount']], ['monto por definir', 'amount to be defined']);
   for (const lang of ['es', 'en']) for (const k of [...keys, 'next.open']) assert.equal(typeof DICT[lang][k], 'string', `${lang} ${k}`);
   const words = [page, style, script, ...Object.entries(DICT.es).concat(Object.entries(DICT.en)).filter(([k]) => k.startsWith('next.')).map(([, v]) => v)].join('\n');
   assert.equal(words.includes('\u2014'), false);
