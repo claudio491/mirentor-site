@@ -43,7 +43,9 @@ test('the hours form takes hours and minutes and sends minutes, for a Monday, wi
   assert.equal(refused(() => hoursBody({ ...v, week: '16/11/2026' })), 'week');
   assert.equal(refused(() => hoursBody({ ...v, dm: '60' })), 'hours_minutes');
   assert.equal(refused(() => hoursBody({ ...v, dh: '-1' })), 'hours_minutes');
-  assert.equal(refused(() => hoursBody({ ...v, dh: '', dm: '' , ah: '', am: '' })), 'hours_minutes');
+  // a week with nothing delivered is a real week: the server takes it, and so does the form
+  assert.deepEqual(hoursBody({ ...v, dh: '', dm: '', ah: '', am: '' }).weeks[0], { week: '2026-11-16', delivered: 0, accepted: 0 });
+  assert.equal(refused(() => hoursBody({ ...v, dh: 'x' })), 'hours_minutes');
   assert.equal(refused(() => hoursBody({ ...v, ah: '70' })), 'hours_order');
 });
 

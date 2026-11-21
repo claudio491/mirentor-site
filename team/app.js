@@ -46,7 +46,7 @@ const errText = (e) => { try { return t(`err.${(e && e.code) || 'unknown'}`); } 
 setExplain(errText);
 
 // ---- state ----
-const S = { me: null, sig: '', tab: null, period: 'week', as: null, mgr: false, queue: store.get(KEY.queue, []), seenFeed: null, lastLoad: 0, lastPaint: 0, arrived: new Set(), ledgerAll: false,
+const S = { me: null, sig: '', tab: null, period: 'week', as: null, mgr: false, lead: false, queue: store.get(KEY.queue, []), seenFeed: null, lastLoad: 0, lastPaint: 0, arrived: new Set(), ledgerAll: false,
   stop: null,     // the stop the person tapped on the route; null follows the day
   hold: null,     // the stop a log landed on, kept on the stage until its answer has played
   owed: null,     // an answer that waits for a sheet to close

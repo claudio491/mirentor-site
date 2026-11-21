@@ -7,11 +7,11 @@
 import { $, h, s, put, t, num, dayMonth, upper, cityName, countTo, src, toast, quiet, formSheet, reduce, EASE } from './ui.js';
 import { portrait, drawIn } from './hand.js';
 import { reveal, stagger, lockIn } from './fx.js';
-import { hm, siteCard, practiceNote, hoursModel } from './leader-steps.js';
+import { hm, siteCard, practiceNote, hoursModel, cityFacts, repFacts, SOURCES } from './leader-steps.js';
 import { hoursBody, recordUrl } from './manager-steps.js';
 
 const R = 40, C = 2 * Math.PI * R;
-const WEEK_KEYS = [['visits', 'col.visits'], ['conversations', 'col.convs'], ['meetings', 'col.meetings'], ['contracts', 'col.contracts']];
+const LABELS = { visits: 'col.visits', conversations: 'col.convs', meetings: 'col.meetings', contracts: 'col.contracts' };
 const MAX_CELLS = 40;   // a site's meter draws one cell per eligible worker, up to this many
 
 export function createLeader({ api, S, errText, setTab }) {
@@ -30,6 +30,8 @@ export function createLeader({ api, S, errText, setTab }) {
   };
   /** A number that opens its source, as a counter, so it can run up when the page arrives. */
   const srcNum = (cls, value, text, show = num) => src(counter(h('button', { class: `src num ${cls}`, type: 'button' }), value, show), () => t('c.source'), text);
+  /** The words of a number's source, read when it is opened so they are in the current language. */
+  const from = (source) => () => t(SOURCES[source]);
   /** A sentence with some of its blanks as nodes: t(key) is split around each named blank. */
   const sentence = (key, nodes) => {
     const marks = Object.fromEntries(Object.keys(nodes).map((k) => [k, `\u0001${k}\u0001`]));
@@ -48,7 +50,7 @@ export function createLeader({ api, S, errText, setTab }) {
     $('#ldLead').textContent = L ? t('lead.lead', { date: dayMonth(L.week) }) : t('lead.lead.none');
     const giantNode = $('#ldGiant');
     if (L) put(giantNode, srcNum('ld-gn', L.accepted, () => weekSrc(L), H), h('em', { text: '.' }));
-    else put(giantNode, t('lead.giant.none').slice(0, -1), h('em', { text: '.' }));
+    else put(giantNode, t('lead.giant.none'), h('em', { text: '.' }));
     put($('#ldSupport'), L ? (L.delivered > 0 ? sentence(L.source === 'scorecard' ? 'lead.support' : 'lead.support.manual', { d: srcNum('', L.delivered, () => weekSrc(L), H), a: srcNum('', L.accepted, () => weekSrc(L), H) }) : t('lead.support.zero')) : '');
     $('#ldSupport').hidden = !L;
     $('#ldHoursNone').hidden = !!L;
@@ -100,10 +102,10 @@ export function createLeader({ api, S, errText, setTab }) {
 
   // ---- a city: its sites, then its reps ----
   function siteNode(site) {
-    const card = siteCard(site, t), origin = () => t('lead.src.site');
+    const card = siteCard(site, t);
     // A fact the site never had keeps its place, as an empty mark, and says so in words.
     const figs = card.figures.map((f) => h('div', { class: `ld-fig ${f.key}` },
-      f.value == null ? h('span', { class: 'ld-fv none', 'aria-hidden': 'true' }) : srcNum('ld-fv', f.value, origin),
+      f.value == null ? h('span', { class: 'ld-fv none', 'aria-hidden': 'true' }) : srcNum('ld-fv', f.value, from(f.source)),
       h('span', { class: 'ld-fl' }, f.key === 'eligible' ? null : h('i'), f.value == null ? t('lead.site.missing', { what: f.label }) : f.label)));
     let cells = null;
     if (!card.legacy && site.eligible) {
@@ -118,23 +120,26 @@ export function createLeader({ api, S, errText, setTab }) {
       card.record ? h('a', { class: 'link ld-rec', href: recordUrl(site.id), download: `record-${site.id}.csv`, text: t('lead.site.record') }) : null);
   }
   function repNode(rep) {
-    const origin = () => t('lead.src.rep');
+    const facts = repFacts(rep), step = facts.find((f) => f.key === 'ladder');
     return h('li', { class: 'ld-rep' },
       h('div', { class: 'ld-who' }, portrait({ id: rep.id, name: rep.first, photo: rep.photo }, { share: rep.isNew ? rep.ladderDone / 10 : null }),
-        h('div', { class: 'ld-wn' }, h('b', { text: rep.first }), rep.isNew ? h('small', { text: t('lead.rep.new', { n: rep.ladderDone }) }) : null)),
-      h('div', { class: 'ld-nums' }, WEEK_KEYS.map(([k, label]) => h('div', { class: 'ld-n' }, srcNum('ld-nv', rep.week[k], origin), h('span', { class: 'label', text: t(label) })))));
+        h('div', { class: 'ld-wn' }, h('b', { text: rep.first }), step ? h('small', {}, sentence('lead.rep.new', { n: srcNum('', step.value, from(step.source)) })) : null)),
+      h('div', { class: 'ld-nums' }, facts.filter((f) => f.key !== 'ladder').map((f) => h('div', { class: 'ld-n' }, srcNum('ld-nv', f.value, from(f.source)), h('span', { class: 'label', text: t(LABELS[f.key]) })))));
   }
   function cityNode(c) {
     const name = c.city ? cityName(c.city) : t('lead.city.none');
-    const zone = (cls, title, count, list, empty) => h('section', { class: `inst-zone ${cls}` },
-      h('div', { class: 'inst-zh' }, h('h3', { text: title }), h('span', { class: 'inst-k num', text: num(count) })),
-      count ? list : h('p', { class: 'note', text: empty }));
+    const [sites, reps] = cityFacts(c);
+    // a count written as "2 sitios": the number opens its source, the word stays text
+    const counted = (key, f) => { const text = t(key, { n: f.value }), n = num(f.value); return text.startsWith(n) ? [srcNum('', f.value, from(f.source)), text.slice(n.length)] : text; };
+    const zone = (cls, title, f, list, empty) => h('section', { class: `inst-zone ${cls}` },
+      h('div', { class: 'inst-zh' }, h('h3', { text: title }), srcNum('inst-k', f.value, from(f.source))),
+      f.value ? list : h('p', { class: 'note', text: empty }));
     return h('section', { class: 'ld-city', 'aria-label': name },
       h('header', { class: 'ld-ch' }, h('h2', { class: 'giant ld-cname' }, name, h('em', { text: '.' })),
-        h('div', { class: 'hud-row' }, h('span', { class: 'chip' }, h('i', { class: 'dot' }), t('u.sites', { n: c.sites.length })), h('span', { class: 'chip ghost', text: t('lead.reps.n', { n: c.reps.length }) }))),
+        h('div', { class: 'hud-row' }, h('span', { class: 'chip' }, h('i', { class: 'dot' }), counted('u.sites', sites)), h('span', { class: 'chip ghost' }, counted('lead.reps.n', reps)))),
       h('div', { class: 'ld-zones' },
-        zone('inst-prep ld-sites', t('lead.sites.h'), c.sites.length, h('ul', { class: 'ld-cards' }, c.sites.map(siteNode)), t('lead.sites.none')),
-        zone('inst-crew ld-reps', t('lead.reps.h'), c.reps.length, h('ul', { class: 'ld-people' }, c.reps.map(repNode)), t('lead.reps.none'))));
+        zone('inst-prep ld-sites', t('lead.sites.h'), sites, h('ul', { class: 'ld-cards' }, c.sites.map(siteNode)), t('lead.sites.none')),
+        zone('inst-crew ld-reps', t('lead.reps.h'), reps, h('ul', { class: 'ld-people' }, c.reps.map(repNode)), t('lead.reps.none'))));
   }
 
   function render() {

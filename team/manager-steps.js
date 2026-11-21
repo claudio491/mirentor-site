@@ -41,13 +41,13 @@ const minutesOf = (hh, mm) => {
   const total = Number(a) * 60 + Number(b);
   return total <= 100000 ? total : null;
 };
-/** The body of POST hours for one week typed by hand: the week starts on a Monday, both counts are minutes, nothing
- *  delivered is not a week to send, and the buyers cannot accept more than was delivered. */
+/** The body of POST hours for one week typed by hand: the week starts on a Monday, both counts are minutes (zero is a
+ *  week too), and the buyers cannot accept more than was delivered. */
 export function hoursBody(v) {
   const week = trim(v.week);
   if (!isMonday(week)) refuse('week');
   const delivered = minutesOf(v.dh, v.dm), accepted = minutesOf(v.ah, v.am);
-  if (delivered == null || accepted == null || delivered === 0) refuse('hours_minutes');
+  if (delivered == null || accepted == null) refuse('hours_minutes');   // a week with nothing delivered is a real week
   if (accepted > delivered) refuse('hours_order');
   return { weeks: [{ week, delivered, accepted }] };
 }

@@ -20,10 +20,19 @@ export const siteStateKey = (site) => (site.state === 'installed' && !site.worke
 const toneOf = (key) => (key === 'installed' ? 'ok' : key === 'legacy' || key === 'installed_bare' ? 'old' : 'miss');
 export function siteCard(site, t) {
   const legacy = site.state === 'legacy', key = siteStateKey(site);
-  const figures = [{ key: 'eligible', value: site.eligible ?? null, label: t('lead.site.eligible') }];
-  if (!legacy) figures.push({ key: 'consents', value: site.consents, label: t('lead.site.consents') }, { key: 'phones', value: site.phones, label: t('lead.site.phones') });
+  const figures = [{ key: 'eligible', value: site.eligible ?? null, label: t('lead.site.eligible'), source: 'site' }];
+  if (!legacy) figures.push({ key: 'consents', value: site.consents, label: t('lead.site.consents'), source: 'site' }, { key: 'phones', value: site.phones, label: t('lead.site.phones'), source: 'site' });
   return { id: site.id, name: site.name, state: t(`lead.state.${key}`), stateKey: key, tone: toneOf(key), legacy, record: !legacy && site.workers > 0, line: legacy ? t('lead.site.legacy') : null, figures };
 }
+
+/** Where each number on the city bands comes from, as the key of the words its source button says. Every number the
+ *  bands write is listed by cityFacts, siteCard or repFacts with one of these, so a bare number fails the tests. */
+export const SOURCES = { site: 'lead.src.site', rep: 'lead.src.rep', ladder: 'lead.src.ladder' };
+/** A city's own counts: its sites (from their records) and its reps (from their logs). */
+export const cityFacts = (c) => [{ key: 'sites', value: c.sites.length, source: 'site' }, { key: 'reps', value: c.reps.length, source: 'rep' }];
+const REP_KEYS = ['visits', 'conversations', 'meetings', 'contracts'];
+/** A rep's numbers: the week's four from their logs, and a new rep's step on the first-days ladder. */
+export const repFacts = (rep) => [...REP_KEYS.map((k) => ({ key: k, value: rep.week[k], source: 'rep' })), ...(rep.isNew ? [{ key: 'ladder', value: rep.ladderDone, source: 'ladder' }] : [])];
 
 /** The practice site is never listed. When there is one or more, the page says how many, once, and names none. */
 export function practiceNote(view, t) {

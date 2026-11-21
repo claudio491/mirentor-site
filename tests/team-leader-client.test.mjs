@@ -3,7 +3,7 @@
 // away from the page, so they can be tested here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hm, siteCard, practiceNote, shellFor, hoursModel, siteStateKey } from '../team/leader-steps.js';
+import { hm, siteCard, practiceNote, shellFor, hoursModel, siteStateKey, cityFacts, repFacts, SOURCES } from '../team/leader-steps.js';
 import { makeT } from '../team/i18n.js';
 import { emptyState, applyEvent } from '../lib/team/state.mjs';
 import { leaderView } from '../lib/team/leader.mjs';
@@ -96,4 +96,19 @@ test('each site state has its own words, and only an install made with the app r
 test('the hours sentence says the Scorecard reports the hours; buyers accept them', () => {
   assert.equal(es('lead.support', { d: '43 h 35 min', a: '34 h 35 min' }), 'De 43 h 35 min entregadas, 34 h 35 min aceptadas, según el Scorecard.');
   assert.equal(en('lead.support', { d: '43 h 35 min', a: '34 h 35 min' }), 'Of 43 h 35 min delivered, 34 h 35 min accepted, per the Scorecard.');
+});
+
+test('every number the city bands write carries its source: counts, site figures, rep numbers and a new rep\'s step', () => {
+  const city = { city: 'Panama City', sites: [{ id: 's1', name: 'Negocio de Prueba', state: 'installed', eligible: 4, consents: 2, phones: 2, workers: 2 }, { id: 's2', name: 'Otro', state: 'legacy', eligible: 3, consents: 0, phones: 0, workers: 0 }],
+    reps: [{ id: 'r1', first: 'Ana', photo: null, week: { visits: 3, conversations: 2, meetings: 1, contracts: 0 }, isNew: true, ladderDone: 4 }, { id: 'r2', first: 'Beto', photo: null, week: { visits: 1, conversations: 0, meetings: 0, contracts: 0 }, isNew: false, ladderDone: 10 }] };
+  const numbers = [...cityFacts(city), ...city.sites.flatMap((x) => siteCard(x, es).figures), ...city.reps.flatMap(repFacts)];
+  // a number with no source, or one whose source the page has no words for, fails here
+  for (const n of numbers) assert.ok(SOURCES[n.source], `${n.key} has no source`);
+  for (const key of Object.values(SOURCES)) for (const t of [es, en]) assert.ok(t(key).length > 5, key);
+  assert.deepEqual(cityFacts(city).map((n) => [n.key, n.value, n.source]), [['sites', 2, 'site'], ['reps', 2, 'rep']]);
+  assert.deepEqual(repFacts(city.reps[0]).map((n) => [n.key, n.value, n.source]), [['visits', 3, 'rep'], ['conversations', 2, 'rep'], ['meetings', 1, 'rep'], ['contracts', 0, 'rep'], ['ladder', 4, 'ladder']]);
+  // a rep who is no longer new has no step to show
+  assert.equal(repFacts(city.reps[1]).some((n) => n.key === 'ladder'), false);
+  // the headline with no hours has its own words, with no full stop to cut
+  for (const t of [es, en]) assert.equal(/\.$/.test(t('lead.giant.none')), false);
 });
