@@ -68,3 +68,15 @@ export function pickZone(picked, zone) {
 }
 /** Exactly two different zones, which is what the server accepts. */
 export const zonesReady = (picked) => Array.isArray(picked) && picked.length === 2 && picked[0] !== picked[1];
+
+/** The zone names a done zone row shows: the pick in the answer of the person whose screens these are (`me.zones`,
+ *  their own, also through view-as). Never a list held from another screen or another person. */
+export function rowZones(step, me) {
+  if (!step || step.step !== 'zones' || !step.done) return null;
+  const z = me && Array.isArray(me.zones) ? me.zones : [];
+  return z.length === 2 ? [...z] : null;
+}
+/** Who the offered zones were fetched for: the signed-in person and whose screens they look through. */
+export const whoKey = (S) => (S && S.me && S.me.me ? `${S.me.me.id}|${S.as || ''}` : null);
+/** The offered zones, only when they were fetched for this same identity; otherwise nothing, and the screen asks again. */
+export const offeredFor = (cache, key) => (cache && key && cache.key === key ? cache.zones : null);

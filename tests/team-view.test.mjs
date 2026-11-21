@@ -201,3 +201,12 @@ test('repView carries the address of every training video by key, null while it 
   VIDEOS.pitch = 'https://videos.equipo.test/presentar.mp4';
   try { assert.equal(repView(build([rep('ana')]), 'ana', ctx()).videos.pitch, 'https://videos.equipo.test/presentar.mp4'); } finally { VIDEOS.pitch = null; }
 });
+
+test('repView carries the person\'s own two zones, and nobody else\'s', () => {
+  const s = build([rep('ana'), rep('beto'), { type: 'zones.pick', rep: 'ana', zones: ['Bella Vista', 'Obarrio'] }]);
+  assert.deepEqual(repView(s, 'ana', ctx()).zones, ['Bella Vista', 'Obarrio']);
+  assert.deepEqual(repView(s, 'beto', ctx()).zones, []);
+  // a copy: the screen can never change the state
+  const v = repView(s, 'ana', ctx()); v.zones.push('X');
+  assert.deepEqual(repView(s, 'ana', ctx()).zones, ['Bella Vista', 'Obarrio']);
+});

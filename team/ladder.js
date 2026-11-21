@@ -6,7 +6,7 @@
 // The look is the install's: porcelain for what the rep does, graphite for what the app reads from the day.
 import { $, $$, h, s, put, t, num, cityName, joinList, giant, countTo, recount, flipList, toast, src, once, ringAt, lock, reduce, isQuiet, quiet, showErr } from './ui.js';
 import { reveal, stagger } from './fx.js';
-import { nextStep, ladderCount, ladderOnHoy, stepVideo, learnRows, ladderControls, postSeen, pickZone, zonesReady } from './ladder-steps.js';
+import { nextStep, ladderCount, ladderOnHoy, stepVideo, learnRows, ladderControls, postSeen, pickZone, zonesReady, rowZones, whoKey, offeredFor } from './ladder-steps.js';
 
 const START = ['video', 'kit', 'whatsapp', 'zones'];   // the rep's own steps: the porcelain zone
 
@@ -23,7 +23,10 @@ function setTick(node, on, now = false) {
 const thumb = (playable) => h('span', { class: `lrn-thumb${playable ? '' : ' none'}`, 'aria-hidden': 'true' }, playable ? h('i') : null);
 
 export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLog }) {
-  let back = 'today', learnBack = 'ladder', zones = null, picked = [];
+  // `offered` is the only thing kept between screens: the zones of the city, tagged with the identity that fetched
+  // them, and asked again each time the picker opens. What a person picked always comes from their own answer (S.me.zones).
+  let back = 'today', learnBack = 'ladder', offered = null, picked = [];
+  const sending = new Set();   // videos whose `seen` is on its way: a second tap waits for the first
   const readOnly = () => !!S.as;
   const preview = () => !!S.mgr;   // a manager or an admin, on their own account
   const canLog = () => !S.mgr && !readOnly() && !!(S.me && S.me.today);
@@ -41,13 +44,6 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
     quiet(() => render(false));
     setTab('ladder');
     setTimeout(arrive, reduce ? 0 : 90);
-    loadZones();
-  }
-  /** The zones of the person's city and the two picked, for the zone step's line and the picker. Read only never asks:
-   *  the answer would be the manager's own, not the rep's. */
-  async function loadZones() {
-    if (readOnly()) { zones = null; return; }
-    try { zones = await api('GET', 'zones'); render(false); } catch { zones = null; }
   }
   /** The screen has just arrived: the headline rises, the meter fills again, the zones and their rows come in. */
   function arrive() {
@@ -106,7 +102,8 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
 
   /** The small line of a step that is not the next one: who ticks it, or what it holds once done. */
   function byLine(x) {
-    if (x.done) return x.step === 'zones' && zones && zones.picked.length === 2 ? joinList(zones.picked) : t('ladder.done');
+    const names = rowZones(x, S.me);
+    if (x.done) return names ? joinList(names) : t('ladder.done');
     return t(`ladder.by.${x.by}`);
   }
 
@@ -157,15 +154,22 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
     return h('a', { class: cls, href: v.url, target: '_blank', rel: 'noopener noreferrer', onclick: () => seen(v) }, thumb(true), h('span', { text: label }));
   }
   async function seen(v) {
-    if (!postSeen(v, S.me.seen, readOnly())) return;
-    try { took(await write('POST', 'seen', { video: v.key })); } catch { /* the video opened all the same; the next open tells the server again */ }
+    if (!postSeen(v, S.me.seen, readOnly()) || sending.has(v.key)) return;
+    sending.add(v.key);
+    try { took(await write('POST', 'seen', { video: v.key })); } catch { /* the video opened all the same; the next open tells the server again */ } finally { sending.delete(v.key); }
   }
 
   // ---- the zone picker ----
   async function openZones() {
     if (readOnly()) return;
-    if (!zones) { try { zones = await api('GET', 'zones'); } catch (e) { toast(errText(e)); return; } }
-    picked = [...zones.picked];
+    // asked again on every open, for whoever is signed in now; an answer that comes back after the identity changed is dropped
+    const key = whoKey(S);
+    offered = null;
+    let got;
+    try { got = await api('GET', 'zones'); } catch (e) { toast(errText(e)); return; }
+    if (whoKey(S) !== key || readOnly()) return;
+    offered = { key, zones: got.zones };
+    picked = [...(Array.isArray(S.me.zones) ? S.me.zones : [])];
     $('#znErr').hidden = true;
     $('#znList').replaceChildren();
     quiet(paintZones);
@@ -173,6 +177,7 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
     if (!reduce) setTimeout(() => { reveal($('#znGiant')); stagger($$('#znList li'), { delay: 160, step: 30, y: 6 }); }, 90);
   }
   function paintZones() {
+    const zones = offeredFor(offered, whoKey(S));
     if (!zones) return;
     $('#znPreview').hidden = !preview();
     $('#znCity').textContent = cityName(S.me.me.city); $('#znCity').hidden = !S.me.me.city;
@@ -181,7 +186,7 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
     put(g, pre, n, post.replace(/\.$/, ''), h('em', { text: '.' }));
     countTo(n, picked.length);
     g.classList.toggle('full', picked.length === 2);
-    flipList($('#znList'), zones.zones, (z) => z,
+    flipList($('#znList'), zones, (z) => z,
       () => h('li', { class: 'inst-row tap zn-row' }, tickNode(), h('span', { class: 'inst-n' }, h('b'), h('small')),
         h('button', { class: 'inst-hit', type: 'button', onclick: (e) => tapZone(e.currentTarget.closest('li').dataset.key) })),
       (li, z) => {
@@ -192,11 +197,11 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
         $('.inst-hit', li).setAttribute('aria-pressed', String(at >= 0));
         $('.inst-hit', li).setAttribute('aria-label', z);
       });
-    $('#znEmpty').hidden = zones.zones.length > 0;
+    $('#znEmpty').hidden = zones.length > 0;
     $('#znCount').textContent = t('install.zone.count', { a: picked.length, b: 2 });
     const save = $('#znSave');
     save.disabled = !zonesReady(picked);
-    save.hidden = readOnly() || !zones.zones.length;
+    save.hidden = readOnly() || !zones.length;
   }
   function tapZone(z) {
     picked = pickZone(picked, z);
@@ -207,7 +212,6 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
     if (!zonesReady(picked)) return;
     try {
       const res = await write('POST', 'zones', { zones: picked });
-      zones = { ...zones, picked: [...picked] };
       adopt(res.me);
       // back on the ladder first, then the zone step locks in where the person can see it
       setTab('ladder');

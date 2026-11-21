@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { LADDER, VIDEOS, STEP_VIDEO } from '../lib/team/rules.mjs';
-import { nextStep, ladderCount, ladderOnHoy, stepVideo, learnRows, ladderControls, postSeen, pickZone, zonesReady, safeUrl } from '../team/ladder-steps.js';
+import { nextStep, ladderCount, ladderOnHoy, stepVideo, learnRows, ladderControls, postSeen, pickZone, zonesReady, safeUrl, rowZones, whoKey, offeredFor } from '../team/ladder-steps.js';
 
 const BY = { video: 'rep', kit: 'rep', whatsapp: 'rep', zones: 'rep', hour: 'manager' };
 /** The ten steps as the server sends them, the first `n` done. */
@@ -98,4 +98,28 @@ test('two zones: a tap picks or drops one, a third tap replaces the oldest pick,
   assert.equal(zonesReady(undefined), false);
   // the list given is never changed in place
   const given = ['A']; pickZone(given, 'B'); assert.deepEqual(given, ['A']);
+});
+
+test('the zone row shows the zones of the person whose screens these are, never anyone else\'s', () => {
+  const zones = ladder(4).find((s) => s.step === 'zones');
+  // the viewed rep's own answer carries their own pick: that is what the row shows, whoever is looking
+  assert.deepEqual(rowZones(zones, { zones: ['Bella Vista', 'Obarrio'] }), ['Bella Vista', 'Obarrio']);
+  // done but nothing in the answer (an older build): no names, the row just says it is done
+  assert.equal(rowZones(zones, {}), null);
+  assert.equal(rowZones(zones, { zones: [] }), null);
+  // not done, or another step: never names
+  assert.equal(rowZones({ ...zones, done: false }, { zones: ['A', 'B'] }), null);
+  assert.equal(rowZones(ladder(4)[0], { zones: ['A', 'B'] }), null);
+});
+
+test('the offered zones are kept only for the identity that fetched them', () => {
+  const mgr = whoKey({ me: { me: { id: 'r_mgr' } }, as: null });
+  const asRep = whoKey({ me: { me: { id: 'r_ana' } }, as: 'r_ana' });
+  const otherLogin = whoKey({ me: { me: { id: 'r_beto' } }, as: null });
+  assert.notEqual(mgr, asRep); assert.notEqual(mgr, otherLogin);
+  assert.equal(whoKey({ me: null, as: null }), null);
+  const cache = { key: mgr, zones: ['Bella Vista', 'Obarrio', 'Calidonia'] };
+  assert.deepEqual(offeredFor(cache, mgr), ['Bella Vista', 'Obarrio', 'Calidonia']);
+  for (const k of [asRep, otherLogin, null]) assert.equal(offeredFor(cache, k), null, String(k));
+  assert.equal(offeredFor(null, mgr), null);
 });
