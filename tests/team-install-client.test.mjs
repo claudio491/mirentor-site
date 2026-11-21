@@ -17,6 +17,13 @@ test('the client\'s cleanImei agrees with the server\'s on the shared vectors', 
   assert.equal(cleanImei('490154203237517'), null);
 });
 
+test('an IMEI that is one digit fifteen times is refused on both sides, though fifteen zeros pass the Luhn check', () => {
+  for (const v of ['000000000000000', '000 000 000 000 000', '000-000000-000000-0', ...'123456789'.split('').map((d) => d.repeat(15))]) {
+    assert.equal(cleanImei(v), null, `client takes ${v}`);
+    assert.equal(serverImei(v), null, `server takes ${v}`);
+  }
+});
+
 test('workerSteps(worker) opens step 2 only with a consent', () => {
   const steps = (w) => workerSteps(w).map((s) => [s.key, s.open, s.done]);
   const base = { id: 'w_aaaaaaaaaaaa', phone: true, consent: null, imei: null, clip: null };

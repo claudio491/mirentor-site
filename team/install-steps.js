@@ -2,12 +2,12 @@
 // Which step of a worker is open, whether the Hoy card shows, how the list is ordered and what a worker looks like
 // after a consent upload that did not reach the server. The server stays the judge: these only shape the screen.
 
-/** IMEI: 15 digits, the last one a Luhn check digit. Spaces and dashes typed or scanned with it are dropped.
+/** IMEI: 15 digits, not all the same, the last one a Luhn check digit. Spaces and dashes typed or scanned with it are dropped.
  *  The same rule as lib/team/install.mjs, so the screen refuses what the server would. */
 export function cleanImei(input) {
   if (typeof input !== 'string') return null;
   const d = input.replace(/[\s-]/g, '');
-  if (!/^\d{15}$/.test(d)) return null;
+  if (!/^\d{15}$/.test(d) || /^(\d)\1{14}$/.test(d)) return null;   // one digit fifteen times is no phone, though 15 zeros pass Luhn
   let sum = 0;
   for (let i = 0; i < 15; i += 1) {
     let n = Number(d[14 - i]);

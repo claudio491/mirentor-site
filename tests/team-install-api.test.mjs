@@ -73,6 +73,8 @@ test('an IMEI with dashes is accepted and one held elsewhere is imei_taken; a ba
   for (const w of [W1, W2]) { await addWorker(w); await upload(w); }
   const bad = await phone(W1, IMEI_BAD);
   assert.deepEqual([bad.status, bad.json.error], [400, 'imei']);
+  const zeros = await phone(W1, '000000000000000');
+  assert.deepEqual([zeros.status, zeros.json.error], [400, 'imei']);
   assert.equal((await phone(W1, '49-015420 3237518')).status, 200);
   assert.equal(s.lines().find((e) => e.type === 'worker.phone').imei, IMEI_A);
   const taken = await phone(W2, IMEI_A);
@@ -206,4 +208,23 @@ test('a rep who is not on the site gets 403 whether or not the ids exist; a mana
   assert.equal((await ask('GET', 'install/s_doesnotexist1', undefined, a.cookie)).status, 404);
   assert.equal((await ask('GET', 'consent/w_doesnotexist1', undefined, a.cookie)).status, 404);
   assert.equal(s.lines().length, before);
+});
+
+test('a manager or admin runs every install write on a site whose rep is someone else, and the log names them', async (t) => {
+  const { s, a, siteId, ana } = await setup(t);
+  const mgr = await s.call('POST', `${API}/reps`, { email: 'mara@equipo.test', name: 'Mara Manager', role: 'manager' }, { cookie: a.cookie });
+  assert.equal(mgr.status, 200);
+  for (const [who, cookie, wid, imei] of [[mgr.json.id, 'who=mara%40equipo.test', W1, IMEI_A], [a.id, a.cookie, W2, IMEI_B]]) {
+    const before = s.lines().length;
+    assert.equal((await s.call('POST', `${API}/install/${siteId}/workers`, { id: wid, name: 'Persona Prueba', email: 'pp@equipo.test', phone: true }, { cookie })).status, 200);
+    assert.equal((await fetch(`${s.url}${API}/worker/${wid}/consent`, { method: 'PUT', headers: { 'content-type': 'image/jpeg', cookie }, body: JPG })).status, 200);
+    assert.equal((await s.call('POST', `${API}/worker/${wid}/phone`, { imei }, { cookie })).status, 200);
+    assert.equal((await s.call('POST', `${API}/worker/${wid}/clip`, {}, { cookie })).status, 200);
+    assert.equal((await s.call('POST', `${API}/install/${siteId}/close`, {}, { cookie })).status, 200);
+    const written = s.lines().slice(before);
+    const kinds = ['worker.added', 'worker.consent', 'worker.phone', 'worker.clip'].concat(who === mgr.json.id ? ['install.close'] : []);
+    assert.deepEqual(written.map((e) => e.type), kinds, `written by ${who}`);
+    for (const e of written) assert.equal(e.by, who, `${e.type} names who did it`);
+  }
+  assert.equal(s.lines().find((e) => e.type === 'site').rep, ana.id, 'the site stays the rep\'s');
 });
