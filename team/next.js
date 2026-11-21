@@ -28,10 +28,25 @@ async function readerLang() {
   } catch { return 'es'; }
 }
 
+/** Each order's rail runs from the centre of its first number to the centre of its last, whatever the words' length. */
+const fitRails = () => {
+  for (const w of document.querySelectorAll('.nx-orderw')) {
+    const keys = w.querySelectorAll('.nx-k'), rail = w.querySelector('.nx-rail');
+    if (keys.length < 2 || !rail) continue;
+    const box = w.getBoundingClientRect(), a = keys[0].getBoundingClientRect(), b = keys[keys.length - 1].getBoundingClientRect();
+    rail.style.top = `${a.top + a.height / 2 - box.top}px`;
+    rail.style.height = `${b.top + b.height / 2 - (a.top + a.height / 2)}px`;
+  }
+};
+const fillAll = (lang) => { fill(lang); fitRails(); };
+addEventListener('resize', fitRails);
+if (document.fonts) document.fonts.ready.then(fitRails);   // the words take their final size once the font is in
+
 fill('es');
-document.querySelector('#nxLang').addEventListener('click', (e) => { const b = e.target.closest('button[data-lang]'); if (b) fill(b.dataset.lang); });
+document.querySelector('#nxLang').addEventListener('click', (e) => { const b = e.target.closest('button[data-lang]'); if (b) fillAll(b.dataset.lang); });
 const lang = await readerLang();
 if (lang !== 'es') fill(lang);
+fitRails();
 document.body.classList.add('nx-in');
 // Each part marked data-nx-seen plays its own arrival when it comes into view, so on a phone the edition fills in its
 // order when the reader reaches it, not while it is still below the fold.
