@@ -3,7 +3,7 @@
 // team/manager-steps.js, away from the page, so they can be tested here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { siteBody, hoursBody, siteActions, roleOptions } from '../team/manager-steps.js';
+import { siteBody, hoursBody, siteActions, roleOptions, siteReps } from '../team/manager-steps.js';
 import { DICT } from '../team/i18n.js';
 
 const base = { rep: 'r_1', name: '  Negocio de Prueba ', city: 'Panama City', eligible: '', coordName: '', coordPhone: '', kind: 'normal' };
@@ -67,4 +67,19 @@ test('only an admin is offered the roles, Liderazgo among them, with its own lab
   assert.deepEqual(roleOptions('manager'), []);
   assert.deepEqual([DICT.es['role.leader'], DICT.en['role.leader']], ['Liderazgo', 'Leadership']);
   for (const code of ['site_eligible', 'site_coordinator', 'site_kind', 'hours_order', 'hours_minutes']) for (const l of ['es', 'en']) assert.ok(DICT[l][`err.${code}`], `${l} err.${code}`);
+});
+
+test('a team with no reps still offers someone for a site: the active managers and admins, the viewer first', () => {
+  const lone = { reps: [], others: [{ id: 'r_jefe', name: 'Jefe Uno', role: 'admin', active: true }] };
+  const got = siteReps(lone, 'r_jefe');
+  assert.deepEqual(got, { options: [{ value: 'r_jefe', label: 'Jefe Uno' }], value: 'r_jefe' });
+  // a leader cannot install, and someone switched off is not offered
+  const mixed = { reps: [{ id: 'r_ana', name: 'Ana Rep', role: 'rep', active: true }],
+    others: [{ id: 'r_mara', name: 'Mara Manager', role: 'manager', active: true }, { id: 'r_lia', name: 'Lia Lider', role: 'leader', active: true },
+      { id: 'r_old', name: 'Rep Viejo', role: 'rep', active: false }, { id: 'r_ex', name: 'Ex Admin', role: 'admin', active: false }, { id: 'r_jefe', name: 'Jefe Uno', role: 'admin', active: true }] };
+  const m = siteReps(mixed, 'r_jefe');
+  assert.deepEqual(m.options.map((o) => o.value), ['r_ana', 'r_jefe', 'r_mara']);
+  assert.equal(m.value, 'r_ana', 'with reps on the team, a rep is the default');
+  // nobody at all: nothing to offer, the button stays off
+  assert.deepEqual(siteReps({ reps: [], others: [] }, 'r_x'), { options: [], value: '' });
 });

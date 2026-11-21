@@ -1,5 +1,5 @@
 // manager-steps.js: what the manager's site and hours controls decide before the server answers, away from the page so
-// it can be tested. What the site form sends, what the hours form sends, which controls a site offers, and which roles
+// it can be tested. Who the site form offers, what the site form sends, what the hours form sends, which controls a site offers, and which roles
 // the person form lists. The server stays the judge: a refusal here only says it sooner, in words.
 
 const refuse = (code) => { throw Object.assign(new Error(code), { code }); };
@@ -68,6 +68,17 @@ export function siteActions(site) {
   if (!site.practice && !site.legacy && site.workers) out.push('record');   // a record with nobody in it is an empty file
   out.push(site.practice ? 'remove' : 'void');
   return out;
+}
+
+/** Who the site form offers to install a site: the active reps, then the active managers and admins (a leader changes
+ *  nothing, so never). The default is the first rep; with no reps it is the viewer, so a lone admin can open a site. */
+export function siteReps(team, viewerId) {
+  const byName = (a, b) => a.name.localeCompare(b.name, 'es');
+  const reps = (team.reps || []).filter((r) => r.active !== false).sort(byName);
+  const bosses = (team.others || []).filter((r) => r.active && (r.role === 'manager' || r.role === 'admin')).sort(byName);
+  const options = [...reps, ...bosses].map((r) => ({ value: r.id, label: r.name }));
+  const value = reps.length ? reps[0].id : (bosses.find((r) => r.id === viewerId) || bosses[0] || { id: '' }).id;
+  return { options, value };
 }
 
 /** Which roles the person form lists. Only an admin chooses one, and only an admin can make a leader. */

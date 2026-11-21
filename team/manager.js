@@ -4,7 +4,7 @@ import { $, h, put, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, day
 import { miniHand, lens, setLens, portrait, setPortrait } from './hand.js';
 import { STOPS } from './stops.js';
 import { shortNames } from './moments.js';
-import { siteBody, siteActions, roleOptions, recordUrl } from './manager-steps.js';
+import { siteBody, siteActions, roleOptions, recordUrl, siteReps } from './manager-steps.js';
 import { siteStateKey } from './leader-steps.js';
 
 const MONDAY = '2026-11-16';   // any Monday: only used to name the days of the week
@@ -161,7 +161,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       h('span', {}, h('b', { text: x.name }), h('small', { text: t('needs.pace.item', { a: x.marks, b: x.possible }) })),
       h('span', { class: 'acts' }, copyBtn(msg)), h('p', { class: 'msg', lang: 'es', text: msg })); });
     const sites = team.sites.map(siteItem);
-    const addSite = h('button', { class: 'btn', type: 'button', id: 'addSiteBtn', text: t('needs.sites.add'), disabled: !team.reps.length, onclick: siteForm });
+    const addSite = h('button', { class: 'btn', type: 'button', id: 'addSiteBtn', text: t('needs.sites.add'), disabled: !siteReps(team, S.me.viewer.id).options.length, onclick: siteForm });
     $('#needsBody').replaceChildren(
       h('div', {}, group('needs.confirm.title', confirm, 'needs.confirm.empty'), group('needs.late.title', late, 'needs.late.empty'), group('needs.sites.title', sites, 'needs.sites.empty', h('p', { class: 'note' }, addSite), false)),
       h('div', {}, group('needs.silent.title', silent, 'needs.silent.empty'), group('needs.pace.title', pace, 'needs.pace.empty'), (silent.length || pace.length) ? h('p', { class: 'note', text: t('needs.msg.note') }) : null));
@@ -200,10 +200,10 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
   }
   /** A new site. The id is made when the form opens: sending the form twice records one site. */
   function siteForm() {
-    const siteId = `s_${newId()}`, known = team.cities || [], first = team.reps[0];
+    const siteId = `s_${newId()}`, known = team.cities || [], who = siteReps(team, S.me.viewer.id), first = repById(who.value);
     const city = (first && (known.find((k) => sameText(k, first.city)) || first.city)) || known[0] || '';
     formSheet({ title: t('needs.sites.title'), submit: t('needs.sites.submit'),
-      fields: [{ name: 'rep', type: 'select', label: t('needs.sites.rep'), options: team.reps.map((r) => ({ value: r.id, label: r.name })) }, { name: 'name', label: t('needs.sites.name') },
+      fields: [{ name: 'rep', type: 'select', label: t('needs.sites.rep'), value: who.value, options: who.options }, { name: 'name', label: t('needs.sites.name') },
         known.length ? { name: 'city', type: 'pick', label: t('site.form.city'), value: city, max: 60, other: t('reps.form.city.other'), otherLabel: t('reps.form.city.other.label'),
           options: [...known, ...(city && !known.includes(city) ? [city] : [])].map((c) => ({ value: c, label: cityName(c) })) } : { name: 'city', label: t('site.form.city'), value: city, max: 60 },
         { name: 'eligible', type: 'number', label: t('site.form.eligible'), hint: t('site.form.eligible.hint') },
