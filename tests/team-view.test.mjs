@@ -160,11 +160,22 @@ test('me lists the installs that wait for the rep: phones marked, not voided, no
     site('s_beto', { rep: 'beto' }), phones('s_beto')]);
   const mine = repView(s, 'ana', ctx()).installs;
   assert.deepEqual(mine, [
-    { id: 's_ready', name: 'Taller s_ready', state: 'ready_to_install', ready: 0, total: 0, phones: 4, practice: false },
-    { id: 's_doing', name: 'Taller s_doing', state: 'installing', ready: 1, total: 2, phones: 3, practice: false },
-    { id: 's_prac', name: 'Taller s_prac', state: 'practice', ready: 0, total: 0, phones: 2, practice: true },
+    { id: 's_ready', name: 'Taller s_ready', state: 'ready_to_install', ready: 0, total: 0, phones: 4, practice: false, closed: false },
+    { id: 's_doing', name: 'Taller s_doing', state: 'installing', ready: 1, total: 2, phones: 3, practice: false, closed: false },
+    { id: 's_prac', name: 'Taller s_prac', state: 'practice', ready: 0, total: 0, phones: 2, practice: true, closed: false },
   ]);
   assert.deepEqual(repView(s, 'beto', ctx()).installs.map((x) => x.id), ['s_beto']);
   // A site the manager installs is not on the manager's list unless the manager is its rep.
   assert.deepEqual(repView(build([rep('ana'), rep('boss', { role: 'admin' }), site('s_ready'), phones('s_ready')]), 'boss', ctx()).installs, []);
+});
+
+test('a practice site earns no points, adds no feed line, is no signed site in the month table, and the manager sees it labeled', () => {
+  const s = build([rep('ana'), rep('beto'), log('beto', MON, '09:00', 'talk'),
+    { type: 'site', t: at(MON, '10:00'), id: 's_prac', rep: 'ana', lead: { id: null, name: 'Sitio de práctica' }, practice: true, by: 'boss' }]);
+  const v = repView(s, 'ana', ctx());
+  assert.equal(v.ledger.some((e) => e.code.startsWith('site_')), false);
+  assert.equal(v.feed.some((f) => f.code === 'site_signed'), false);
+  assert.equal(v.table.month.me.sites, 0);
+  assert.equal(v.installs.length, 0, 'no phones marked yet');
+  assert.deepEqual(teamView(s, ctx()).sites.map((x) => [x.id, x.practice]), [['s_prac', true]], 'the manager sees it labeled');
 });

@@ -159,7 +159,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       h('span', {}, h('b', { text: x.name }), h('small', { text: t('needs.pace.item', { a: x.marks, b: x.possible }) })),
       h('span', { class: 'acts' }, copyBtn(msg)), h('p', { class: 'msg', lang: 'es', text: msg })); });
     const sites = team.sites.map((s) => { const rep = repById(s.rep), zone = tzOf(rep); return h('li', {},
-      h('span', {}, h('b', { text: s.lead.name }), h('small', { text: `${rep ? rep.name : ''} · ${stamp(s.at, zone)}` }),
+      h('span', {}, h('b', {}, s.lead.name, s.practice ? [' ', h('span', { class: 'chip inst-prac', text: t('install.practice') })] : null), h('small', { text: `${rep ? rep.name : ''} · ${stamp(s.at, zone)}` }),
         ['installed', 'first_hour'].filter((k) => s.steps[k]).map((k) => h('small', { text: `${t(`needs.sites.${k}`)}: ${stamp(s.steps[k], zone)}` }))),
       h('span', { class: 'acts' }, ['installed', 'first_hour'].filter((k) => !s.steps[k]).map((k) =>
         h('button', { class: 'mini-btn', type: 'button', text: t(`needs.sites.mark.${k}`), onclick: (e) => act(e.currentTarget, () => api('POST', `site/${encodeURIComponent(s.id)}`, { what: k }), 'needs.sites.done') })),

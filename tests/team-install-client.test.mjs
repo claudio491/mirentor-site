@@ -43,6 +43,8 @@ test('the install card shows for ready_to_install and installing, never for wait
     [{ state: 'practice', practice: true }, 'start'],
     [{ state: 'practice', practice: true, total: 2, ready: 1 }, 'continue'],
     [{ state: 'practice', practice: true, phones: null }, null],
+    // a closed practice site still reports `practice`: the closed flag says there is nothing left to do
+    [{ state: 'practice', practice: true, total: 2, ready: 2, closed: true }, null],
     // phones not marked never shows a card, whatever the state says
     [{ state: 'ready_to_install', phones: null }, null],
   ];
@@ -82,4 +84,45 @@ test('every status has its words, and the list puts who is done first and who st
   for (const st of ['ready', 'no_consent', 'no_phone', 'no_clip', 'consent_only']) for (const lang of ['es', 'en']) assert.ok(makeT(lang)(statusKey(st)).length > 0);
   const ws = [{ id: 'a', status: 'ready' }, { id: 'b', status: 'no_consent' }, { id: 'c', status: 'consent_only' }, { id: 'd', status: 'no_phone' }];
   assert.deepEqual(workerOrder(ws).map((w) => w.id), ['a', 'c', 'b', 'd']);
+});
+
+test('a scan finds the IMEI among whatever the barcode reader saw, with or without a label around it', async () => {
+  const { imeiFromScan } = await import('../team/install-steps.js');
+  assert.equal(imeiFromScan(['SN 12345', 'IMEI: 49-015420-323751-8']), IMEI_A);
+  assert.equal(imeiFromScan(['IMEI1 356938035643809 IMEI2 490154203237518']), IMEI_B);
+  assert.equal(imeiFromScan(['490154203237517', 'ABC']), null, 'a wrong check digit is never picked');
+  assert.equal(imeiFromScan([]), null);
+});
+
+test('a worker\'s screen says which step is next and how many there are', async () => {
+  const { stepNow } = await import('../team/install-steps.js');
+  const base = { phone: true, consent: null, imei: null, clip: null };
+  assert.deepEqual(stepNow(base), { at: 1, of: 3 });
+  assert.deepEqual(stepNow({ ...base, consent: { v: 'v1' } }), { at: 2, of: 3 });
+  assert.deepEqual(stepNow({ ...base, consent: { v: 'v1' }, imei: IMEI_A }), { at: 3, of: 3 });
+  assert.deepEqual(stepNow({ ...base, consent: { v: 'v1' }, imei: IMEI_A, clip: 'x' }), { at: 3, of: 3 });
+  assert.deepEqual(stepNow({ ...base, phone: false }), { at: 1, of: 1 });
+});
+
+test('the site record lists who signed, the day they signed and the phone by its last four digits', async () => {
+  const { recordRows } = await import('../team/install-steps.js');
+  const ws = [
+    { id: 'a', name: 'Trabajador 1', consent: { t: '2026-11-21T14:30:00Z', form: 'v1' }, imei: IMEI_A, phone: true },
+    { id: 'b', name: 'Trabajador 2', consent: null, imei: null, phone: true },
+    { id: 'c', name: 'Trabajador 3', consent: { t: '2026-11-22T03:30:00Z', form: 'v1' }, imei: null, phone: false },
+  ];
+  // days are the rep's local days: 10:30 pm on the 21st in Panama is still the 21st
+  assert.deepEqual(recordRows(ws, 'America/Panama'), [
+    { id: 'a', name: 'Trabajador 1', day: '2026-11-21', tail: '7518', phone: true },
+    { id: 'c', name: 'Trabajador 3', day: '2026-11-21', tail: null, phone: false },
+  ]);
+});
+
+test('the close screen can close with whoever is ready, and after closing it waits for the manager', async () => {
+  const { closeState } = await import('../team/install-steps.js');
+  const v = (over = {}, progress = {}) => ({ site: { closed: null, ...over }, progress: { ready: 0, total: 2, allRecordingHaveConsent: false, ...progress } });
+  assert.equal(closeState(v()).kind, 'nobody');
+  assert.equal(closeState(v({}, { ready: 1 })).kind, 'ready');
+  assert.equal(closeState(v({ closed: '2026-11-21T20:00:00Z' }, { ready: 1 })).kind, 'closed');
+  assert.equal(closeState(v({ closed: '2026-11-21T20:00:00Z', installed: true }, { ready: 1 })).kind, 'closed');
 });

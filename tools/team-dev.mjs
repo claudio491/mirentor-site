@@ -4,7 +4,7 @@
 // their names and photos, the real time, and no activity, because nothing is made up. --sample forces the fictional
 // sample below even when the roster file is there.
 // Each start writes a fresh sample folder in the system's temp directory, with fictional people and businesses, and
-// the admin's practice site with three placeholder workers, to look at the install screens.
+// a practice site for the rep andrea with three placeholder workers, to look at the install screens.
 // The preview clock starts on the Thursday of this week at 3:00 pm in Panama, so the week on screen is half lived:
 // full days, gaps, things waiting for the manager. --day=5 moves it to that day of the week (1 is Monday), for example
 // to see the Friday when next week's goal can be picked. Pass --now to use the real time instead.

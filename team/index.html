@@ -94,6 +94,7 @@
       <p id="closeP"></p>
       <button class="btn" type="button" id="closeBtn"></button>
     </section>
+    <section class="card light inst-card" id="installCard" hidden aria-labelledby="icName"></section>
   </section>
 
   <!-- SEMANA. The week is a hand whose joints are lights; under it, what the week has brought. -->
@@ -171,7 +172,6 @@
         <p class="lead" data-t="profile.lead"></p>
         <h1 class="giant word" id="profileGiant"></h1>
         <div class="lvl" id="lvl"></div>
-        <div class="inst-slot" id="installEntryRep" hidden></div>
       </div>
       <div class="col-b">
         <h2 class="sec-h" data-t="profile.badges"></h2>
@@ -198,7 +198,6 @@
       <div class="wall" id="wall" role="group" data-t-aria="wall.aria"></div>
     </div>
     <div class="blenses" id="teamLenses"></div>
-    <div class="inst-slot" id="installEntryMgr" hidden></div>
     <div class="hud-row gap"><div class="seg scroll" role="group" id="citySeg" data-t-aria="mgr.filter.aria"></div></div>
     <div class="btable" id="teamTable"></div>
     <p class="note" id="teamEmpty" hidden data-t="mgr.none"></p>
@@ -250,6 +249,72 @@
         <ul class="inst-rows" id="instList" data-t-aria="install.list.aria"></ul>
         <p class="note" id="instEmpty" hidden data-t="install.empty"></p>
         <button class="btn wide inst-add" type="button" id="instAdd"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg><span data-t="install.add"></span></button>
+        <button class="btn primary wide inst-toclose" type="button" id="instToClose" hidden></button>
+      </section>
+    </div>
+  </section>
+
+  <!-- ONE WORKER: the signed consent, then the phone, then the test clip. Without the consent photo the phone step stays locked. -->
+  <section class="screen inst" id="s-worker" hidden aria-labelledby="wkGiant">
+    <div class="hud-row"><button class="mini-btn inst-back" type="button" id="wkBack" data-t="install.w.back"></button><span class="chip"><i class="dot"></i><span id="wkSite"></span></span><span class="chip inst-prac" id="wkPractice" hidden data-t="install.practice"></span></div>
+    <p class="lead" id="wkName"></p>
+    <h1 class="giant" id="wkGiant"></h1>
+    <p class="support" id="wkSupport"></p>
+    <div class="inst-zones inst-wsteps">
+      <section class="inst-zone inst-prep inst-step" id="wkS1" aria-labelledby="wkH1">
+        <div class="inst-zh"><b class="inst-k" aria-hidden="true">1</b><h2 id="wkH1" data-t="install.w.s1"></h2><span class="inst-tick" aria-hidden="true"><i></i><svg viewBox="0 0 24 24" focusable="false"><path class="ck" d="M7.2 12.6l3.2 3.2 6.6-7" pathLength="1"/></svg></span></div>
+        <div class="inst-shot" id="wkShot"></div>
+        <p class="inst-meta" id="wkMeta"></p>
+        <p class="formerr" id="wkErr1" role="alert" hidden></p>
+        <label class="btn primary wide inst-file" id="wkFileBtn"><input class="vh" type="file" accept="image/*" capture="environment" id="wkFile"><span id="wkFileT"></span></label>
+        <button class="btn wide" type="button" id="wkRetry" hidden data-t="install.w.retry"></button>
+      </section>
+      <section class="inst-zone inst-crew inst-step" id="wkS2" aria-labelledby="wkH2">
+        <div class="inst-zh"><b class="inst-k" aria-hidden="true">2</b><h2 id="wkH2" data-t="install.w.s2"></h2><span class="inst-tick" aria-hidden="true"><i></i><svg viewBox="0 0 24 24" focusable="false"><path class="ck" d="M7.2 12.6l3.2 3.2 6.6-7" pathLength="1"/></svg></span></div>
+        <p class="inst-lock" id="wkLock2"><svg class="inst-lockic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path class="sh" d="M8 11V8a4 4 0 0 1 8 0v3"/><rect x="5.5" y="11" width="13" height="9" rx="2"/><circle class="j" cx="12" cy="15.5" r="1.5"/></svg><span data-t="install.w.lock2"></span></p>
+        <p class="note" id="wkOnly" hidden data-t="install.w.only"></p>
+        <div class="inst-body" id="wkPhoneBody">
+          <label class="inst-scan" id="wkScanBtn" hidden><input class="vh" type="file" accept="image/*" capture="environment" id="wkScan"><span class="inst-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="inst-scant" data-t="install.w.scan"></span></label>
+          <label class="field"><span class="label" data-t="install.w.imei"></span><input id="wkImei" type="text" inputmode="numeric" autocomplete="off" maxlength="24" data-t-ph="install.w.imei.ph"><span class="hint" id="wkImeiHint"></span></label>
+          <p class="formerr" id="wkErr2" role="alert" hidden></p>
+          <button class="btn primary wide" type="button" id="wkImeiSave" disabled data-t="install.w.imei.save"></button>
+        </div>
+        <div class="inst-done" id="wkPhoneDone" hidden><span class="inst-imei num" id="wkImeiShown"></span></div>
+      </section>
+      <section class="inst-zone inst-crew inst-step" id="wkS3" aria-labelledby="wkH3">
+        <div class="inst-zh"><b class="inst-k" aria-hidden="true">3</b><h2 id="wkH3" data-t="install.w.s3"></h2><span class="inst-tick" aria-hidden="true"><i></i><svg viewBox="0 0 24 24" focusable="false"><path class="ck" d="M7.2 12.6l3.2 3.2 6.6-7" pathLength="1"/></svg></span></div>
+        <p class="inst-lock" id="wkLock3"><svg class="inst-lockic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path class="sh" d="M8 11V8a4 4 0 0 1 8 0v3"/><rect x="5.5" y="11" width="13" height="9" rx="2"/><circle class="j" cx="12" cy="15.5" r="1.5"/></svg><span data-t="install.w.lock3"></span></p>
+        <div class="inst-body" id="wkClipBody">
+          <p class="inst-clipq"><b data-t="install.w.clip"></b><small data-t="install.w.clip.s"></small></p>
+          <p class="formerr" id="wkErr3" role="alert" hidden></p>
+          <button class="btn primary wide" type="button" id="wkClipBtn" data-t="install.w.clip.btn"></button>
+        </div>
+        <p class="inst-meta" id="wkClipDone" hidden data-t="install.w.clip.done"></p>
+      </section>
+    </div>
+  </section>
+
+  <!-- CLOSING AN INSTALL: who is ready, the site's record, and the close itself. Afterwards it waits for a manager. -->
+  <section class="screen inst" id="s-iclose" hidden aria-labelledby="clsGiant">
+    <div class="hud-row"><button class="mini-btn inst-back" type="button" id="clsBack" data-t="install.w.back"></button><span class="chip"><i class="dot"></i><span id="clsSite"></span></span><span class="chip inst-prac" id="clsPractice" hidden data-t="install.practice"></span><span class="chip ghost" id="clsState"></span></div>
+    <p class="lead" id="clsLead"></p>
+    <h1 class="giant" id="clsGiant"></h1>
+    <p class="support" id="clsSupport"></p>
+    <div class="inst-zones">
+      <section class="inst-zone inst-prep" aria-labelledby="clsRecH">
+        <div class="inst-zh"><b class="inst-k" aria-hidden="true">01</b><h2 id="clsRecH" data-t="install.c.record"></h2><span class="label num" id="clsRecCount"></span></div>
+        <div id="clsTable"></div>
+        <button class="btn wide" type="button" id="clsSee" data-t="install.c.see"></button>
+      </section>
+      <section class="inst-zone inst-crew" aria-labelledby="clsGoH">
+        <div class="inst-zh"><b class="inst-k" aria-hidden="true">02</b><h2 id="clsGoH" data-t="install.c.close"></h2></div>
+        <ul class="inst-rows">
+          <li class="inst-row" id="clsAdv"><span class="inst-tick" aria-hidden="true"><i></i><svg viewBox="0 0 24 24" focusable="false"><path class="ck" d="M7.2 12.6l3.2 3.2 6.6-7" pathLength="1"/></svg></span><span class="inst-n"><b data-t="install.adv"></b><small id="clsAdvS"></small></span></li>
+          <li class="inst-row" id="clsInst"><span class="inst-tick" aria-hidden="true"><i></i><svg viewBox="0 0 24 24" focusable="false"><path class="ck" d="M7.2 12.6l3.2 3.2 6.6-7" pathLength="1"/></svg></span><span class="inst-n"><b data-t="install.c.installed"></b><small id="clsInstS"></small></span></li>
+        </ul>
+        <p class="note" id="clsNote"></p>
+        <p class="formerr" id="clsErr" role="alert" hidden></p>
+        <button class="btn primary wide" type="button" id="clsGo"></button>
       </section>
     </div>
   </section>

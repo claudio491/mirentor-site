@@ -1032,20 +1032,81 @@ html.greeting{overflow:hidden}
 .inst-adv{display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 12px;border:1px solid var(--rule);border-radius:var(--r-input);font-size:14px;line-height:1.35}
 .inst-adv .inst-tick{flex:none}
 .inst-add{margin-top:14px;border-style:dashed}
-/* the temporary way in, until the Hoy card */
-.inst-slot{margin-top:24px;max-width:520px}
-.inst-entry-h{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.inst-entry-h .sec-h{margin-top:0}
-.inst-entry{display:grid;gap:8px;margin-top:10px}
-.inst-entry .leadopt{width:100%}
-.inst-entry-k{display:inline-flex;align-items:center;gap:8px}
+/* worker rows open the worker's screen: the whole row is the button */
+.inst-row.tap{position:relative}
+.inst-hit{all:unset;position:absolute;inset:0;cursor:pointer;border-radius:10px}
+.inst-hit:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+@media (hover:hover) and (pointer:fine){.inst-row.tap:hover{background:rgba(233,235,236,.035)}}
+.inst-toclose{margin-top:10px}
+/* the Hoy card: an install waits */
+.inst-card-h{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.inst-card .label{color:var(--slate)}
+.inst-card p.lead{margin-top:6px;color:var(--graphite);font-size:22px;font-weight:600;letter-spacing:-.03em}
+.inst-card .inst-rows{margin-top:8px}
+.inst-card .inst-row{min-height:52px;border-top-color:rgba(27,29,32,.12)}
+.inst-card .inst-n small{color:var(--slate)}
+.inst-row.two{grid-template-columns:minmax(0,1fr) auto}
+.inst-v{font-weight:700;font-size:19px;letter-spacing:-.03em;white-space:nowrap}
+.z-hoy>.inst-card{margin-top:16px}
+/* one worker: three steps, each on its own ground; a locked step shows its lock and nothing to tap */
+.inst-wsteps{grid-template-columns:minmax(0,1fr)}
+.inst-step .inst-zh .inst-tick{flex:none}
+.inst-step.locked .inst-zh h2,.inst-step.locked .inst-k{opacity:.5}
+.inst-step.locked{box-shadow:inset 0 0 0 1px var(--rule),inset 0 0 0 9999px rgba(20,22,24,.35)}
+.inst-lock{display:flex;align-items:center;gap:10px;margin-top:14px;padding:12px;border:1px dashed var(--hair);border-radius:var(--r-input);color:var(--mist);font-size:14px;line-height:1.35}
+.inst-lockic{flex:none;width:22px;height:22px;fill:none;stroke:var(--porcelain);stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.inst-lockic .j{fill:var(--signal);stroke:none}
+.inst-lockic .sh{transform-origin:16px 11px;transition:transform 320ms var(--ease-lock)}
+.inst-body{margin-top:6px}
+.inst-body .btn{margin-top:14px}
+.inst-shot{position:relative;display:grid;place-items:center;gap:10px;align-content:center;min-height:170px;margin-top:14px;padding:14px;border:1.5px dashed rgba(27,29,32,.32);border-radius:12px;overflow:hidden;text-align:center;color:var(--slate);font-size:13.5px}
+.inst-shot.has{padding:0;border-style:solid;border-color:var(--graphite);background:var(--graphite)}
+.inst-shot img{display:block;width:100%;height:220px;object-fit:cover}
+.inst-doc{display:block;width:62px;height:82px;padding:9px 8px;border-radius:3px;background:var(--paper);box-shadow:0 6px 16px rgba(27,29,32,.22);transform:rotate(-4deg)}
+.inst-doc i{display:block;height:3px;margin-bottom:5px;background:#c9cdd0}
+.inst-doc i:last-child{width:55%;height:9px;margin-top:12px;background:none;border-bottom:2px solid var(--signal-ink)}
+.inst-meta{margin-top:10px;font:500 12px/1.4 var(--mono);letter-spacing:.04em;color:var(--slate)}
+.inst-crew .inst-meta{color:var(--mist)}
+.inst-file{position:relative;margin-top:14px;cursor:pointer}
+.inst-file.busy{opacity:.6;pointer-events:none}
+.inst-file:focus-within{outline:2px solid var(--signal-ink);outline-offset:2px}
+.inst-prep .btn:not(.primary){border-color:rgba(27,29,32,.32)}
+.inst-prep .btn.primary{background:var(--graphite);border-color:var(--graphite);color:var(--porcelain)}
+.inst-scan{position:relative;display:flex;align-items:center;gap:14px;min-height:74px;margin-top:14px;padding:12px 14px;border-radius:12px;background:var(--panel-2);overflow:hidden;cursor:pointer;font-weight:600}
+.inst-scan::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--signal);animation:instsweep 2.2s ease-in-out infinite}
+@keyframes instsweep{50%{transform:translateY(72px)}}
+.inst-scan:focus-within{outline:2px solid var(--signal);outline-offset:2px}
+.inst-bars{display:flex;gap:2px;height:38px}
+.inst-bars i{width:3px;background:var(--porcelain)}.inst-bars i:nth-child(3n){width:1px}.inst-bars i:nth-child(4n){width:5px}
+.inst-body .field input{font-family:var(--mono);letter-spacing:.06em}
+.inst-body .hint.ok{color:var(--porcelain)}
+.inst-body .hint.ok::before{content:"";display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:50%;background:var(--signal);vertical-align:1px}
+.inst-done{margin-top:14px;padding:12px;border:1px solid var(--rule);border-radius:var(--r-input)}
+.inst-imei{font-family:var(--mono);letter-spacing:.04em}
+.inst-clipq{margin-top:14px}
+.inst-clipq b{display:block;font-weight:600}
+.inst-clipq small{display:block;margin-top:2px;color:var(--mist);font-size:13.5px;line-height:1.4}
+/* the close: the site's record as a table */
+.inst-tbl{width:100%;margin-top:10px;border-collapse:collapse;font-size:14px}
+.inst-tbl th{padding:6px 4px;border-bottom:1px solid rgba(27,29,32,.22);text-align:left;font:500 11px/1.2 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--slate)}
+.inst-tbl td{padding:9px 4px;border-bottom:1px solid rgba(27,29,32,.1);vertical-align:top;overflow-wrap:anywhere}
+.inst-tbl td.inst-imei{font-size:13px;white-space:nowrap}
+.inst-prep .note{color:var(--slate)}
+.inst-prep #clsSee{margin-top:14px}
+.inst-rec .inst-tbl th{color:var(--mist);border-bottom-color:var(--rule)}
+.inst-rec .inst-tbl td{border-bottom-color:var(--line)}
+#clsGo.armed{background:var(--porcelain);border-color:var(--porcelain)}
 @container (min-width:860px){
   .inst-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 48px;align-items:end}
   .inst-lenses{margin-top:0;width:280px}
   .inst-zones{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:18px;align-items:start;margin-top:32px}
   .inst-zone{padding:22px 24px 24px}
+  .inst-wsteps{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media (prefers-reduced-motion:reduce){
   .inst-tick>i,.inst-tick .ck,.inst-meter i::after{transition:none}
   .inst-tick.now::after{animation:none;opacity:0}
+  .inst-scan::after{animation:none;opacity:0}
+  .inst-lockic .sh{transition:none}
 }
+@media (min-width:1080px){.z-hoy>.inst-card{grid-row:8}}

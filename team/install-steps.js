@@ -30,7 +30,7 @@ export function workerSteps(w) {
 /** The Hoy card for one of `me.installs`, or null. It needs the phones marked; a practice site reports `practice` at any
  *  stage, so its workers say whether it starts or continues. A closed or installed site has nothing left to do here. */
 export function installCard(inst) {
-  if (!inst || inst.phones == null) return null;
+  if (!inst || inst.phones == null || inst.closed) return null;   // closed: it waits for a manager, nothing left to do here
   const open = inst.practice || inst.state === 'ready_to_install' || inst.state === 'installing';
   if (!open) return null;
   return { id: inst.id, kind: inst.total > 0 ? 'continue' : 'start', practice: !!inst.practice, ready: inst.ready, total: inst.total, phones: inst.phones };
@@ -68,4 +68,38 @@ export function newWorkerId(rand = null) {
  *  file), the same id kept for the retry, and the phone step still locked by the missing consent. */
 export function consentFailed(w) {
   return { ...w, status: w.consent ? w.status : 'no_consent', retry: true };
+}
+
+/** The IMEI among whatever a barcode reader saw on a box or a sticker: the first run of digits (dashes and spaces
+ *  allowed inside) that is a valid IMEI. A label around it ("IMEI:") does not matter; a wrong check digit is never picked. */
+export function imeiFromScan(values) {
+  for (const v of values || []) {
+    for (const run of String(v).match(/\d[\d\s-]{13,}\d/g) || []) {
+      const whole = cleanImei(run);
+      if (whole) return whole;
+      const digits = run.replace(/[\s-]/g, '');
+      for (let i = 0; i + 15 <= digits.length; i += 1) { const one = cleanImei(digits.slice(i, i + 15)); if (one) return one; }
+    }
+  }
+  return null;
+}
+
+/** Which step a worker's screen stands on, counted from 1, and how many steps they have. */
+export function stepNow(w) {
+  const steps = workerSteps(w), i = steps.findIndex((x) => !x.done);
+  return { at: i < 0 ? steps.length : i + 1, of: steps.length };
+}
+
+const localDayOf = (iso, tz) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
+/** The site's record as the close screen shows it: everyone with a consent on file, the local day they signed, and the
+ *  phone they hold by its last four digits. Nobody without a consent is in it. */
+export function recordRows(workers, tz) {
+  return workers.filter((w) => w.consent).map((w) => ({ id: w.id, name: w.name, day: localDayOf(w.consent.t, tz), tail: w.imei ? String(w.imei).slice(-4) : null, phone: w.phone !== false }));
+}
+
+/** The close screen: closed (it then waits for a manager to confirm the install), ready to close with whoever is ready,
+ *  or nobody ready yet. */
+export function closeState(view) {
+  if (view.site.closed) return { kind: 'closed', at: view.site.closed, installed: !!view.site.installed };
+  return { kind: view.progress.ready > 0 ? 'ready' : 'nobody' };
 }

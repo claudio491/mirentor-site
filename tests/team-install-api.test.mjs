@@ -152,7 +152,11 @@ test('closing with nobody ready is refused; closing with one ready worker append
   await phone(W1, IMEI_A);
   assert.equal((await close()).status, 409);   // a phone with no clip yet is not ready
   await s.call('POST', `${API}/worker/${W1}/clip`, {}, { cookie: ana.cookie });
-  assert.equal((await close()).status, 200);
+  const before = await s.call('GET', `${API}/install/${siteId}`, undefined, { cookie: ana.cookie });
+  assert.equal(before.json.site.closed, null);
+  const closed = await close();
+  assert.equal(closed.status, 200);
+  assert.equal(typeof closed.json.site.closed, 'string', 'the answer says when the install was closed');
   assert.equal((await close()).status, 200);
   assert.equal(types().filter((x) => x === 'install.close').length, 1);
   assert.equal((await addWorker(W3)).status, 200);

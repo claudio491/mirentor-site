@@ -29,7 +29,10 @@ async function api(method, path, body) {
   // A request that hangs is treated as no signal: a log then waits on the phone and goes out again with the same id.
   const stop = new AbortController(), timer = setTimeout(() => stop.abort(), 15000);
   try {
-    res = await fetch(`${API}/${path}`, { method, headers: body === undefined ? {} : { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body), credentials: 'same-origin', cache: 'no-store', signal: stop.signal });
+    // A photo goes as its own bytes (the server reads what it is from them); everything else goes as JSON.
+    const blob = typeof Blob !== 'undefined' && body instanceof Blob;
+    const headers = body === undefined ? {} : { 'content-type': blob ? (body.type || 'application/octet-stream') : 'application/json' };
+    res = await fetch(`${API}/${path}`, { method, headers, body: body === undefined ? undefined : blob ? body : JSON.stringify(body), credentials: 'same-origin', cache: 'no-store', signal: stop.signal });
   } catch { throw new ApiError('offline', 0); } finally { clearTimeout(timer); }
   let data = null;
   try { data = await res.json(); } catch { /* an answer that is not JSON is treated as a failure below */ }
@@ -45,7 +48,7 @@ const S = { me: null, sig: '', tab: null, period: 'week', as: null, mgr: false, 
   hold: null,     // the stop a log landed on, kept on the stage until its answer has played
   owed: null,     // an answer that waits for a sheet to close
   taught: false };
-const SCREENS = ['boot', 'gate', 'today', 'week', 'table', 'profile', 'team', 'needs', 'reps', 'install'];
+const SCREENS = ['boot', 'gate', 'today', 'week', 'table', 'profile', 'team', 'needs', 'reps', 'install', 'worker', 'iclose'];
 // A rep's three zones. On a wide screen they are one page, a band under the other; anywhere else one shows at a time.
 const BANDS = ['today', 'week', 'table'], WIDE = matchMedia('(min-width:1080px)');
 const banded = () => WIDE.matches && !S.mgr && !!S.me;
@@ -60,6 +63,7 @@ const MAIN_KINDS = ['talk', 'absent', 'call', 'message', 'meeting', 'contract'],
 const LEDGER_RULE = { visit: 'visit', conversation: 'conversation', followup: 'followup', message: 'message', reply: 'reply', meeting_booked: 'meetingBooked', meeting_held: 'meetingHeld',
   contract_sent: 'contractSent', contract_signed: 'contractSigned', site_signed: 'siteSigned', site_installed: 'siteInstalled', site_first_hour: 'siteFirstHour', day_closed: 'dayClosedOnTime' };
 const readOnly = () => !!S.as;
+const INSTALL_TABS = new Set(['install', 'worker', 'iclose']);   // the install's own screens: no tab of the bar is marked
 const tz = () => S.me.me.tz;
 const pts = (n) => t('u.points', { n });
 /** The word of a counted unit without its number: "sitios" from "3 sitios". */
@@ -158,7 +162,7 @@ function arrive(name, { fast = false, landed: lensLanded = false } = {}) {
     reveal($('#todayGiant'));
     const dio = $('#dio');
     if (dio.animate) dio.animate([{ opacity: 0, transform: 'translateY(-34px) scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 760, delay: 160, easing: EASE.lock, fill: 'backwards' });
-    stagger(there([$('#stopChip'), $('#stopCopy'), $('#nextBtn'), ...$$('#route .stop'), $('#closeCard')]), { delay: 380, step: 60 });
+    stagger(there([$('#stopChip'), $('#stopCopy'), $('#nextBtn'), ...$$('#route .stop'), $('#closeCard'), $('#installCard')]), { delay: 380, step: 60 });
     if (!lensLanded) drawIn($('#meLens'), 140);   // after the entrance the lens lands already drawn
     recount($('#ptsN'));
   } else if (name === 'week' && S.me.week) {
@@ -195,9 +199,7 @@ function renderAll(animate = false) {
   const run = () => {
     renderTop(); renderNav();
     if (S.mgr) manager.render(animate); else { renderToday(animate); renderWeek(animate); renderTable(animate); renderProfile(); renderRules(); }
-    // The installs that wait: a temporary way in from the profile and the team view, until the Hoy card.
-    install.entry($(S.mgr ? '#installEntryMgr' : '#installEntryRep'));
-    if (S.tab === 'install') install.render(false);
+    if (INSTALL_TABS.has(S.tab)) install.render(false);
   };
   if (animate) run(); else quiet(run);
 }
@@ -245,6 +247,7 @@ function renderToday(animate) {
   }
   paintStage(animate);
   renderCloseCard();
+  install.card($('#installCard'));   // an install that waits: the phones reached the site
 }
 /** What the stage shows: the stop the day stands on, or the one the person tapped. While a log is being answered
  *  (S.hold) the stop it landed on keeps its picture, and nothing here moves until the answer has played. */
