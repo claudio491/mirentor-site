@@ -1240,6 +1240,8 @@ html.greeting{overflow:hidden}
 .ld-site .inst-tag{flex:none}
 .ld-site .inst-tag.ok{background:var(--graphite);color:var(--porcelain)}
 .ld-site .inst-tag.miss{box-shadow:inset 0 0 0 1px var(--signal-ink);color:var(--signal-ink)}
+.ld-site .inst-tag.old{box-shadow:inset 0 0 0 1px rgba(27,29,32,.4);color:var(--slate)}
+.ld-rec{display:inline-block;margin-top:12px;color:var(--graphite);font-size:13.5px;font-weight:500;border-bottom-color:rgba(27,29,32,.4)}
 .ld-legacy{margin-top:10px;padding:9px 10px;border:1px dashed rgba(27,29,32,.32);border-radius:8px;color:var(--slate);font-size:13.5px;line-height:1.35}
 .ld-figs{display:grid;gap:4px;margin-top:10px}
 .ld-fig{display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;align-items:baseline}
@@ -1278,3 +1280,6 @@ html.greeting{overflow:hidden}
   .ld-nums{grid-template-columns:repeat(4,minmax(0,1fr))}
 }
 @media (min-width:1180px){.ld-people{grid-template-columns:repeat(2,minmax(0,1fr))}.ld-nums{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* a signed site in "Pendientes": its facts, then the controls its state allows, on their own line so the name never narrows */
+.items li.site-li{grid-template-columns:minmax(0,1fr)}
+.items li.site-li .acts{justify-content:flex-start}

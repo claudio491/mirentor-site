@@ -4,10 +4,11 @@
 // city is its own band: its sites on porcelain, its reps on deep graphite, as on the install screens.
 // A leader lands here and has nothing else; a manager or admin opens it from the team view. Nothing here writes.
 // Every number opens into where it comes from.
-import { $, h, s, put, t, num, dayMonth, upper, cityName, countTo, src, toast, quiet, reduce, EASE } from './ui.js';
+import { $, h, s, put, t, num, dayMonth, upper, cityName, countTo, src, toast, quiet, formSheet, reduce, EASE } from './ui.js';
 import { portrait, drawIn } from './hand.js';
 import { reveal, stagger, lockIn } from './fx.js';
 import { hm, siteCard, practiceNote, hoursModel } from './leader-steps.js';
+import { hoursBody, recordUrl } from './manager-steps.js';
 
 const R = 40, C = 2 * Math.PI * R;
 const WEEK_KEYS = [['visits', 'col.visits'], ['conversations', 'col.convs'], ['meetings', 'col.meetings'], ['contracts', 'col.contracts']];
@@ -48,7 +49,7 @@ export function createLeader({ api, S, errText, setTab }) {
     const giantNode = $('#ldGiant');
     if (L) put(giantNode, srcNum('ld-gn', L.accepted, () => weekSrc(L), H), h('em', { text: '.' }));
     else put(giantNode, t('lead.giant.none').slice(0, -1), h('em', { text: '.' }));
-    put($('#ldSupport'), L ? (L.delivered > 0 ? sentence('lead.support', { d: srcNum('', L.delivered, () => weekSrc(L), H), a: srcNum('', L.accepted, () => weekSrc(L), H) }) : t('lead.support.zero')) : '');
+    put($('#ldSupport'), L ? (L.delivered > 0 ? sentence(L.source === 'scorecard' ? 'lead.support' : 'lead.support.manual', { d: srcNum('', L.delivered, () => weekSrc(L), H), a: srcNum('', L.accepted, () => weekSrc(L), H) }) : t('lead.support.zero')) : '');
     $('#ldSupport').hidden = !L;
     $('#ldHoursNone').hidden = !!L;
 
@@ -110,9 +111,11 @@ export function createLeader({ api, S, errText, setTab }) {
       cells = h('div', { class: 'ld-cells', 'aria-hidden': 'true' }, Array.from({ length: n }, (_, i) => h('i', { class: i < site.phones ? 'p' : i < site.consents ? 'c' : null })));
     }
     return h('li', { class: `ld-site${card.legacy ? ' legacy' : ''}` },
-      h('div', { class: 'ld-sh' }, h('b', { text: card.name }), h('span', { class: `inst-tag ${['installed', 'legacy'].includes(card.stateKey) ? 'ok' : 'miss'}`, text: card.state })),
+      h('div', { class: 'ld-sh' }, h('b', { text: card.name }), h('span', { class: `inst-tag ${card.tone}`, text: card.state })),
       card.line ? h('p', { class: 'ld-legacy', text: card.line }) : null,
-      h('div', { class: 'ld-figs' }, figs), cells);
+      h('div', { class: 'ld-figs' }, figs), cells,
+      // the site's audit file: who signed, which phone they hold. Never for a practice site, which is not listed here.
+      card.record ? h('a', { class: 'link ld-rec', href: recordUrl(site.id), download: `record-${site.id}.csv`, text: t('lead.site.record') }) : null);
   }
   function repNode(rep) {
     const origin = () => t('lead.src.rep');
@@ -137,6 +140,8 @@ export function createLeader({ api, S, errText, setTab }) {
   function render() {
     if (!view) return;
     $('#ldBack').hidden = S.me.viewer.role === 'leader';
+    $('#ldHoursBtn').hidden = !S.mgr;   // a manager types a week by hand; a leader reads only
+    $('#ldChip').textContent = t(S.mgr ? 'lead.open' : 'lead.chip');   // "read only" is said to the one who only reads
     renderHours();
     put($('#ldCities'), view.cities.map(cityNode));
     $('#ldNone').hidden = view.cities.length > 0;
@@ -182,7 +187,17 @@ export function createLeader({ api, S, errText, setTab }) {
     }
   }
 
+  /** A week's hours typed by hand, as the Scorecard shows them. The answer is the whole view, with the week marked manual. */
+  function typeHours() {
+    const last = view && view.hours[0] ? view.hours[0].week : '';
+    formSheet({ title: t('hours.title'), intro: t('hours.intro'), submit: t('hours.submit'),
+      fields: [{ name: 'week', type: 'date', label: t('hours.week'), value: last },
+        { name: 'dh', type: 'number', label: t('hours.dh') }, { name: 'dm', type: 'number', label: t('hours.dm') },
+        { name: 'ah', type: 'number', label: t('hours.ah') }, { name: 'am', type: 'number', label: t('hours.am') }],
+      onSubmit: async (v) => { const res = await api('POST', 'hours', hoursBody(v)); view = res; quiet(render); toast(t('hours.done')); } });
+  }
   function wire() {
+    $('#ldHoursBtn').addEventListener('click', typeHours);
     $('#leadBtn').addEventListener('click', () => open().catch((e) => toast(errText(e))));
     $('#ldBack').addEventListener('click', () => setTab('team'));
   }

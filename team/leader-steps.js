@@ -13,11 +13,16 @@ export function hm(minutes, show = String) {
 
 /** What a site's card says. A site installed before the app has no consents in it, so its card says that instead of
  *  showing a zero that would read as "nobody signed". An eligible count the site never had stays null: the card says so. */
+/** The state a site is shown in. A site marked installed with nobody on it in the app (an old event, the old way of
+ *  marking) is not a finished install with the app, and says so. */
+export const siteStateKey = (site) => (site.state === 'installed' && !site.workers ? 'installed_bare' : site.state);
+/** How a state's tag looks: `ok` only for an install made with the app, `old` for what happened before or outside it. */
+const toneOf = (key) => (key === 'installed' ? 'ok' : key === 'legacy' || key === 'installed_bare' ? 'old' : 'miss');
 export function siteCard(site, t) {
-  const legacy = site.state === 'legacy';
+  const legacy = site.state === 'legacy', key = siteStateKey(site);
   const figures = [{ key: 'eligible', value: site.eligible ?? null, label: t('lead.site.eligible') }];
   if (!legacy) figures.push({ key: 'consents', value: site.consents, label: t('lead.site.consents') }, { key: 'phones', value: site.phones, label: t('lead.site.phones') });
-  return { id: site.id, name: site.name, state: t(`lead.state.${site.state}`), stateKey: site.state, legacy, line: legacy ? t('lead.site.legacy') : null, figures };
+  return { id: site.id, name: site.name, state: t(`lead.state.${key}`), stateKey: key, tone: toneOf(key), legacy, record: !legacy && site.workers > 0, line: legacy ? t('lead.site.legacy') : null, figures };
 }
 
 /** The practice site is never listed. When there is one or more, the page says how many, once, and names none. */

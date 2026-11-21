@@ -3,7 +3,7 @@
 // away from the page, so they can be tested here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hm, siteCard, practiceNote, shellFor, hoursModel } from '../team/leader-steps.js';
+import { hm, siteCard, practiceNote, shellFor, hoursModel, siteStateKey } from '../team/leader-steps.js';
 import { makeT } from '../team/i18n.js';
 import { emptyState, applyEvent } from '../lib/team/state.mjs';
 import { leaderView } from '../lib/team/leader.mjs';
@@ -72,4 +72,28 @@ test('the hours graphic measures accepted hours against the Scorecard goal, newe
   // the weeks share one scale: the largest delivered week fills its track
   assert.deepEqual(m.weeks.map((w) => [w.week, w.d, w.a]), [['2026-11-16', 0.5, 0.375], ['2026-11-09', 1, 0.25]]);
   assert.deepEqual(hoursModel([], 3750 * 60), { latest: null, goal: 3750 * 60, ofGoal: null, weeks: [] });
+});
+
+test('each site state has its own words, and only an install made with the app reads as installed', () => {
+  const site = (over) => ({ id: 's1', name: 'Negocio de Prueba', state: 'installed', eligible: 4, consents: 2, phones: 2, workers: 2, ...over });
+  const states = ['legacy', 'waiting_phones', 'ready_to_install', 'installing', 'closed', 'installed'];
+  for (const t of [es, en]) {
+    const words = states.map((st) => siteCard(site({ state: st }), t).state);
+    assert.equal(new Set(words).size, states.length, words.join(' | '));
+  }
+  assert.deepEqual([siteCard(site({ state: 'legacy' }), es).state, siteCard(site({ state: 'legacy' }), en).state], ['Antes de la app', 'Before the app']);
+  assert.equal(siteCard(site({}), es).tone, 'ok');
+  assert.equal(siteCard(site({ state: 'legacy' }), es).tone, 'old');
+  // an old site marked installed with nobody on it in the app: not a finished install either
+  const bare = siteCard(site({ eligible: null, workers: 0, consents: 0, phones: 0 }), es);
+  assert.deepEqual([bare.stateKey, bare.tone], ['installed_bare', 'old']);
+  assert.notEqual(bare.state, siteCard(site({}), es).state);
+  assert.equal(siteStateKey({ state: 'installed', workers: 0 }), 'installed_bare');
+  // the record is offered for a site with people on it in the app, never for a legacy one or an empty one
+  assert.deepEqual([siteCard(site({}), es).record, siteCard(site({ state: 'legacy' }), es).record, siteCard(site({ workers: 0 }), es).record], [true, false, false]);
+});
+
+test('the hours sentence says the Scorecard reports the hours; buyers accept them', () => {
+  assert.equal(es('lead.support', { d: '43 h 35 min', a: '34 h 35 min' }), 'De 43 h 35 min entregadas, 34 h 35 min aceptadas, según el Scorecard.');
+  assert.equal(en('lead.support', { d: '43 h 35 min', a: '34 h 35 min' }), 'Of 43 h 35 min delivered, 34 h 35 min accepted, per the Scorecard.');
 });

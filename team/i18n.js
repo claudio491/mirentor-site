@@ -430,7 +430,7 @@ const es = {
   'video.install': 'Instalar un sitio', 'video.install.s': 'Firma, teléfono, cámara', 'video.faq': 'Preguntas frecuentes', 'video.faq.s': 'Privacidad, daños, pagos',
   // ---- the leadership view: every city at once, read only ----
   'lead.open': 'Vista de liderazgo', 'lead.chip': 'Liderazgo · solo lectura', 'lead.week': 'Semana del {date}',
-  'lead.lead': 'Horas de video aceptadas, semana del {date}', 'lead.support': 'De {d} entregadas, el Scorecard aceptó {a}.', 'lead.support.zero': 'Esa semana no hubo horas entregadas.',
+  'lead.lead': 'Horas de video aceptadas, semana del {date}', 'lead.support': 'De {d} entregadas, {a} aceptadas, según el Scorecard.', 'lead.support.manual': 'De {d} entregadas, {a} aceptadas, escritas en la app por un líder.', 'lead.support.zero': 'Esa semana no hubo horas entregadas.',
   'lead.lead.none': 'Horas de video aceptadas', 'lead.giant.none': 'sin horas.', 'lead.pct.n': '{pct} %',
   'lead.pct': 'aceptado', 'lead.pct.aria': 'Aceptado: {pct} de lo entregado',
   'lead.goal.label': 'Meta del Scorecard', 'lead.goal.per': '{goal} aceptadas por semana', 'lead.goal.of': '{share} de la meta del Scorecard',
@@ -446,10 +446,25 @@ const es = {
   'lead.cities.none': 'Todavía no hay sitios ni vendedores para mostrar.',
   'lead.site.eligible': 'elegibles', 'lead.site.consents': 'consentimientos en archivo', 'lead.site.phones': 'teléfonos', 'lead.site.missing': '{what}: sin dato',
   'lead.site.legacy': 'Instalado antes de la app · consentimientos sin cargar',
-  'lead.state.legacy': 'Instalado', 'lead.state.waiting_phones': 'Esperando teléfonos', 'lead.state.ready_to_install': 'Listo para instalar',
-  'lead.state.installing': 'Instalando', 'lead.state.closed': 'Cerrado, falta confirmar', 'lead.state.installed': 'Instalado',
+  'lead.state.practice': 'Práctica', 'lead.state.legacy': 'Antes de la app', 'lead.state.installed_bare': 'Marcado instalado, sin trabajadores', 'lead.state.waiting_phones': 'Esperando teléfonos', 'lead.state.ready_to_install': 'Listo para instalar',
+  'lead.state.installing': 'Instalando', 'lead.state.closed': 'Cerrado, falta confirmar', 'lead.state.installed': 'Instalado con la app',
   'lead.rep.new': 'Nuevo · paso {n} de 10',
   'lead.practice': ['{n} sitio de práctica no aparece aquí ni cuenta en los totales.', '{n} sitios de práctica no aparecen aquí ni cuentan en los totales.'],
+  // ---- the manager's site and hours controls ----
+  'err.site_eligible': 'Elegibles: escribe un número entero de 0 a 5000, o déjalo vacío.', 'err.site_coordinator': 'Del coordinador hacen falta el nombre y un teléfono de al menos 5 dígitos, o ninguno de los dos.',
+  'err.site_kind': 'Elige qué tipo de sitio es.', 'err.hours_order': 'Las horas aceptadas no pueden ser más que las entregadas.', 'err.hours_minutes': 'Escribe las horas como número entero y los minutos de 0 a 59. Las entregadas no pueden quedar en cero.',
+  'site.form.city': 'Ciudad', 'site.form.eligible': 'Trabajadores elegibles', 'site.form.eligible.hint': 'Cuántos pueden grabar en el sitio. Déjalo vacío si todavía no lo sabes.',
+  'site.form.coord.name': 'Coordinador en el sitio (opcional)', 'site.form.coord.phone': 'Teléfono del coordinador', 'site.form.kind': 'Tipo de sitio',
+  'site.kind.normal': 'Sitio nuevo, se instala con la app', 'site.kind.practice': 'Práctica: se instala igual y no cuenta en ningún total', 'site.kind.legacy': 'Instalado antes de la app',
+  'site.meta.eligible': ['{n} elegible', '{n} elegibles'], 'site.meta.workers': ['{n} trabajador', '{n} trabajadores'], 'site.meta.phones': ['{n} teléfono', '{n} teléfonos'],
+  'site.act.install': 'Abrir la instalación', 'site.act.phones': 'Llegaron teléfonos', 'site.act.confirm': 'Confirmar instalación', 'site.act.record': 'Descargar el registro',
+  'site.act.remove': 'Quitar', 'site.act.remove.confirm': 'Se quita el sitio de práctica con sus trabajadores y consentimientos. Toca otra vez para confirmar.', 'site.removed': 'Sitio de práctica quitado.',
+  'site.phones.title': 'Llegaron teléfonos', 'site.phones.intro': 'Cuántos teléfonos llegaron para {name}. Con eso el vendedor puede empezar la instalación.', 'site.phones.count': 'Teléfonos que llegaron',
+  'site.phones.submit': 'Guardar', 'site.phones.done': 'Teléfonos guardados.', 'site.confirmed': 'Instalación confirmada. Los puntos ya cuentan.',
+  'hours.add': 'Escribir las horas de una semana', 'hours.title': 'horas de una semana', 'hours.intro': 'Escríbelas como salen en el Scorecard. En la vista quedan marcadas como escritas en la app.',
+  'hours.week': 'Semana (su lunes)', 'hours.dh': 'Entregadas: horas', 'hours.dm': 'Entregadas: minutos', 'hours.ah': 'Aceptadas: horas', 'hours.am': 'Aceptadas: minutos',
+  'hours.submit': 'Guardar las horas', 'hours.done': 'Horas guardadas.',
+  'lead.site.record': 'Descargar el registro',
 };
 const en = {
   // ---- shared ----
@@ -875,7 +890,7 @@ const en = {
   'video.install': 'Installing a site', 'video.install.s': 'Consent, phone, camera', 'video.faq': 'Common questions', 'video.faq.s': 'Privacy, damage, pay',
   // ---- the leadership view: every city at once, read only ----
   'lead.open': 'Leadership view', 'lead.chip': 'Leadership · read only', 'lead.week': 'Week of {date}',
-  'lead.lead': 'Accepted hours of video, week of {date}', 'lead.support': 'Of {d} delivered, the Scorecard accepted {a}.', 'lead.support.zero': 'No hours were delivered that week.',
+  'lead.lead': 'Accepted hours of video, week of {date}', 'lead.support': 'Of {d} delivered, {a} accepted, per the Scorecard.', 'lead.support.manual': 'Of {d} delivered, {a} accepted, typed into the app by a manager.', 'lead.support.zero': 'No hours were delivered that week.',
   'lead.lead.none': 'Accepted hours of video', 'lead.giant.none': 'no hours yet.', 'lead.pct.n': '{pct}%',
   'lead.pct': 'accepted', 'lead.pct.aria': 'Accepted: {pct} of what was delivered',
   'lead.goal.label': 'Scorecard goal', 'lead.goal.per': '{goal} accepted a week', 'lead.goal.of': '{share} of the Scorecard goal',
@@ -891,10 +906,25 @@ const en = {
   'lead.cities.none': 'No sites or reps to show yet.',
   'lead.site.eligible': 'eligible', 'lead.site.consents': 'consents on file', 'lead.site.phones': 'phones', 'lead.site.missing': '{what}: no data',
   'lead.site.legacy': 'Installed before the app · consents not loaded',
-  'lead.state.legacy': 'Installed', 'lead.state.waiting_phones': 'Waiting for phones', 'lead.state.ready_to_install': 'Ready to install',
-  'lead.state.installing': 'Installing', 'lead.state.closed': 'Closed, waiting to be confirmed', 'lead.state.installed': 'Installed',
+  'lead.state.practice': 'Practice', 'lead.state.legacy': 'Before the app', 'lead.state.installed_bare': 'Marked installed, no workers', 'lead.state.waiting_phones': 'Waiting for phones', 'lead.state.ready_to_install': 'Ready to install',
+  'lead.state.installing': 'Installing', 'lead.state.closed': 'Closed, waiting to be confirmed', 'lead.state.installed': 'Installed with the app',
   'lead.rep.new': 'New · step {n} of 10',
   'lead.practice': ['{n} practice site is not shown here and counts in no total.', '{n} practice sites are not shown here and count in no total.'],
+  // ---- the manager's site and hours controls ----
+  'err.site_eligible': 'Eligible: type a whole number from 0 to 5000, or leave it empty.', 'err.site_coordinator': 'The coordinator needs a name and a phone of at least 5 digits, or neither.',
+  'err.site_kind': 'Choose what kind of site it is.', 'err.hours_order': 'Accepted hours cannot be more than delivered hours.', 'err.hours_minutes': 'Type the hours as a whole number and the minutes from 0 to 59. Delivered cannot be zero.',
+  'site.form.city': 'City', 'site.form.eligible': 'Eligible workers', 'site.form.eligible.hint': 'How many can record at the site. Leave it empty if you do not know yet.',
+  'site.form.coord.name': 'Coordinator at the site (optional)', 'site.form.coord.phone': 'Coordinator\'s phone', 'site.form.kind': 'Kind of site',
+  'site.kind.normal': 'New site, installed with the app', 'site.kind.practice': 'Practice: installs the same and counts in no total', 'site.kind.legacy': 'Installed before the app',
+  'site.meta.eligible': ['{n} eligible', '{n} eligible'], 'site.meta.workers': ['{n} worker', '{n} workers'], 'site.meta.phones': ['{n} phone', '{n} phones'],
+  'site.act.install': 'Open the install', 'site.act.phones': 'Phones arrived', 'site.act.confirm': 'Confirm install', 'site.act.record': 'Download the record',
+  'site.act.remove': 'Remove', 'site.act.remove.confirm': 'The practice site goes, with its workers and consents. Tap again to confirm.', 'site.removed': 'Practice site removed.',
+  'site.phones.title': 'Phones arrived', 'site.phones.intro': 'How many phones arrived for {name}. With that the rep can start the install.', 'site.phones.count': 'Phones that arrived',
+  'site.phones.submit': 'Save', 'site.phones.done': 'Phones saved.', 'site.confirmed': 'Install confirmed. The points now count.',
+  'hours.add': 'Type one week\'s hours', 'hours.title': 'one week\'s hours', 'hours.intro': 'Type them as the Scorecard shows them. The view marks them as typed into the app.',
+  'hours.week': 'Week (its Monday)', 'hours.dh': 'Delivered: hours', 'hours.dm': 'Delivered: minutes', 'hours.ah': 'Accepted: hours', 'hours.am': 'Accepted: minutes',
+  'hours.submit': 'Save the hours', 'hours.done': 'Hours saved.',
+  'lead.site.record': 'Download the record',
 };
 export const DICT = { es, en };
 /** t(key, vars): the sentence in one language. Numbers are written the way that language writes them. */

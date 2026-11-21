@@ -1104,7 +1104,7 @@ async function viewAs(id = null) {
   await start(id);
 }
 // ---- wiring ----
-const manager = createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs });
+const manager = createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs, openInstall: (id) => install.open(id, 'needs') });
 const install = createInstall({ api, S, errText, refresh, setTab });
 const ladder = createLadder({ api, S, errText, adopt, renderAll, setTab, openLog });
 const leader = createLeader({ api, S, errText, setTab });

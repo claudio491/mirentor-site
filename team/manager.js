@@ -4,11 +4,13 @@ import { $, h, put, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, day
 import { miniHand, lens, setLens, portrait, setPortrait } from './hand.js';
 import { STOPS } from './stops.js';
 import { shortNames } from './moments.js';
+import { siteBody, siteActions, roleOptions, recordUrl } from './manager-steps.js';
+import { siteStateKey } from './leader-steps.js';
 
 const MONDAY = '2026-11-16';   // any Monday: only used to name the days of the week
 const dayName = (n) => wdShort(addDays(MONDAY, n - 1));
 
-export function createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs }) {
+export function createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs, openInstall }) {
   let team = null, city = 'all';
   const tzOf = (rep) => (rep && rep.tz) || S.me.me.tz;
   const repById = (id) => team.reps.find((r) => r.id === id) || team.others.find((r) => r.id === id);
@@ -158,19 +160,56 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     const pace = n.pace.map((x) => { const msg = t('needs.msg.pace', { name: x.name.split(' ')[0], a: x.marks, b: x.possible }); return h('li', {},
       h('span', {}, h('b', { text: x.name }), h('small', { text: t('needs.pace.item', { a: x.marks, b: x.possible }) })),
       h('span', { class: 'acts' }, copyBtn(msg)), h('p', { class: 'msg', lang: 'es', text: msg })); });
-    const sites = team.sites.map((s) => { const rep = repById(s.rep), zone = tzOf(rep); return h('li', {},
-      h('span', {}, h('b', {}, s.lead.name, s.practice ? [' ', h('span', { class: 'chip inst-prac', text: t('install.practice') })] : null), h('small', { text: `${rep ? rep.name : ''} · ${stamp(s.at, zone)}` }),
-        ['installed', 'first_hour'].filter((k) => s.steps[k]).map((k) => h('small', { text: `${t(`needs.sites.${k}`)}: ${stamp(s.steps[k], zone)}` }))),
-      h('span', { class: 'acts' }, ['installed', 'first_hour'].filter((k) => !s.steps[k]).map((k) =>
-        h('button', { class: 'mini-btn', type: 'button', text: t(`needs.sites.mark.${k}`), onclick: (e) => act(e.currentTarget, () => api('POST', `site/${encodeURIComponent(s.id)}`, { what: k }), 'needs.sites.done') })),
-        h('button', { class: 'mini-btn', type: 'button', text: t('needs.sites.void'), onclick: (e) => { const btn = e.currentTarget; twice(btn, 'needs.sites.void.confirm', () => act(btn, () => api('POST', `site/${encodeURIComponent(s.id)}`, { what: 'void' }), 'needs.sites.voided')); } }))); });
-    // The site gets its id when the form opens: sending the form twice records one site.
-    const addSite = h('button', { class: 'btn', type: 'button', text: t('needs.sites.add'), disabled: !team.reps.length, onclick: () => { const siteId = `s_${newId()}`; formSheet({ title: t('needs.sites.title'), submit: t('needs.sites.submit'),
-      fields: [{ name: 'rep', type: 'select', label: t('needs.sites.rep'), options: team.reps.map((r) => ({ value: r.id, label: r.name })) }, { name: 'name', label: t('needs.sites.name') }],
-      onSubmit: async (v) => { team = await api('POST', 'site', { id: siteId, rep: v.rep, lead: { name: v.name } }); toast(t('needs.sites.added')); await refresh(false); } }); } });
+    const sites = team.sites.map(siteItem);
+    const addSite = h('button', { class: 'btn', type: 'button', id: 'addSiteBtn', text: t('needs.sites.add'), disabled: !team.reps.length, onclick: siteForm });
     $('#needsBody').replaceChildren(
       h('div', {}, group('needs.confirm.title', confirm, 'needs.confirm.empty'), group('needs.late.title', late, 'needs.late.empty'), group('needs.sites.title', sites, 'needs.sites.empty', h('p', { class: 'note' }, addSite), false)),
       h('div', {}, group('needs.silent.title', silent, 'needs.silent.empty'), group('needs.pace.title', pace, 'needs.pace.empty'), (silent.length || pace.length) ? h('p', { class: 'note', text: t('needs.msg.note') }) : null));
+  }
+
+  // ---- sites: each one with the controls its state allows (manager-steps.js decides which) ----
+  const siteCall = (id, body) => api('POST', `site/${encodeURIComponent(id)}`, body);
+  function phonesArrived(s) {
+    formSheet({ title: t('site.phones.title'), intro: t('site.phones.intro', { name: s.lead.name }), submit: t('site.phones.submit'),
+      fields: [{ name: 'count', type: 'number', label: t('site.phones.count'), value: s.phones ? String(s.phones) : '' }],
+      onSubmit: async (v) => {
+        const count = Number(v.count);
+        if (!/^\d+$/.test(v.count) || count < 1 || count > 500) throw { code: 'fields' };
+        team = await siteCall(s.id, { what: 'phones', count }); toast(t('site.phones.done')); await refresh(false);
+      } });
+  }
+  function siteButton(kind, s) {
+    const btn = (key, cls, run) => h('button', { class: cls ? `mini-btn ${cls}` : 'mini-btn', type: 'button', 'data-act': kind, text: t(key), onclick: run });
+    if (kind === 'install') return btn('site.act.install', '', () => openInstall(s.id));
+    if (kind === 'phones') return btn('site.act.phones', '', () => phonesArrived(s));
+    if (kind === 'confirm') return btn('site.act.confirm', 'primary', (e) => act(e.currentTarget, () => siteCall(s.id, { what: 'installed' }), 'site.confirmed'));
+    if (kind === 'installed' || kind === 'first_hour') return btn(`needs.sites.mark.${kind}`, '', (e) => act(e.currentTarget, () => siteCall(s.id, { what: kind }), 'needs.sites.done'));
+    if (kind === 'record') return h('a', { class: 'mini-btn', 'data-act': kind, href: recordUrl(s.id), download: `record-${s.id}.csv`, text: t('site.act.record') });
+    if (kind === 'remove') return btn('site.act.remove', '', (e) => { const b = e.currentTarget; twice(b, 'site.act.remove.confirm', () => act(b, () => siteCall(s.id, { what: 'remove' }), 'site.removed')); });
+    return btn('needs.sites.void', '', (e) => { const b = e.currentTarget; twice(b, 'needs.sites.void.confirm', () => act(b, () => siteCall(s.id, { what: 'void' }), 'needs.sites.voided')); });
+  }
+  function siteItem(s) {
+    const rep = repById(s.rep), zone = tzOf(rep), key = s.practice ? null : siteStateKey(s);
+    const facts = [key ? t(`lead.state.${key}`) : null, s.city ? cityName(s.city) : null, s.eligible != null ? t('site.meta.eligible', { n: s.eligible }) : null,
+      s.workers ? t('site.meta.workers', { n: s.workers }) : null, s.phones != null ? t('site.meta.phones', { n: s.phones }) : null].filter(Boolean).join(' · ');
+    return h('li', { class: 'site-li', 'data-site': s.id },
+      h('span', {}, h('b', {}, s.lead.name, s.practice ? [' ', h('span', { class: 'chip inst-prac', text: t('install.practice') })] : null), h('small', { text: `${rep ? rep.name : ''} · ${stamp(s.at, zone)}` }),
+        facts ? h('small', { text: facts }) : null,
+        ['installed', 'first_hour'].filter((k) => s.steps[k]).map((k) => h('small', { text: `${t(`needs.sites.${k}`)}: ${stamp(s.steps[k], zone)}` }))),
+      h('span', { class: 'acts' }, siteActions(s).map((k) => siteButton(k, s))));
+  }
+  /** A new site. The id is made when the form opens: sending the form twice records one site. */
+  function siteForm() {
+    const siteId = `s_${newId()}`, known = team.cities || [], first = team.reps[0];
+    const city = (first && (known.find((k) => sameText(k, first.city)) || first.city)) || known[0] || '';
+    formSheet({ title: t('needs.sites.title'), submit: t('needs.sites.submit'),
+      fields: [{ name: 'rep', type: 'select', label: t('needs.sites.rep'), options: team.reps.map((r) => ({ value: r.id, label: r.name })) }, { name: 'name', label: t('needs.sites.name') },
+        known.length ? { name: 'city', type: 'pick', label: t('site.form.city'), value: city, max: 60, other: t('reps.form.city.other'), otherLabel: t('reps.form.city.other.label'),
+          options: [...known, ...(city && !known.includes(city) ? [city] : [])].map((c) => ({ value: c, label: cityName(c) })) } : { name: 'city', label: t('site.form.city'), value: city, max: 60 },
+        { name: 'eligible', type: 'number', label: t('site.form.eligible'), hint: t('site.form.eligible.hint') },
+        { name: 'coordName', label: t('site.form.coord.name'), max: 80 }, { name: 'coordPhone', type: 'tel', label: t('site.form.coord.phone'), max: 30 },
+        { name: 'kind', type: 'select', label: t('site.form.kind'), value: 'normal', options: ['normal', 'practice', 'legacy'].map((k) => ({ value: k, label: t(`site.kind.${k}`) })) }],
+      onSubmit: async (v) => { team = await api('POST', 'site', siteBody(v, siteId)); toast(t('needs.sites.added')); await refresh(false); } });
   }
 
   // ---- reps ----
@@ -190,7 +229,8 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       { name: 'country', type: 'select', label: t('reps.form.country'), value: rep ? rep.country : 'PA', options: ['PA', 'CO'].map((c) => ({ value: c, label: t(`country.${c}`) })) },
       { name: 'startDate', type: 'date', label: t('reps.form.start'), value: rep ? rep.startDate : today },
       { name: 'workdays', type: 'days', label: t('reps.form.workdays'), value: rep ? rep.workdays : [1, 2, 3, 4, 5], options: [1, 2, 3, 4, 5].map((n) => ({ value: n, label: dayName(n) })) });
-    if (!rep && isAdmin()) fields.push({ name: 'role', type: 'select', label: t('reps.form.role'), value: 'rep', options: ['rep', 'manager', 'admin'].map((r) => ({ value: r, label: t(`role.${r}`) })) });
+    const roles = rep ? [] : roleOptions(S.me.viewer.role);   // only an admin picks a role, Liderazgo among them
+    if (roles.length) fields.push({ name: 'role', type: 'select', label: t('reps.form.role'), value: 'rep', options: roles.map((r) => ({ value: r, label: t(`role.${r}`) })) });
     formSheet({ title: t(rep ? 'reps.edit.title' : 'reps.add.title'), submit: t(rep ? 'reps.form.save' : 'reps.form.submit'), fields,
       onSubmit: async (v) => {
         if (!v.city) throw { code: 'fields' };

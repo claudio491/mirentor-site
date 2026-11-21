@@ -171,3 +171,16 @@ test('a practice site never appears in export, and export carries no site data',
   assert.equal(r.text.includes('Negocio Real Unico'), false);
   assert.equal('sites' in r.json, false);
 });
+
+test('the team view lists each site with what the manager\'s controls need: state, city, eligible, flags and counts', async (t) => {
+  const { s, a, site, addWorker, upload, manage } = await setup(t);
+  const { id } = await site({ city: 'Panama City', eligible: 6, coordinator: { name: 'Coord Uno', phone: '5075550101' } });
+  await site({ lead: { name: 'Taller Antiguo' }, legacy: true });
+  await manage(id, { what: 'phones', count: 2 });
+  await addWorker(id, W1); await upload(W1);
+  const team = (await s.call('GET', `${API}/team`, undefined, { cookie: a.cookie })).json;
+  const row = team.sites.find((x) => x.id === id), old = team.sites.find((x) => x.lead.name === 'Taller Antiguo');
+  assert.deepEqual({ state: row.state, city: row.city, eligible: row.eligible, phones: row.phones, legacy: row.legacy, practice: row.practice, closed: row.closed, workers: row.workers, consents: row.consents },
+    { state: 'installing', city: 'Panama City', eligible: 6, phones: 2, legacy: false, practice: false, closed: null, workers: 1, consents: 1 });
+  assert.deepEqual([old.state, old.legacy, old.eligible, old.city], ['legacy', true, null, '']);
+});

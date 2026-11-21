@@ -386,7 +386,7 @@
 
   <section class="screen ld" id="s-lead" hidden aria-labelledby="ldGiant">
     <div class="ld-hours" id="ldHours">
-      <div class="hud-row"><button class="mini-btn inst-back" type="button" id="ldBack" hidden data-t="install.back"></button><span class="chip"><i class="dot"></i><span data-t="lead.chip"></span></span><span class="chip ghost" id="ldWeekChip" hidden></span></div>
+      <div class="hud-row"><button class="mini-btn inst-back" type="button" id="ldBack" hidden data-t="install.back"></button><span class="chip"><i class="dot"></i><span id="ldChip"></span></span><span class="chip ghost" id="ldWeekChip" hidden></span></div>
       <div class="ld-top">
         <div class="ld-a">
           <p class="lead" id="ldLead"></p>
@@ -399,6 +399,7 @@
       <p class="note" id="ldHoursNone" hidden data-t="lead.hours.none"></p>
       <h2 class="ld-h" id="ldWeeksH" hidden data-t="lead.weeks.h"></h2>
       <ul class="ld-weeks" id="ldWeeks"></ul>
+      <p class="note"><button class="mini-btn" type="button" id="ldHoursBtn" hidden data-t="hours.add"></button></p>
     </div>
     <div class="ld-cities" id="ldCities"></div>
     <p class="note" id="ldNone" hidden data-t="lead.cities.none"></p>
