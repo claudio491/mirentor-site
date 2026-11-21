@@ -95,6 +95,7 @@
       <button class="btn" type="button" id="closeBtn"></button>
     </section>
     <section class="card light inst-card" id="installCard" hidden aria-labelledby="icName"></section>
+    <section class="card light inst-card lad-card" id="ladderCard" hidden aria-labelledby="ladCardName"></section>
   </section>
 
   <!-- SEMANA. The week is a hand whose joints are lights; under it, what the week has brought. -->
@@ -190,7 +191,7 @@
   <section class="screen" id="s-team" hidden aria-labelledby="teamGiant">
     <div class="mhero">
       <div class="mh-a">
-        <div class="hud-row"><span class="chip"><i class="dot"></i><span id="teamDateChip"></span></span><span class="chip ghost" id="teamSampleChip" hidden data-t="c.sample"></span></div>
+        <div class="hud-row"><span class="chip"><i class="dot"></i><span id="teamDateChip"></span></span><span class="chip ghost" id="teamSampleChip" hidden data-t="c.sample"></span><button class="chip lad-prevbtn" type="button" id="previewBtn" hidden><i class="dot"></i><span data-t="ladder.preview.open"></span></button></div>
         <p class="lead" data-t="mgr.lead"></p>
         <h1 class="giant" id="teamGiant"></h1>
         <p class="support" id="teamSupport"></p>
@@ -318,6 +319,67 @@
         <p class="note" id="clsNote"></p>
         <p class="formerr" id="clsErr" role="alert" hidden></p>
         <button class="btn primary wide" type="button" id="clsGo"></button>
+      </section>
+    </div>
+  </section>
+
+  <!-- MY FIRST DAYS: ten steps up to the first site. The rep's own steps on porcelain, what the app reads from the day on
+       graphite; the next step open with what it asks for. A manager sees it for their own account as a preview. -->
+  <section class="screen inst lad" id="s-ladder" hidden aria-labelledby="ladGiant">
+    <div class="inst-head">
+      <div class="inst-a">
+        <div class="hud-row"><button class="mini-btn inst-back" type="button" id="ladBack" data-t="install.back"></button><span class="chip"><i class="dot"></i><span data-t="ladder.chip"></span></span><span class="chip inst-prac" id="ladPreview" hidden data-t="ladder.preview.chip"></span></div>
+        <p class="lead" id="ladLead"></p>
+        <h1 class="giant" id="ladGiant"></h1>
+        <p class="support" id="ladSupport"></p>
+        <p class="note inst-ro" id="ladPreviewNote" hidden data-t="ladder.preview.note"></p>
+        <p class="note inst-ro" id="ladRO" hidden data-t="ladder.ro"></p>
+      </div>
+      <div class="lad-prog">
+        <div class="inst-meter lad-meter" id="ladMeter" role="img"></div>
+        <p class="label inst-mt" id="ladMeterT"></p>
+      </div>
+    </div>
+    <div class="inst-zones">
+      <section class="inst-zone inst-prep" id="ladStartZone" aria-labelledby="ladStartH">
+        <div class="inst-zh"><b class="inst-k" aria-hidden="true">01</b><h2 id="ladStartH" data-t="ladder.zone.start"></h2><span class="label num" id="ladStartCount"></span></div>
+        <ul class="inst-rows" id="ladStart"></ul>
+      </section>
+      <section class="inst-zone inst-crew" id="ladStreetZone" aria-labelledby="ladStreetH">
+        <div class="inst-zh"><b class="inst-k" aria-hidden="true">02</b><h2 id="ladStreetH" data-t="ladder.zone.street"></h2><span class="label num" id="ladStreetCount"></span></div>
+        <ul class="inst-rows" id="ladStreet"></ul>
+      </section>
+    </div>
+    <button class="btn wide lad-learn" type="button" id="ladLearn"><span class="lrn-thumb" aria-hidden="true"><i></i></span><span data-t="learn.chip"></span><span class="label" id="ladLearnN"></span></button>
+  </section>
+
+  <!-- PICK TWO ZONES: the areas of the businesses in the rep's city. Two are picked; a third tap replaces the oldest. -->
+  <section class="screen inst" id="s-zones" hidden aria-labelledby="znGiant">
+    <div class="hud-row"><button class="mini-btn inst-back" type="button" id="znBack" data-t="install.back"></button><span class="chip"><i class="dot"></i><span data-t="ladder.btn.zones"></span></span><span class="chip ghost" id="znCity"></span><span class="chip inst-prac" id="znPreview" hidden data-t="ladder.preview.chip"></span></div>
+    <p class="lead" data-t="zones.lead"></p>
+    <h1 class="giant" id="znGiant"></h1>
+    <p class="support" data-t="zones.support"></p>
+    <div class="inst-zones lrn-zones">
+      <section class="inst-zone inst-prep" aria-labelledby="znH">
+        <div class="inst-zh"><b class="inst-k" aria-hidden="true">01</b><h2 id="znH" data-t="zones.h"></h2><span class="label num" id="znCount"></span></div>
+        <ul class="inst-rows" id="znList" data-t-aria="zones.h"></ul>
+        <p class="note" id="znEmpty" hidden data-t="zones.empty"></p>
+        <p class="formerr" id="znErr" role="alert" hidden></p>
+        <button class="btn primary wide zn-save" type="button" id="znSave" disabled data-t="zones.save"></button>
+      </section>
+    </div>
+  </section>
+
+  <!-- LEARN: six short videos, one per question. A video with no address yet says so and is not a link. -->
+  <section class="screen inst" id="s-learn" hidden aria-labelledby="lrnGiant">
+    <div class="hud-row"><button class="mini-btn inst-back" type="button" id="lrnBack" data-t="install.back"></button><span class="chip"><i class="dot"></i><span data-t="learn.chip"></span></span><span class="chip ghost" id="lrnCount"></span><span class="chip inst-prac" id="lrnPreview" hidden data-t="ladder.preview.chip"></span></div>
+    <p class="lead" data-t="learn.lead"></p>
+    <h1 class="giant" id="lrnGiant"></h1>
+    <p class="support" id="lrnSupport"></p>
+    <p class="note inst-ro" id="lrnRO" hidden data-t="ladder.ro"></p>
+    <div class="inst-zones lrn-zones">
+      <section class="inst-zone inst-crew" data-t-aria="learn.list.aria">
+        <ul class="inst-rows" id="lrnList"></ul>
       </section>
     </div>
   </section>

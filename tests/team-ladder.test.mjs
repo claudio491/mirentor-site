@@ -212,3 +212,20 @@ test('the leader view carries seen and ladderDone, and a leader may not touch an
   }
   assert.equal(s.lines().length, before);
 });
+
+test('a manager\'s own GET me carries the ladder, the videos seen and the addresses, for the new rep preview; a leader gets none of it', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin(), mgr = await s.addRep(a.cookie, 'mara', { role: 'manager' }), boss = await s.addRep(a.cookie, 'lucia', { role: 'leader' });
+  for (const cookie of [a.cookie, mgr.cookie]) {
+    const me = (await s.call('GET', `${API}/me`, undefined, { cookie })).json;
+    assert.deepEqual(me.ladder.map((x) => x.step), LADDER);
+    assert.deepEqual(me.seen, []);
+    assert.deepEqual(Object.keys(me.videos), Object.keys(VIDEOS));
+    // the rest of a manager's answer is as it was: no day of their own
+    assert.equal(me.today, null);
+  }
+  // the preview ticks the viewer's own self steps and picks their own zones, like a rep
+  assert.equal((await s.call('POST', `${API}/ladder`, { step: 'kit' }, { cookie: mgr.cookie })).json.me.ladder.find((x) => x.step === 'kit').done, true);
+  const lead = (await s.call('GET', `${API}/me`, undefined, { cookie: boss.cookie })).json;
+  for (const k of ['ladder', 'seen', 'videos', 'me']) assert.equal(k in lead, false, k);
+});

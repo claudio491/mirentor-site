@@ -1114,3 +1114,60 @@ html.greeting{overflow:hidden}
   .inst-lockic .sh{transition:none}
 }
 @media (min-width:1080px){.z-hoy>.inst-card{grid-row:8}}
+
+/* ---- my first days: the install's look. Ten cells, porcelain for the rep's own steps, graphite for what the app reads ---- */
+.lad-prog{margin-top:18px;max-width:420px}
+.lad-meter{margin-top:0}
+.lad-meter i.now{box-shadow:inset 0 0 0 1px var(--signal)}
+.lad-row{grid-template-rows:auto auto}
+.lad-row .inst-tick,.lad-row .inst-n{grid-row:1}
+.lad-row .inst-tick{align-self:start;margin-top:1px}
+.lad-row .lad-more{grid-row:2}
+.lad-row .inst-act{grid-column:3;grid-row:1}
+.lad-row.done .inst-n b{color:var(--mist)}
+.inst-prep .lad-row.done .inst-n b{color:var(--slate)}
+/* the next step stands out of its list: a raised panel with what it asks for */
+.lad-now{margin:4px -8px;padding:12px 8px;border-radius:14px;border-top-color:transparent;background:var(--panel);box-shadow:inset 0 0 0 1px var(--rule)}
+.inst-prep .lad-now{background:var(--paper);box-shadow:inset 0 0 0 1px rgba(27,29,32,.14),0 6px 18px rgba(27,29,32,.08)}
+.lad-now+.inst-row{border-top-color:transparent}
+.lad-now .inst-n b{font-size:17px;letter-spacing:-.02em}
+.lad-more{grid-column:2 / -1;min-width:0}
+.lad-more>p{margin-top:8px;font-size:14px;line-height:1.4;color:var(--mist)}
+.inst-prep .lad-more>p{color:var(--slate)}
+.lad-more .btn{margin-top:12px}
+.lad-more .formerr{margin-top:8px}
+.lad-novid,.lad-more>.lad-novid{display:flex;align-items:center;gap:8px;font:500 11.5px/1.3 var(--mono);letter-spacing:.06em;text-transform:uppercase}
+.lad-novid::before{content:"";flex:none;width:14px;height:10px;border:1px dashed currentColor;border-radius:2px;opacity:.7}
+.inst-n .lad-novid{margin-top:4px;color:var(--mist)}
+.lad-novid[hidden]{display:none}
+.lad-play{display:flex;align-items:center;gap:12px;margin-top:12px;padding:8px;border-radius:12px;border:1px solid var(--rule);color:inherit;text-decoration:none;font-weight:600;font-size:14px}
+.inst-prep .lad-play{border-color:rgba(27,29,32,.18)}
+.lad-play:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.lad-learn{margin-top:14px;justify-content:flex-start;gap:12px;padding-left:10px}
+.lad-learn .label{margin-left:auto}
+.lad-prevbtn{border-color:var(--signal)}
+.lad-of{font-weight:500;color:var(--mist)}
+/* a small video picture: the play mark, or an empty dashed frame while it has no address */
+.lrn-thumb{position:relative;flex:none;display:grid;place-items:center;width:44px;height:30px;border-radius:7px;background:linear-gradient(150deg,#34383d,#1f2225)}
+.lrn-thumb>i{width:18px;height:18px;border-radius:50%;background:var(--signal);display:grid;place-items:center}
+.lrn-thumb>i::after{content:"";margin-left:2px;border-left:6px solid var(--graphite);border-top:4px solid transparent;border-bottom:4px solid transparent}
+.lrn-thumb.none{background:transparent;box-shadow:inset 0 0 0 1px var(--hair);background-image:repeating-linear-gradient(135deg,transparent 0 5px,rgba(233,235,236,.06) 5px 6px)}
+.lrn-zones{grid-template-columns:minmax(0,1fr);max-width:760px}
+.lrn-row{grid-template-columns:72px minmax(0,1fr) auto;min-height:74px}
+.lrn-row .lrn-thumb{width:72px;height:48px;border-radius:10px}
+.lrn-row .lrn-thumb>i{width:26px;height:26px}
+.lrn-row .lrn-thumb>i::after{border-left-width:9px;border-top-width:6px;border-bottom-width:6px;margin-left:3px}
+.lrn-row .lrn-slot{grid-column:1;grid-row:1 / span 2;align-self:center}
+.lrn-row .inst-n{grid-column:2;grid-row:1 / span 2}
+.lrn-row .inst-tag{grid-column:3;grid-row:1 / span 2;align-self:center}
+.lrn-row .lrn-link{display:contents}
+.lad-card .inst-meter{margin-top:12px;height:6px}
+.lad-card .inst-meter i{background:rgba(27,29,32,.12)}
+.lad-card .inst-meter i::after{background:var(--signal-ink)}
+.zn-row{min-height:54px}
+.zn-save{margin-top:16px}
+@container (min-width:860px){
+  .lad-prog{margin-top:0;width:320px}
+  .lad .inst-zones{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+}
+@media (min-width:1080px){.z-hoy>.lad-card{grid-row:9}}

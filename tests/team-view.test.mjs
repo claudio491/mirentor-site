@@ -190,3 +190,14 @@ test('a closed install stays in me until a manager confirms it, and leaves once 
   const done = build([...base, { type: 'site.step', t: at('2026-11-14', '10:00'), siteId: 's1', what: 'installed', by: 'boss' }]);
   assert.deepEqual(repView(done, 'ana', ctx()).installs, []);
 });
+
+test('repView carries the address of every training video by key, null while it does not exist', async () => {
+  const { VIDEOS } = await import('../lib/team/rules.mjs');
+  const v = repView(build([rep('ana')]), 'ana', ctx());
+  assert.deepEqual(Object.keys(v.videos), Object.keys(VIDEOS));
+  assert.deepEqual(Object.values(v.videos), Object.keys(VIDEOS).map(() => null));
+  // a copy: the screen can never change the server's list
+  assert.notEqual(v.videos, VIDEOS);
+  VIDEOS.pitch = 'https://videos.equipo.test/presentar.mp4';
+  try { assert.equal(repView(build([rep('ana')]), 'ana', ctx()).videos.pitch, 'https://videos.equipo.test/presentar.mp4'); } finally { VIDEOS.pitch = null; }
+});

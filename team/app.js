@@ -11,6 +11,7 @@ import { createStage } from './stage.js';
 import { ART, STEPS } from './art.js';
 import { createManager } from './manager.js';
 import { createInstall } from './install.js';
+import { createLadder } from './ladder.js';
 import { verdict, mine as waitingOf } from './queue.js';
 import { sessionMove, HOME, LEAVE } from './door.js';
 
@@ -48,7 +49,7 @@ const S = { me: null, sig: '', tab: null, period: 'week', as: null, mgr: false, 
   hold: null,     // the stop a log landed on, kept on the stage until its answer has played
   owed: null,     // an answer that waits for a sheet to close
   taught: false };
-const SCREENS = ['boot', 'gate', 'today', 'week', 'table', 'profile', 'team', 'needs', 'reps', 'install', 'worker', 'iclose'];
+const SCREENS = ['boot', 'gate', 'today', 'week', 'table', 'profile', 'team', 'needs', 'reps', 'install', 'worker', 'iclose', 'ladder', 'zones', 'learn'];
 // A rep's three zones. On a wide screen they are one page, a band under the other; anywhere else one shows at a time.
 const BANDS = ['today', 'week', 'table'], WIDE = matchMedia('(min-width:1080px)');
 const banded = () => WIDE.matches && !S.mgr && !!S.me;
@@ -64,6 +65,7 @@ const LEDGER_RULE = { visit: 'visit', conversation: 'conversation', followup: 'f
   contract_sent: 'contractSent', contract_signed: 'contractSigned', site_signed: 'siteSigned', site_installed: 'siteInstalled', site_first_hour: 'siteFirstHour', day_closed: 'dayClosedOnTime' };
 const readOnly = () => !!S.as;
 const INSTALL_TABS = new Set(['install', 'worker', 'iclose']);   // the install's own screens: renderAll draws the open one again, so a language change or a poll reaches it
+const LADDER_TABS = new Set(['ladder', 'zones', 'learn']);   // the first days' screens, drawn again the same way
 const tz = () => S.me.me.tz;
 const pts = (n) => t('u.points', { n });
 /** The word of a counted unit without its number: "sitios" from "3 sitios". */
@@ -162,7 +164,7 @@ function arrive(name, { fast = false, landed: lensLanded = false } = {}) {
     reveal($('#todayGiant'));
     const dio = $('#dio');
     if (dio.animate) dio.animate([{ opacity: 0, transform: 'translateY(-34px) scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 760, delay: 160, easing: EASE.lock, fill: 'backwards' });
-    stagger(there([$('#stopChip'), $('#stopCopy'), $('#nextBtn'), ...$$('#route .stop'), $('#closeCard'), $('#installCard')]), { delay: 380, step: 60 });
+    stagger(there([$('#stopChip'), $('#stopCopy'), $('#nextBtn'), ...$$('#route .stop'), $('#closeCard'), $('#installCard'), $('#ladderCard')]), { delay: 380, step: 60 });
     if (!lensLanded) drawIn($('#meLens'), 140);   // after the entrance the lens lands already drawn
     recount($('#ptsN'));
   } else if (name === 'week' && S.me.week) {
@@ -200,6 +202,9 @@ function renderAll(animate = false) {
     renderTop(); renderNav();
     if (S.mgr) manager.render(animate); else { renderToday(animate); renderWeek(animate); renderTable(animate); renderProfile(); renderRules(); }
     if (INSTALL_TABS.has(S.tab)) install.render(false);
+    if (LADDER_TABS.has(S.tab)) ladder.render(false);
+    // a manager's way to what a new rep sees, on their own account
+    $('#previewBtn').hidden = !(S.mgr && Array.isArray(S.me.ladder) && S.me.ladder.length);
   };
   if (animate) run(); else quiet(run);
 }
@@ -248,6 +253,7 @@ function renderToday(animate) {
   paintStage(animate);
   renderCloseCard();
   install.card($('#installCard'));   // an install that waits: the phones reached the site
+  ladder.card($('#ladderCard'));     // the first days, while a step is open
 }
 /** What the stage shows: the stop the day stands on, or the one the person tapped. While a log is being answered
  *  (S.hold) the stop it landed on keeps its picture, and nothing here moves until the answer has played. */
@@ -709,11 +715,13 @@ function renderProfile() {
   const box = $('#settings');
   if (readOnly()) {
     put(box,
+      ...ladder.profileButtons(),
       h('button', { class: 'btn', type: 'button', text: t('reps.badge'), onclick: () => manager.giveBadge(me) }),
       S.me.today && S.me.today.closed ? h('button', { class: 'btn', type: 'button', text: t('reps.reopen'), onclick: (ev) => manager.reopenDay(ev.currentTarget, me.id, S.me.today.day) }) : null);
   } else {
     // The account is the Google one the person came in with. A copy with no session (the demonstration) has none to show.
     put(box, S.me.viewer.email ? h('div', { class: 'line' }, h('span', { text: t('profile.account', { email: S.me.viewer.email }) })) : null,
+      ...ladder.profileButtons(),
       h('button', { class: 'btn', type: 'button', text: t('profile.rules'), 'data-open': 'rulesSheet' }),
       h('button', { class: 'btn signout', type: 'button', text: t('profile.signout'), onclick: signOut }));
   }
@@ -1071,8 +1079,10 @@ async function viewAs(id = null) {
 // ---- wiring ----
 const manager = createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs });
 const install = createInstall({ api, S, errText, refresh, setTab });
+const ladder = createLadder({ api, S, errText, adopt, renderAll, setTab, openLog });
 function wire() {
-  initPop(); initSheets(); install.wire();
+  initPop(); initSheets(); install.wire(); ladder.wire();
+  $('#previewBtn').addEventListener('click', () => ladder.open('team'));
   $('#home').addEventListener('click', (e) => { if (!S.me) return; e.preventDefault(); if (S.as) viewAs(null); else setTab(S.mgr ? 'team' : 'today'); });
   $('#asExit').addEventListener('click', (e) => { e.preventDefault(); viewAs(null); });
   // Back and forward move between the team and a rep's screens, as the address says.
