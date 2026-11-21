@@ -85,7 +85,9 @@ export function buildDemo({ people, photosDir = '.' } = {}) {
   const page = team('index.html').toString('utf8');
   const symbol = dataUri('image/svg+xml', team('img/mirentor-symbol-dark.svg'));
   const body = page.slice(page.indexOf('>', page.indexOf('<body')) + 1, page.lastIndexOf('</body>'))
-    .replaceAll('img/mirentor-symbol-dark.svg', symbol).replaceAll('href="./"', 'href="#"');
+    .replaceAll('img/mirentor-symbol-dark.svg', symbol).replaceAll('href="./"', 'href="#"')
+    // the sketches of what comes next live on the server, for leadership only: a copy has no way to them
+    .replace(/<a class="chip ld-next"[^>]*>[\s\S]*?<\/a>/, '');
   if (/(src|href)="(?!#|data:)/.test(body)) throw new Error('the page still points at the server for something');
   const css = team('app.css').toString('utf8')
     .replace('url(fonts/geist-v1.woff2)', `url(${dataUri('font/woff2', team('fonts/geist-v1.woff2'))})`)

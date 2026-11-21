@@ -403,3 +403,47 @@ test('an admin who was taken off the team does not keep the first door shut', as
   assert.equal(again.status, 200);
   assert.equal((await s.call('POST', '/equipo/api/bootstrap', { email: 'tercero@equipo.test', name: 'Tercero' }, { bearer: 'push-token' })).json.error, 'bootstrap_closed');
 });
+
+test('next.html is not served to a rep or without a session', async (t) => {
+  // The sketches of what comes next: a manager, an admin or a leader reads them; nobody else gets a byte of the page or its style.
+  const dir = mkdtempSync(path.join(tmpdir(), 'team-next-'));
+  mkdirSync(path.join(dir, 'static'), { recursive: true });
+  for (const f of ['next.html', 'next.css', 'next.js']) writeFileSync(path.join(dir, 'static', f), `sketch ${f}`);
+  const s = await start({ dir }); t.after(() => s.srv.close());
+  const a = await s.admin(), rep = await s.addRep(a.cookie, 'mario');
+  await s.call('POST', '/equipo/api/reps', { email: 'mara@equipo.test', name: 'Mara Manager', role: 'manager' }, { cookie: a.cookie });
+  await s.call('POST', '/equipo/api/reps', { email: 'lia@equipo.test', name: 'Lia Lider', role: 'leader', city: '' }, { cookie: a.cookie });
+  const off = await s.addRep(a.cookie, 'ido');
+  await s.call('POST', `/equipo/api/reps/${off.id}`, { patch: { active: false } }, { cookie: a.cookie });
+  for (const f of ['next.html', 'next.css', 'next.js']) {
+    const get = (cookie) => s.call('GET', `/equipo/${f}`, undefined, { cookie });
+    const none = await get();
+    assert.deepEqual([none.status, none.text.includes('sketch')], [401, false], `${f} signed out`);
+    for (const [who, cookie] of [['rep', rep.cookie], ['not on the team', s.as('otra@equipo.test')], ['taken off the team', off.cookie]]) {
+      const r = await get(cookie);
+      assert.deepEqual([r.status, r.text.includes('sketch')], [403, false], `${f} for ${who}`);
+    }
+    for (const [who, cookie] of [['admin', a.cookie], ['manager', s.as('mara@equipo.test')], ['leader', s.as('lia@equipo.test')]]) {
+      const r = await get(cookie);
+      assert.deepEqual([r.status, r.text, r.headers.get('cache-control')], [200, `sketch ${f}`, 'no-store'], `${f} for ${who}`);
+    }
+    assert.equal((await s.call('HEAD', `/equipo/${f}`, undefined, { cookie: rep.cookie })).status, 403, `${f} HEAD for a rep`);
+  }
+  // every other file is served as before: the code and the fonts need no session
+  assert.equal((await s.call('GET', '/equipo/app.js')).status, 200);
+  assert.equal((await s.call('GET', '/equipo/fonts/geist-v1.woff2')).status, 200);
+  assert.equal((await s.call('GET', '/equipo/nope.html', undefined, { cookie: a.cookie })).status, 404);
+});
+
+test('the sketches page says it is a sketch in both languages, with no em dash and nothing from another host', async () => {
+  const { DICT } = await import('../team/i18n.js');
+  const page = readFileSync(new URL('../team/next.html', import.meta.url), 'utf8');
+  const style = readFileSync(new URL('../team/next.css', import.meta.url), 'utf8');
+  const script = readFileSync(new URL('../team/next.js', import.meta.url), 'utf8');
+  const keys = [...page.matchAll(/data-t="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(keys.includes('next.sketch') && keys.includes('next.notbuilt'));
+  for (const lang of ['es', 'en']) for (const k of [...keys, 'next.open']) assert.equal(typeof DICT[lang][k], 'string', `${lang} ${k}`);
+  const words = [page, style, script, ...Object.entries(DICT.es).concat(Object.entries(DICT.en)).filter(([k]) => k.startsWith('next.')).map(([, v]) => v)].join('\n');
+  assert.equal(words.includes('\u2014'), false);
+  assert.doesNotMatch([page, style, script].join('\n'), /https?:\/\/|\/\/[a-z0-9-]+\./i);
+});

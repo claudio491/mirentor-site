@@ -53,6 +53,9 @@ button.chip::after,.kudos::after,.mini-btn::after{content:"";position:absolute;i
 .link::after,.src::after{content:"";position:absolute;inset:-12px -6px}
 .src::after{inset:-12px}
 button.chip:active{transform:scale(.97)}
+/* A chip that is a link (the leadership view's way to the sketches of what comes next) looks like the chip buttons. */
+a.chip{position:relative;min-height:36px;text-decoration:none;transition:transform 140ms var(--ease-out),border-color 160ms ease}
+a.chip:active{transform:scale(.97)}
 .label{font:500 11.5px/1.2 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--mist)}
 .lead{font-size:19px;font-weight:500;letter-spacing:-.02em;line-height:1.15}
 .giant{margin-left:-3px;font-weight:700;font-size:clamp(72px,22vw,94px);line-height:.86;letter-spacing:-.065em;text-transform:lowercase;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
@@ -79,7 +82,7 @@ button.chip:active{transform:scale(.97)}
 .mini-btn[disabled]{opacity:.45;cursor:not-allowed}
 .mini-btn.armed{border-color:var(--signal);color:var(--signal)}
 .mini-btn:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
-@media (hover:hover) and (pointer:fine){.btn:not(.primary):hover,.mini-btn:not(.primary):hover{background:rgba(233,235,236,.07)}.btn.primary:hover,.mini-btn.primary:hover{background:var(--porcelain);border-color:var(--porcelain)}button.chip:hover{border-color:var(--hair)}}
+@media (hover:hover) and (pointer:fine){.btn:not(.primary):hover,.mini-btn:not(.primary):hover{background:rgba(233,235,236,.07)}.btn.primary:hover,.mini-btn.primary:hover{background:var(--porcelain);border-color:var(--porcelain)}button.chip:hover,a.chip:hover{border-color:var(--hair)}}
 svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
 
 /* ---------- top bar ---------- */

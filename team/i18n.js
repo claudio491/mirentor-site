@@ -465,6 +465,24 @@ const es = {
   'hours.week': 'Semana (su lunes)', 'hours.dh': 'Entregadas: horas', 'hours.dm': 'Entregadas: minutos', 'hours.ah': 'Aceptadas: horas', 'hours.am': 'Aceptadas: minutos',
   'hours.submit': 'Guardar las horas', 'hours.done': 'Horas guardadas.',
   'lead.site.record': 'Descargar el registro',
+  // ---- what comes next: sketches of ideas not built yet (team/next.html) ----
+  'next.open': 'Lo que sigue', 'next.chip': 'Bocetos · nada de esto funciona todavía',
+  'next.lead': 'Lo que sigue en la app', 'next.giant': 'lo que sigue.',
+  'next.support': 'Ideas acordadas para las próximas semanas, dibujadas como se verían en el teléfono. Son bocetos: no hay nada construido detrás.',
+  'next.sketch': 'Boceto', 'next.notbuilt': 'Todavía no está construido. Así se vería.',
+  'next.mon.title': 'la edición del lunes.',
+  'next.mon.what': 'Reemplaza la reunión semanal de ventas. La app la arma con el CRM y los reportes diarios, y cada vendedor la abre el lunes.',
+  'next.mon.order': 'En este orden',
+  'next.mon.s1': 'Avisos de la empresa', 'next.mon.s1.d': 'Lo que todos tienen que saber antes de salir.',
+  'next.mon.s2': 'Jugadas que funcionaron', 'next.mon.s2.d': 'Contadas por el vendedor que las hizo, con su cara.',
+  'next.mon.s3': 'La tabla', 'next.mon.s3.d': 'Quién va adelante y quién está cerca.',
+  'next.fri.label': 'Antes, el viernes', 'next.fri.q': '¿Qué te funcionó esta semana?',
+  'next.fri.d': 'Cada vendedor responde con una nota de voz de 30 segundos. Las mejores salen el lunes.',
+  'next.ph.chip': 'Lunes', 'next.ph.week': 'Semana de ejemplo', 'next.ph.title': 'tu lunes.', 'next.ph.example': 'Ejemplo',
+  'next.ph.notices': 'Avisos', 'next.ph.notice1': 'Atención a cuidar las grabaciones.', 'next.ph.notice2': 'Aviso de la empresa',
+  'next.ph.plays': 'Jugadas de la semana', 'next.ph.repA': 'Vendedor A', 'next.ph.repB': 'Vendedor B', 'next.ph.repC': 'Vendedor C',
+  'next.ph.play': 'Jugada de la semana', 'next.ph.play.d': 'Lo que le funcionó, con su voz.', 'next.ph.len': '30 s',
+  'next.ph.table': 'La tabla', 'next.ph.leads': 'Va adelante', 'next.ph.near': 'Está cerca', 'next.ph.bars': 'Barras de ejemplo, sin datos.',
 };
 const en = {
   // ---- shared ----
@@ -925,6 +943,24 @@ const en = {
   'hours.week': 'Week (its Monday)', 'hours.dh': 'Delivered: hours', 'hours.dm': 'Delivered: minutes', 'hours.ah': 'Accepted: hours', 'hours.am': 'Accepted: minutes',
   'hours.submit': 'Save the hours', 'hours.done': 'Hours saved.',
   'lead.site.record': 'Download the record',
+  // ---- what comes next: sketches of ideas not built yet (team/next.html) ----
+  'next.open': 'What comes next', 'next.chip': 'Sketches · none of this works yet',
+  'next.lead': 'What comes next in the app', 'next.giant': 'what comes next.',
+  'next.support': 'Ideas agreed for the coming weeks, drawn as they would look on the phone. They are sketches: nothing is built behind them.',
+  'next.sketch': 'Sketch', 'next.notbuilt': 'Not built yet. This is how it would look.',
+  'next.mon.title': 'the monday edition.',
+  'next.mon.what': 'It replaces the weekly sales meeting. The app puts it together from the CRM and the daily reports, and every rep opens it on Monday.',
+  'next.mon.order': 'In this order',
+  'next.mon.s1': 'Company notices', 'next.mon.s1.d': 'What everyone needs to know before heading out.',
+  'next.mon.s2': 'Plays that worked', 'next.mon.s2.d': 'Told by the rep who made them, with their face.',
+  'next.mon.s3': 'The table', 'next.mon.s3.d': 'Who leads and who is close.',
+  'next.fri.label': 'Before that, on Friday', 'next.fri.q': 'What worked for you this week?',
+  'next.fri.d': 'Each rep answers with a 30-second voice note. The best ones run on Monday.',
+  'next.ph.chip': 'Monday', 'next.ph.week': 'Sample week', 'next.ph.title': 'your monday.', 'next.ph.example': 'Example',
+  'next.ph.notices': 'Notices', 'next.ph.notice1': 'Take care of the recordings.', 'next.ph.notice2': 'Company notice',
+  'next.ph.plays': 'Plays of the week', 'next.ph.repA': 'Rep A', 'next.ph.repB': 'Rep B', 'next.ph.repC': 'Rep C',
+  'next.ph.play': 'Play of the week', 'next.ph.play.d': 'What worked, in their own voice.', 'next.ph.len': '30 s',
+  'next.ph.table': 'The table', 'next.ph.leads': 'In the lead', 'next.ph.near': 'Close behind', 'next.ph.bars': 'Example bars, no data.',
 };
 export const DICT = { es, en };
 /** t(key, vars): the sentence in one language. Numbers are written the way that language writes them. */

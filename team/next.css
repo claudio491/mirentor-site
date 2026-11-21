@@ -1,0 +1,164 @@
+/* next.css: the "what comes next" page. Sketches of ideas not built yet, drawn with the app's own tokens (app.css).
+   Every class here starts with nx- so nothing in app.css is touched. The arrival plays once, after the words are in
+   (body.nx-in), and explains the order of each sketch. Motion uses only transform, opacity and stroke-dashoffset; every
+   animation starts from its own first frame and ends on the state drawn here, so reduced motion shows only that. */
+
+.nx-page{position:relative;width:100%;max-width:var(--wide);margin:0 auto;padding:0 16px calc(64px + env(safe-area-inset-bottom))}
+body.nx:not(.nx-in) .nx-page{visibility:hidden}
+.nx-page .top .mini-btn{color:var(--porcelain);text-decoration:none}
+
+/* ---------- the page's headline ---------- */
+.nx-hero{padding-top:6px}
+.nx-hero>.lead{margin-top:22px}
+.giant.nx-giant{margin-top:6px;font-size:clamp(58px,16vw,136px);line-height:.88}
+.nx-hero>.support{margin-top:14px;max-width:52ch}
+
+/* ---------- one sketch ---------- */
+.nx-sketch{margin-top:44px;padding-top:26px;border-top:1px solid var(--rule)}
+.nx-tag{display:flex;align-items:center;flex-wrap:wrap;gap:10px 12px}
+/* The stamp says "sketch" the way a drawing would: dashed, in the signal colour, never mistaken for a control. */
+.nx-stamp{display:inline-flex;align-items:center;gap:.5em;min-height:30px;padding:6px 11px;border:1.5px dashed var(--signal);border-radius:var(--r-hud);
+  font:600 12px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--signal)}
+.nx-nb{color:var(--mist);font-size:14.5px}
+.giant.nx-title{margin-top:18px;font-size:clamp(50px,13.4vw,108px);line-height:.9}
+.nx-what{margin-top:16px;max-width:44ch}
+
+/* the order: three steps joined by a rail that draws itself from the first to the last */
+.nx-orderh{margin-top:30px}
+.nx-orderw{position:relative;margin-top:10px}
+.nx-rail{position:absolute;left:15px;top:20px;width:2px;height:calc(100% - 40px);overflow:visible}
+.nx-rail path{fill:none;stroke:var(--hair);stroke-width:2;vector-effect:non-scaling-stroke;stroke-dasharray:1 1;stroke-dashoffset:0}
+.nx-order{position:relative}
+.nx-step{display:grid;grid-template-columns:32px minmax(0,1fr);gap:14px;align-items:start;padding:9px 0}
+.nx-k{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;font:600 13px/1 var(--mono);box-shadow:inset 0 0 0 1px var(--hair)}
+.nx-step b{display:block;font-size:17px;font-weight:600;letter-spacing:-.02em;line-height:1.2;padding-top:5px}
+.nx-step small{display:block;margin-top:3px;color:var(--mist);font-size:14px;line-height:1.35}
+/* each step wears the colour of its part on the phone */
+.nx-step.s1 .nx-k{background:var(--porcelain);color:var(--graphite)}
+.nx-step.s2 .nx-k{background:var(--deep);color:var(--signal);box-shadow:inset 0 0 0 1.5px var(--signal)}
+.nx-step.s3 .nx-k{background:var(--panel-2);color:var(--porcelain)}
+
+/* Friday's question, which feeds Monday's plays */
+.nx-fri{margin-top:32px;padding:16px 16px 18px;border-radius:var(--r-media);background:var(--panel);box-shadow:inset 0 0 0 1px var(--rule);max-width:460px}
+.nx-q{margin-top:10px;font-size:clamp(22px,6vw,28px);font-weight:600;letter-spacing:-.035em;line-height:1.1}
+.nx-rec{display:flex;align-items:center;gap:12px;margin-top:14px}
+.nx-mic{display:grid;place-items:center;flex:none;width:44px;height:44px;border-radius:50%;background:var(--signal);color:var(--graphite)}
+.nx-mic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.nx-fd{margin-top:12px;color:var(--mist);font-size:14.5px;line-height:1.4}
+
+/* a voice note's wave: bars of fixed, varied heights; they say "a recording", not a level */
+.nx-wave{display:flex;align-items:center;gap:3px;flex:1;min-width:0;height:26px;color:var(--porcelain)}
+.nx-wave i{display:block;flex:none;width:3px;height:42%;border-radius:2px;background:currentColor;opacity:.75;transform-origin:50% 50%}
+.nx-wave i:nth-child(3n){height:88%}.nx-wave i:nth-child(3n+1){height:58%}.nx-wave i:nth-child(4n){height:30%}.nx-wave i:nth-child(5n){height:100%}.nx-wave i:nth-child(7n){height:22%}
+.nx-len{flex:none;font:500 11.5px/1 var(--mono);letter-spacing:.06em;color:var(--mist)}
+
+/* ---------- the phone ---------- */
+.nx-phone{width:100%;max-width:380px;margin:34px auto 0;padding:9px;border-radius:46px;background:#0d0e10;
+  box-shadow:0 0 0 1px var(--hair),0 0 0 6px rgba(233,235,236,.03),0 40px 90px rgba(0,0,0,.55)}
+.nx-screen{position:relative;overflow:hidden;border-radius:38px;padding:12px 12px 16px;background-color:var(--graphite);
+  background-image:linear-gradient(to right,var(--line) 1px,transparent 1px),linear-gradient(to bottom,var(--line) 1px,transparent 1px);background-size:28px 28px}
+.nx-notch{width:96px;height:26px;margin:0 auto 10px;border-radius:999px;background:#0d0e10}
+.nx-ptop{display:flex;flex-wrap:wrap;gap:6px;padding:0 4px}
+.nx-ptop .chip{min-height:24px;padding:5px 8px;font-size:10.5px}
+.giant.nx-ptitle{margin:14px 4px 4px;font-size:58px}
+
+.nx-z{position:relative;margin-top:10px;padding:13px 12px 14px;border-radius:var(--r-media)}
+.nx-zh{display:flex;align-items:center;gap:9px}
+.nx-zk{display:grid;place-items:center;flex:none;width:22px;height:22px;border-radius:var(--r-hud);background:var(--signal);color:var(--graphite);font:600 12px/1 var(--mono)}
+.nx-zh h3{margin:0;font-size:19px;font-weight:700;letter-spacing:-.04em;line-height:1;text-transform:lowercase}
+
+/* 1. notices: porcelain, the company speaking */
+.nx-z1{background-color:var(--porcelain);color:var(--graphite);
+  background-image:linear-gradient(to right,rgba(27,29,32,.07) 1px,transparent 1px),linear-gradient(to bottom,rgba(27,29,32,.07) 1px,transparent 1px);background-size:28px 28px}
+.nx-note{display:grid;grid-template-columns:12px minmax(0,1fr);gap:10px;align-items:start;margin-top:10px;padding-top:10px;border-top:1px solid rgba(27,29,32,.12)}
+.nx-bang{display:block;width:10px;height:10px;margin-top:5px;border-radius:50%;background:var(--signal)}
+.nx-note.quiet .nx-bang{background:transparent;box-shadow:inset 0 0 0 1.5px rgba(27,29,32,.35)}
+.nx-note b{font-size:15.5px;font-weight:600;letter-spacing:-.015em;line-height:1.25}
+.nx-ex,.nx-ph{display:inline-block;font:500 10.5px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--slate)}
+.nx-ex{margin-left:8px;padding:3px 5px;border:1px dashed rgba(27,29,32,.4);border-radius:var(--r-hud);vertical-align:2px}
+.nx-lines i{display:block;height:8px;margin-top:7px;border-radius:4px;background:rgba(27,29,32,.11)}
+.nx-lines i+i{width:64%}
+
+/* 2. plays: deep graphite, the reps' faces in their lenses */
+.nx-z2{background-color:var(--deep);box-shadow:inset 0 0 0 1px var(--rule);
+  background-image:linear-gradient(to right,rgba(233,235,236,.05) 1px,transparent 1px),linear-gradient(to bottom,rgba(233,235,236,.05) 1px,transparent 1px);background-size:28px 28px}
+.nx-play{display:grid;grid-template-columns:58px minmax(0,1fr);gap:12px;align-items:start;margin-top:10px;padding-top:12px;border-top:1px solid var(--line)}
+.nx-lens{position:relative;display:block;width:58px;height:58px}
+.nx-lens .face{position:absolute;inset:14.2%;width:auto;height:auto}
+.nx-lens svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.nx-lens .arc{fill:none;stroke:var(--signal);stroke-width:4;stroke-linecap:round;stroke-dasharray:.32 1;stroke-dashoffset:0}
+.nx-who b{display:block;font-size:15.5px;font-weight:600;letter-spacing:-.02em}
+.nx-who span{display:block;margin-top:3px;font:500 10.5px/1.2 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mist)}
+.nx-voice{display:flex;align-items:center;gap:9px;margin-top:9px;padding:7px 11px;border-radius:999px;background:rgba(233,235,236,.07)}
+.nx-voice .nx-wave{height:20px}
+.nx-tri{flex:none;width:0;height:0;border-left:9px solid var(--signal);border-top:6px solid transparent;border-bottom:6px solid transparent}
+.nx-pd{margin-top:8px;color:var(--mist);font-size:13.5px;line-height:1.35}
+
+/* 3. the table: who leads, who is close. The bars are illustration and say so. */
+.nx-z3{background:var(--panel);box-shadow:inset 0 0 0 1px var(--rule)}
+.nx-table{margin-top:4px}
+.nx-table li{display:grid;grid-template-columns:32px minmax(0,1fr) 40%;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.nx-table li:first-child{margin-top:6px}
+.nx-table .face{width:32px;height:32px}
+.nx-table .face .ini{font-size:12px}
+.nx-tn b{display:block;font-size:14.5px;font-weight:600;letter-spacing:-.015em}
+.nx-tn small{display:block;margin-top:2px;color:var(--mist);font-size:12px}
+.nx-tn .nx-tag1{color:var(--signal)}
+.nx-bar{display:block;height:10px;border-radius:5px;background:rgba(233,235,236,.08);overflow:hidden}
+.nx-bar i{display:block;height:100%;border-radius:5px;transform-origin:0 50%}
+.nx-table .r1 .nx-bar i{background:var(--signal);transform:scaleX(.9)}
+.nx-table .r2 .nx-bar i{background:rgba(233,235,236,.62);transform:scaleX(.76)}
+.nx-table .r3 .nx-bar i{background:rgba(233,235,236,.3);transform:scaleX(.44)}
+.nx-bars{margin-top:10px;padding-top:9px;border-top:1px dashed var(--hair);font:500 10.5px/1.3 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--mist)}
+
+/* ---------- wide screens: the words on the left, the phone on the right ---------- */
+@media (min-width:960px){
+  .nx-page{padding-left:36px;padding-right:36px}
+  .nx-sketch{display:grid;grid-template-columns:minmax(0,1fr) 380px;grid-template-rows:auto 1fr;grid-template-areas:"text phone" "fri phone";gap:0 72px;align-items:start;margin-top:56px;padding-top:34px}
+  .nx-text{grid-area:text}.nx-fri{grid-area:fri}
+  .nx-phone{grid-area:phone;margin:6px 0 0}
+  .nx-rail{left:15px}
+}
+
+/* ---------- arrival, once: the headline, then the sketch's parts in their order ---------- */
+@keyframes nx-rise{from{opacity:0;transform:translateY(14px)}}
+@keyframes nx-lift{from{opacity:0;transform:translateY(36px) scale(.97)}}
+@keyframes nx-pop{from{opacity:0;transform:scale(.4)}}
+@keyframes nx-draw{from{stroke-dashoffset:1}}
+@keyframes nx-arc{from{stroke-dashoffset:.32}}
+@keyframes nx-bar{from{transform:scaleX(0)}}
+@keyframes nx-wave{from{transform:scaleY(.12)}}
+@media (prefers-reduced-motion:no-preference){
+  .nx-in .nx-hero>*{animation:nx-rise 620ms var(--ease-reveal) backwards}
+  .nx-in .nx-hero>.lead{animation-delay:60ms}.nx-in .nx-hero>.nx-giant{animation-delay:120ms}.nx-in .nx-hero>.support{animation-delay:200ms}
+  .nx-in .nx-tag,.nx-in .nx-title,.nx-in .nx-what,.nx-in .nx-orderh{animation:nx-rise 620ms var(--ease-reveal) backwards}
+  .nx-in .nx-tag{animation-delay:280ms}.nx-in .nx-title{animation-delay:340ms}.nx-in .nx-what{animation-delay:420ms}.nx-in .nx-orderh{animation-delay:520ms}
+  /* A part waits, unseen, until it comes into view; then it plays. The steps play 1, then 2, then 3, as the rail draws. */
+  .nx-io [data-nx-seen]:not(.nx-seen){opacity:0}
+  .nx-phone.nx-seen{animation:nx-lift 900ms var(--ease-reveal) backwards}
+  .nx-seen .nx-ptop,.nx-seen .nx-ptitle{animation:nx-rise 520ms var(--ease-reveal) 300ms backwards}
+  .nx-seen .nx-rail path{animation:nx-draw 1400ms cubic-bezier(.45,0,.25,1) 600ms backwards}
+  .nx-seen .nx-step{animation:nx-rise 520ms var(--ease-reveal) backwards}
+  .nx-seen .nx-k{animation:nx-pop 420ms var(--ease-lock) backwards}
+  .nx-seen .nx-step.s1,.nx-seen .nx-step.s1 .nx-k{animation-delay:600ms}
+  .nx-seen .nx-step.s2,.nx-seen .nx-step.s2 .nx-k{animation-delay:1300ms}
+  .nx-seen .nx-step.s3,.nx-seen .nx-step.s3 .nx-k{animation-delay:2000ms}
+  /* the phone's parts each play when they come into view: on a wide screen the notices arrive with the phone, the
+     plays and the table as the reader scrolls to them, so the order is seen, never missed below the fold */
+  .nx-z.nx-seen{animation:nx-lift 700ms var(--ease-reveal) 150ms backwards}
+  .nx-z1.nx-seen{animation-delay:600ms}
+  .nx-z1.nx-seen .nx-note{animation:nx-rise 480ms var(--ease-reveal) 860ms backwards}.nx-z1.nx-seen .nx-note+.nx-note{animation-delay:980ms}
+  .nx-z2.nx-seen .nx-play{animation:nx-rise 480ms var(--ease-reveal) 390ms backwards}.nx-z2.nx-seen .nx-play+.nx-play{animation-delay:530ms}
+  .nx-z2.nx-seen .nx-lens .arc{animation:nx-arc 760ms var(--ease-track) 550ms backwards}.nx-z2.nx-seen .nx-play+.nx-play .nx-lens .arc{animation-delay:690ms}
+  .nx-z2.nx-seen .nx-voice .nx-wave i{animation:nx-wave 520ms var(--ease-lock) 650ms backwards}
+  .nx-z2.nx-seen .nx-play+.nx-play .nx-voice .nx-wave i{animation-delay:790ms}
+  .nx-z3.nx-seen .nx-table li{animation:nx-rise 460ms var(--ease-reveal) backwards}
+  .nx-z3.nx-seen .r1{animation-delay:350ms}.nx-z3.nx-seen .r2{animation-delay:440ms}.nx-z3.nx-seen .r3{animation-delay:530ms}
+  .nx-z3.nx-seen .nx-bar i{animation:nx-bar 820ms var(--ease-track) backwards}
+  .nx-z3.nx-seen .r1 .nx-bar i{animation-delay:470ms}.nx-z3.nx-seen .r2 .nx-bar i{animation-delay:560ms}.nx-z3.nx-seen .r3 .nx-bar i{animation-delay:650ms}
+  .nx-z3.nx-seen .nx-bars{animation:nx-rise 460ms var(--ease-reveal) 850ms backwards}
+  /* Friday plays when it is reached: on a wide screen after the steps, on a phone after the edition */
+  .nx-fri.nx-seen{animation:nx-rise 620ms var(--ease-reveal) 300ms backwards}
+  .nx-fri.nx-seen .nx-mic{animation:nx-pop 420ms var(--ease-lock) 500ms backwards}
+  .nx-fri.nx-seen .nx-wave i{animation:nx-wave 520ms var(--ease-lock) 600ms backwards}
+}

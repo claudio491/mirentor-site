@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1b1d20">
+<meta name="format-detection" content="telephone=no">
+<title>cancha</title>
+<link rel="icon" href="img/mirentor-symbol-dark.svg">
+<link rel="preload" href="fonts/geist-v1.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="next.css">
+<script type="module" src="next.js"></script>
+</head>
+<!-- What comes next: ideas agreed for the coming weeks, drawn as sketches so nobody takes them for working software.
+     Served only to a manager, an admin or a leader. Every word comes from i18n.js; next.js fills it in. -->
+<body class="nx">
+<div class="stage">
+<main class="nx-page">
+  <header class="top">
+    <a class="brand" href="./" data-t-aria="top.home.aria"><img src="img/mirentor-symbol-dark.svg" alt="" width="26" height="26"><span>cancha</span></a>
+    <div class="top-r">
+      <a class="mini-btn" href="./" data-t="install.back"></a>
+      <div class="seg lang" role="group" id="nxLang" data-t-aria="top.lang.aria"><button type="button" data-lang="es" aria-pressed="true">ES</button><button type="button" data-lang="en" aria-pressed="false">EN</button></div>
+    </div>
+  </header>
+
+  <section class="nx-hero">
+    <div class="hud-row"><span class="chip"><i class="dot"></i><span data-t="next.chip"></span></span></div>
+    <p class="lead" data-t="next.lead"></p>
+    <h1 class="giant nx-giant" data-t="next.giant"></h1>
+    <p class="support" data-t="next.support"></p>
+  </section>
+
+  <!-- SKETCH 01. The Monday edition: notices, then plays, then the table. -->
+  <section class="nx-sketch" aria-labelledby="nxMonT">
+    <div class="nx-text">
+      <div class="nx-tag"><span class="nx-stamp"><span data-t="next.sketch"></span> 01</span><span class="nx-nb" data-t="next.notbuilt"></span></div>
+      <h2 class="giant nx-title" id="nxMonT" data-t="next.mon.title"></h2>
+      <p class="support nx-what" data-t="next.mon.what"></p>
+
+      <p class="label nx-orderh" data-t="next.mon.order"></p>
+      <div class="nx-orderw" data-nx-seen>
+      <svg class="nx-rail" viewBox="0 0 4 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path pathLength="1" d="M2 0V100"/></svg>
+      <ol class="nx-order">
+        <li class="nx-step s1"><span class="nx-k">1</span><span><b data-t="next.mon.s1"></b><small data-t="next.mon.s1.d"></small></span></li>
+        <li class="nx-step s2"><span class="nx-k">2</span><span><b data-t="next.mon.s2"></b><small data-t="next.mon.s2.d"></small></span></li>
+        <li class="nx-step s3"><span class="nx-k">3</span><span><b data-t="next.mon.s3"></b><small data-t="next.mon.s3.d"></small></span></li>
+      </ol>
+      </div>
+    </div>
+
+    <!-- The edition as a rep would see it on the phone. -->
+    <div class="nx-phone" data-nx-seen>
+      <div class="nx-screen">
+        <div class="nx-notch" aria-hidden="true"></div>
+        <div class="nx-ptop"><span class="chip"><i class="dot"></i><span data-t="next.ph.chip"></span></span><span class="chip ghost" data-t="next.ph.week"></span></div>
+        <p class="giant nx-ptitle" data-t="next.ph.title"></p>
+
+        <section class="nx-z nx-z1" data-nx-seen>
+          <div class="nx-zh"><span class="nx-zk">1</span><h3 data-t="next.ph.notices"></h3></div>
+          <div class="nx-note"><i class="nx-bang" aria-hidden="true"></i><p><b data-t="next.ph.notice1"></b><span class="nx-ex" data-t="next.ph.example"></span></p></div>
+          <div class="nx-note quiet"><i class="nx-bang" aria-hidden="true"></i><p><span class="nx-ph" data-t="next.ph.notice2"></span><span class="nx-lines" aria-hidden="true"><i></i><i></i></span></p></div>
+        </section>
+
+        <section class="nx-z nx-z2" data-nx-seen>
+          <div class="nx-zh"><span class="nx-zk">2</span><h3 data-t="next.ph.plays"></h3></div>
+          <article class="nx-play">
+            <span class="nx-lens" aria-hidden="true"><span class="face"><span class="ini">A</span></span><svg viewBox="0 0 92 92"><circle class="arc" cx="46" cy="46" r="40" pathLength="1" transform="rotate(-100 46 46)"/></svg></span>
+            <div class="nx-pb">
+              <p class="nx-who"><b data-t="next.ph.repA"></b><span data-t="next.ph.play"></span></p>
+              <div class="nx-voice" aria-hidden="true"><span class="nx-tri"></span><span class="nx-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="nx-len" data-t="next.ph.len"></span></div>
+              <p class="nx-pd" data-t="next.ph.play.d"></p>
+            </div>
+          </article>
+          <article class="nx-play">
+            <span class="nx-lens" aria-hidden="true"><span class="face"><span class="ini">B</span></span><svg viewBox="0 0 92 92"><circle class="arc" cx="46" cy="46" r="40" pathLength="1" transform="rotate(-100 46 46)"/></svg></span>
+            <div class="nx-pb">
+              <p class="nx-who"><b data-t="next.ph.repB"></b><span data-t="next.ph.play"></span></p>
+              <div class="nx-voice" aria-hidden="true"><span class="nx-tri"></span><span class="nx-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="nx-len" data-t="next.ph.len"></span></div>
+            </div>
+          </article>
+        </section>
+
+        <section class="nx-z nx-z3" data-nx-seen>
+          <div class="nx-zh"><span class="nx-zk">3</span><h3 data-t="next.ph.table"></h3></div>
+          <ol class="nx-table">
+            <li class="r1"><span class="face"><span class="ini">A</span></span><span class="nx-tn"><b data-t="next.ph.repA"></b><small class="nx-tag1" data-t="next.ph.leads"></small></span><span class="nx-bar"><i></i></span></li>
+            <li class="r2"><span class="face"><span class="ini">B</span></span><span class="nx-tn"><b data-t="next.ph.repB"></b><small data-t="next.ph.near"></small></span><span class="nx-bar"><i></i></span></li>
+            <li class="r3"><span class="face"><span class="ini">C</span></span><span class="nx-tn"><b data-t="next.ph.repC"></b></span><span class="nx-bar"><i></i></span></li>
+          </ol>
+          <p class="nx-bars" data-t="next.ph.bars"></p>
+        </section>
+      </div>
+    </div>
+
+    <!-- Friday's question feeds Monday's plays. -->
+    <aside class="nx-fri" data-nx-seen>
+      <p class="label" data-t="next.fri.label"></p>
+      <p class="nx-q" data-t="next.fri.q"></p>
+      <div class="nx-rec" aria-hidden="true">
+        <span class="nx-mic"><svg viewBox="0 0 24 24"><path d="M12 4a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V7a3 3 0 0 0-3-3zM6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v3"/></svg></span>
+        <span class="nx-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="nx-len" data-t="next.ph.len"></span>
+      </div>
+      <p class="nx-fd" data-t="next.fri.d"></p>
+    </aside>
+  </section>
+</main>
+</div>
+</body>
+</html>
