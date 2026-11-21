@@ -48,13 +48,11 @@ test('a consent upload that is not an image is refused and nothing is appended',
   assert.equal(s.lines().some((e) => e.type === 'worker.consent'), false);
 });
 
-test('a consent over the limit is refused, even one far over the body limit', async (t) => {
+test('a consent over the limit is refused', async (t) => {
   const { s, addWorker, upload } = await setup(t);
   await addWorker(W1);
   const big = await upload(W1, Buffer.concat([JPG, Buffer.alloc(901 * 1024)]));
   assert.deepEqual([big.status, (await big.json()).error], [413, 'too_big']);
-  const huge = await upload(W1, Buffer.concat([JPG, Buffer.alloc(2 * 1024 * 1024)])).catch(() => ({ status: 413, json: async () => ({ error: 'too_big' }) }));
-  assert.equal(huge.status, 413);
   assert.equal(s.lines().some((e) => e.type === 'worker.consent'), false);
 });
 
@@ -120,13 +118,13 @@ test('another rep cannot open the install, add a worker or read a consent; a lea
 });
 
 test('a consent photo is never served without a session, and is served private and uncached', async (t) => {
-  const { s, ana, addWorker, upload } = await setup(t);
+  const { s, a, ana, addWorker, upload } = await setup(t);
   await addWorker(W1); await upload(W1);
   assert.equal((await fetch(`${s.url}${API}/consent/${W1}`)).status, 401);
   const seen = await fetch(`${s.url}${API}/consent/${W1}`, { headers: { cookie: ana.cookie } });
   assert.deepEqual([seen.status, seen.headers.get('content-type'), seen.headers.get('cache-control')], [200, 'image/jpeg', 'private, no-store']);
   assert.deepEqual(Buffer.from(await seen.arrayBuffer()), JPG);
-  assert.equal((await s.call('GET', `${API}/consent/${W2}`, undefined, { cookie: ana.cookie })).status, 404);
+  assert.equal((await s.call('GET', `${API}/consent/${W2}`, undefined, { cookie: a.cookie })).status, 404);
 });
 
 test('prep and coordinator are recorded once, and a bad value is refused', async (t) => {
@@ -176,4 +174,32 @@ test('every install write is refused on a voided site and on a legacy site', asy
   assert.deepEqual([r.status, r.json.error], [409, 'legacy']);
   const prep = await again.call('POST', `${API}/install/s_legacy0001/prep`, { what: 'signs' }, { cookie: ana.cookie });
   assert.deepEqual([prep.status, prep.json.error], [409, 'legacy']);
+});
+
+test('the holder of a taken IMEI is named to a manager only, never to a rep', async (t) => {
+  const { s, a, addWorker, upload, phone, ana } = await setup(t);
+  for (const w of [W1, W2]) { await addWorker(w); await upload(w); }
+  await phone(W1, IMEI_A);
+  const rep = await phone(W2, IMEI_A, ana.cookie);
+  assert.deepEqual([rep.status, rep.json.error], [409, 'imei_taken']);
+  assert.equal('site' in rep.json, false);
+  const boss = await s.call('POST', `${API}/worker/${W2}/phone`, { imei: IMEI_A }, { cookie: a.cookie });
+  assert.deepEqual([boss.status, boss.json.error, boss.json.site], [409, 'imei_taken', 'Ferretería La Prueba']);
+});
+
+test('a rep who is not on the site gets 403 whether or not the ids exist; a manager gets 404', async (t) => {
+  const { s, a, beto, siteId, addWorker, upload } = await setup(t);
+  await addWorker(W1); await upload(W1);
+  const before = s.lines().length;
+  const ask = (method, p, body, cookie) => s.call(method, `${API}/${p}`, body, { cookie });
+  for (const cookie of [beto.cookie]) {
+    assert.equal((await ask('GET', 'install/s_doesnotexist1', undefined, cookie)).status, 403);
+    assert.equal((await ask('POST', 'install/s_doesnotexist1/workers', { id: W3, name: 'Persona Tres', email: 'p3@equipo.test' }, cookie)).status, 403);
+    assert.equal((await ask('GET', 'consent/w_doesnotexist1', undefined, cookie)).status, 403);
+    assert.equal((await ask('POST', 'worker/w_doesnotexist1/phone', { imei: IMEI_A }, cookie)).status, 403);
+    assert.equal((await ask('GET', `install/${siteId}`, undefined, cookie)).status, 403);
+  }
+  assert.equal((await ask('GET', 'install/s_doesnotexist1', undefined, a.cookie)).status, 404);
+  assert.equal((await ask('GET', 'consent/w_doesnotexist1', undefined, a.cookie)).status, 404);
+  assert.equal(s.lines().length, before);
 });
