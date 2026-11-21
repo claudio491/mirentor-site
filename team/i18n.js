@@ -1,7 +1,7 @@
 // i18n.js: every sentence the app shows, in Spanish and English, under the same keys.
 // The server sends codes and numbers; nothing a person reads is written anywhere else.
 // A value that is a pair, [one, many], is picked by the `n` given to t().
-// Fixed words: puntos / points (the score), luces / lights (the hand's joints), meta / goal (the weekly goal a rep picks),
+// Fixed words: puntos / points (the score), luces / lights (the hand's joints), meta / goal (the weekly goal a rep picks, and the Scorecard's own goal on the leadership view),
 // objetivo del equipo / team target, teléfono / phone (a device), líder / manager (who confirms), liderazgo / leadership (the read-only role).
 export const APP_NAME = 'cancha';   // a working name, kept in one place
 export const LANGS = ['es', 'en'];
@@ -428,6 +428,28 @@ const es = {
   'video.welcome': 'Qué es Mirentor y cómo ganas', 'video.welcome.s': 'Bienvenida', 'video.pitch': 'Cómo presentar el programa', 'video.pitch.s': 'El guion, en voz',
   'video.hours': 'Horas aprobadas y pagos', 'video.hours.s': 'Qué cuenta y qué no', 'video.logging': 'Registrar tu día', 'video.logging.s': 'La app y el CRM',
   'video.install': 'Instalar un sitio', 'video.install.s': 'Firma, teléfono, cámara', 'video.faq': 'Preguntas frecuentes', 'video.faq.s': 'Privacidad, daños, pagos',
+  // ---- the leadership view: every city at once, read only ----
+  'lead.open': 'Vista de liderazgo', 'lead.chip': 'Liderazgo · solo lectura', 'lead.week': 'Semana del {date}',
+  'lead.lead': 'Horas de video aceptadas, semana del {date}', 'lead.support': 'De {d} entregadas, el Scorecard aceptó {a}.', 'lead.support.zero': 'Esa semana no hubo horas entregadas.',
+  'lead.lead.none': 'Horas de video aceptadas', 'lead.giant.none': 'sin horas.', 'lead.pct.n': '{pct} %',
+  'lead.pct': 'aceptado', 'lead.pct.aria': 'Aceptado: {pct} de lo entregado',
+  'lead.goal.label': 'Meta del Scorecard', 'lead.goal.per': '{goal} aceptadas por semana', 'lead.goal.of': '{share} de la meta del Scorecard',
+  'lead.goal.src': 'Scorecard: la meta semanal de horas aceptadas. Es el número del Scorecard, no uno de esta app.',
+  'lead.goal.aria': 'Horas aceptadas contra la meta del Scorecard: {a} de {goal}',
+  'lead.weeks.h': 'Últimas semanas', 'lead.delivered': 'Entregadas', 'lead.accepted': 'Aceptadas',
+  'lead.src.scorecard': 'Scorecard, semana del {date}.', 'lead.src.manual': 'Escrito en la app por un líder, semana del {date}.',
+  'lead.src.site': 'Registro del sitio.', 'lead.src.rep': 'Registros del vendedor, de lunes a domingo de esta semana.',
+  'lead.hours.none': 'Todavía no hay horas cargadas. Llegan del Scorecard cada semana.',
+  'lead.city.none': 'Sin ciudad', 'lead.reps.n': ['{n} vendedor', '{n} vendedores'],
+  'lead.sites.h': 'Sitios', 'lead.reps.h': 'Vendedores esta semana',
+  'lead.sites.none': 'Todavía no hay sitios instalados con la app.', 'lead.reps.none': 'Todavía no hay vendedores en esta ciudad.',
+  'lead.cities.none': 'Todavía no hay sitios ni vendedores para mostrar.',
+  'lead.site.eligible': 'elegibles', 'lead.site.consents': 'consentimientos en archivo', 'lead.site.phones': 'teléfonos', 'lead.site.missing': '{what}: sin dato',
+  'lead.site.legacy': 'Instalado antes de la app · consentimientos sin cargar',
+  'lead.state.legacy': 'Instalado', 'lead.state.waiting_phones': 'Esperando teléfonos', 'lead.state.ready_to_install': 'Listo para instalar',
+  'lead.state.installing': 'Instalando', 'lead.state.closed': 'Cerrado, falta confirmar', 'lead.state.installed': 'Instalado',
+  'lead.rep.new': 'Nuevo · paso {n} de 10',
+  'lead.practice': ['{n} sitio de práctica no aparece aquí ni cuenta en los totales.', '{n} sitios de práctica no aparecen aquí ni cuentan en los totales.'],
 };
 const en = {
   // ---- shared ----
@@ -851,6 +873,28 @@ const en = {
   'video.welcome': 'What Mirentor is and how you earn', 'video.welcome.s': 'Welcome', 'video.pitch': 'How to present the program', 'video.pitch.s': 'The script, spoken',
   'video.hours': 'Approved hours and pay', 'video.hours.s': 'What counts and what does not', 'video.logging': 'Logging your day', 'video.logging.s': 'The app and the CRM',
   'video.install': 'Installing a site', 'video.install.s': 'Consent, phone, camera', 'video.faq': 'Common questions', 'video.faq.s': 'Privacy, damage, pay',
+  // ---- the leadership view: every city at once, read only ----
+  'lead.open': 'Leadership view', 'lead.chip': 'Leadership · read only', 'lead.week': 'Week of {date}',
+  'lead.lead': 'Accepted hours of video, week of {date}', 'lead.support': 'Of {d} delivered, the Scorecard accepted {a}.', 'lead.support.zero': 'No hours were delivered that week.',
+  'lead.lead.none': 'Accepted hours of video', 'lead.giant.none': 'no hours yet.', 'lead.pct.n': '{pct}%',
+  'lead.pct': 'accepted', 'lead.pct.aria': 'Accepted: {pct} of what was delivered',
+  'lead.goal.label': 'Scorecard goal', 'lead.goal.per': '{goal} accepted a week', 'lead.goal.of': '{share} of the Scorecard goal',
+  'lead.goal.src': 'Scorecard: the weekly goal for accepted hours. It is the Scorecard\'s number, not one this app sets.',
+  'lead.goal.aria': 'Accepted hours against the Scorecard goal: {a} of {goal}',
+  'lead.weeks.h': 'Last weeks', 'lead.delivered': 'Delivered', 'lead.accepted': 'Accepted',
+  'lead.src.scorecard': 'Scorecard, week of {date}.', 'lead.src.manual': 'Typed into the app by a manager, week of {date}.',
+  'lead.src.site': 'Site record.', 'lead.src.rep': 'The rep\'s logs, Monday to Sunday this week.',
+  'lead.hours.none': 'No hours loaded yet. They arrive from the Scorecard every week.',
+  'lead.city.none': 'No city', 'lead.reps.n': ['{n} rep', '{n} reps'],
+  'lead.sites.h': 'Sites', 'lead.reps.h': 'Reps this week',
+  'lead.sites.none': 'No sites installed with the app yet.', 'lead.reps.none': 'No reps in this city yet.',
+  'lead.cities.none': 'No sites or reps to show yet.',
+  'lead.site.eligible': 'eligible', 'lead.site.consents': 'consents on file', 'lead.site.phones': 'phones', 'lead.site.missing': '{what}: no data',
+  'lead.site.legacy': 'Installed before the app · consents not loaded',
+  'lead.state.legacy': 'Installed', 'lead.state.waiting_phones': 'Waiting for phones', 'lead.state.ready_to_install': 'Ready to install',
+  'lead.state.installing': 'Installing', 'lead.state.closed': 'Closed, waiting to be confirmed', 'lead.state.installed': 'Installed',
+  'lead.rep.new': 'New · step {n} of 10',
+  'lead.practice': ['{n} practice site is not shown here and counts in no total.', '{n} practice sites are not shown here and count in no total.'],
 };
 export const DICT = { es, en };
 /** t(key, vars): the sentence in one language. Numbers are written the way that language writes them. */

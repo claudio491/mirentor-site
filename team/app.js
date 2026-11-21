@@ -12,6 +12,8 @@ import { ART, STEPS } from './art.js';
 import { createManager } from './manager.js';
 import { createInstall } from './install.js';
 import { createLadder } from './ladder.js';
+import { createLeader } from './leader.js';
+import { shellFor } from './leader-steps.js';
 import { verdict, mine as waitingOf } from './queue.js';
 import { sessionMove, HOME, LEAVE } from './door.js';
 
@@ -49,10 +51,10 @@ const S = { me: null, sig: '', tab: null, period: 'week', as: null, mgr: false, 
   hold: null,     // the stop a log landed on, kept on the stage until its answer has played
   owed: null,     // an answer that waits for a sheet to close
   taught: false };
-const SCREENS = ['boot', 'gate', 'today', 'week', 'table', 'profile', 'team', 'needs', 'reps', 'install', 'worker', 'iclose', 'ladder', 'zones', 'learn'];
+const SCREENS = ['boot', 'gate', 'today', 'week', 'table', 'profile', 'team', 'needs', 'reps', 'install', 'worker', 'iclose', 'ladder', 'zones', 'learn', 'lead'];
 // A rep's three zones. On a wide screen they are one page, a band under the other; anywhere else one shows at a time.
 const BANDS = ['today', 'week', 'table'], WIDE = matchMedia('(min-width:1080px)');
-const banded = () => WIDE.matches && !S.mgr && !!S.me;
+const banded = () => WIDE.matches && !S.mgr && !S.lead && !!S.me;
 const inBands = (name) => banded() && BANDS.includes(name);
 const REST_LOOP = [[0, 1500], [1, 1500], [2, 1900], [3, 1500]];   // a day off: the hammock swings
 const FOLLOWS = new Set(['talk', 'absent', 'call', 'reply', 'meeting']);
@@ -108,8 +110,11 @@ function renderTop() {
   if (S.as && S.me) $('#asText').textContent = t('top.viewAs', { name: S.me.me.name });
 }
 function renderNav() {
-  const nav = $('#nav'), canLog = !S.mgr && !readOnly() && !!S.me.today;
-  const tabs = S.mgr ? ['team', 'needs', 'reps'] : BANDS;
+  // A leader reads one page: no tabs and nothing to log, so there is no bar at all.
+  const shell = shellFor(S.lead ? 'leader' : S.mgr ? 'manager' : 'rep');
+  const nav = $('#nav'), canLog = shell.log && !readOnly() && !!S.me.today;
+  if (!shell.tabs.length) { put(nav); nav.hidden = true; return; }
+  const tabs = shell.tabs;
   const count = S.mgr ? manager.needsCount() : 0;
   put(nav, h('div', { class: 'tabs' }, tabs.map((id) => h('button', { class: 'tab', type: 'button', 'data-tab': id, 'aria-label': id === 'needs' && count ? `${t('nav.needs')}: ${count}` : t(`nav.${id}`), 'aria-current': S.tab === id ? 'page' : null, onclick: () => setTab(id) },
     icon(id), h('span', { text: t(`nav.${id}`) }), id === 'needs' && count ? h('span', { class: 'count num', text: String(count), 'aria-hidden': 'true' }) : null))),
@@ -193,14 +198,18 @@ function arrive(name, { fast = false, landed: lensLanded = false } = {}) {
     reveal($('#teamGiant'));
     lockIn($$('#wall .wl .pt'), { delay: 80 }); drawIn($('#wall'), 260, 60); drawIn($('#teamLenses'), 320, 90);
     stagger($$('#teamRows .brow'), { delay: 240, step: 45 });
-  } else if (name === 'needs') { reveal($('#needsGiant')); stagger($$('#needsBody .items li'), { delay: 140, step: 40 }); }
+  } else if (name === 'lead') leader.arrive();
+  else if (name === 'needs') { reveal($('#needsGiant')); stagger($$('#needsBody .items li'), { delay: 140, step: 40 }); }
   else if (name === 'reps') { reveal($('#repsGiant')); stagger($$('#repsBody .items li'), { delay: 140, step: 40 }); }
 }
 function renderAll(animate = false) {
   S.lastPaint = Date.now();
   const run = () => {
     renderTop(); renderNav();
-    if (S.mgr) manager.render(animate); else { renderToday(animate); renderWeek(animate); renderTable(animate); renderProfile(); renderRules(); }
+    if (S.lead) leader.render();
+    else if (S.mgr) manager.render(animate); else { renderToday(animate); renderWeek(animate); renderTable(animate); renderProfile(); renderRules(); }
+    if (S.mgr && S.tab === 'lead') leader.render();
+    $('#leadBtn').hidden = !S.mgr;   // a manager's way to the leadership view
     if (INSTALL_TABS.has(S.tab)) install.render(false);
     if (LADDER_TABS.has(S.tab)) ladder.render(false);
     // a manager's way to what a new rep sees, on their own account
@@ -940,7 +949,7 @@ async function fullFinger() {
 
 // ---- logs that wait for signal ----
 /** A phone can be shared: each waiting log remembers whose it is, and only its owner sends it. */
-function myQueue() { return S.me ? waitingOf(S.queue, S.me.me.id) : []; }
+function myQueue() { return S.me && S.me.me ? waitingOf(S.queue, S.me.me.id) : []; }
 let flushing = false;
 async function flush() {
   if (flushing || !S.me || readOnly() || !myQueue().length) return;
@@ -963,8 +972,24 @@ async function flush() {
 // ---- session ----
 /** What a view says, leaving out the clock: two reads that match have nothing new to draw. */
 const signature = (me) => JSON.stringify({ ...me, serverTime: null });
-function adopt(me) { S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); if (!readOnly()) store.set(KEY.me, me); }
+function adopt(me) { S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); if (!readOnly() && me.me) store.set(KEY.me, me); }
+/** A leader has no board of their own: they land on the leadership view, with no tabs, no log and no entrance. */
+function enterLeader(me) {
+  S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); S.lastPaint = Date.now();
+  S.as = null; S.mgr = false; S.lead = true;
+  const own = me.viewer.lang;
+  if (own && own !== lang()) { setLang(own); store.set(KEY.lang, own); applyStatic(); }
+  document.body.classList.remove('bare'); document.body.classList.add('mgr');
+  store.del(KEY.me);   // nothing of a leader's is kept on the phone: the view is read fresh each time
+  S.arrived = new Set(['lead']);
+  renderTop();
+  // The page shows once its numbers are in, so it never draws an empty view first.
+  leader.load().then(() => { renderAll(false); setTab('lead', { instant: true }); arrive('lead'); })
+    .catch((e) => { if (!shutOut(e)) showGate('error', errText(e)); });
+}
 function enter(me) {
+  if (me.viewer && me.viewer.role === 'leader') { enterLeader(me); return; }
+  S.lead = false;
   S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); S.lastPaint = Date.now();
   if (!S.as || me.viewer.role === 'rep') S.as = me.viewer.as;   // a rep's `as` is ignored by the server
   const own = S.as ? me.viewer.lang : me.me.lang;
@@ -1016,8 +1041,9 @@ async function poll() {
     const before = S.me;
     adopt(me);
     if (S.mgr) await manager.load();
+    if (S.lead || S.tab === 'lead') await leader.load();
     renderAll(true);
-    if (!S.mgr && !readOnly()) playMoments(moments(before, me));   // something confirmed elsewhere can be a moment here
+    if (!S.mgr && !S.lead && !readOnly()) playMoments(moments(before, me));   // something confirmed elsewhere can be a moment here
   } catch (e) { shutOut(e); }
 }
 async function refresh(animate = false) {
@@ -1025,6 +1051,7 @@ async function refresh(animate = false) {
     const me = await api('GET', S.as ? `me?as=${encodeURIComponent(S.as)}` : 'me');
     adopt(me);
     if (S.mgr) await manager.load();
+    if (S.lead || S.tab === 'lead') await leader.load();
     renderAll(animate);
   } catch (e) { shutOut(e); }
 }
@@ -1080,10 +1107,11 @@ async function viewAs(id = null) {
 const manager = createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs });
 const install = createInstall({ api, S, errText, refresh, setTab });
 const ladder = createLadder({ api, S, errText, adopt, renderAll, setTab, openLog });
+const leader = createLeader({ api, S, errText, setTab });
 function wire() {
-  initPop(); initSheets(); install.wire(); ladder.wire();
+  initPop(); initSheets(); install.wire(); ladder.wire(); leader.wire();
   $('#previewBtn').addEventListener('click', () => ladder.open('team'));
-  $('#home').addEventListener('click', (e) => { if (!S.me) return; e.preventDefault(); if (S.as) viewAs(null); else setTab(S.mgr ? 'team' : 'today'); });
+  $('#home').addEventListener('click', (e) => { if (!S.me) return; e.preventDefault(); if (S.as) viewAs(null); else setTab(S.lead ? 'lead' : S.mgr ? 'team' : 'today'); });
   $('#asExit').addEventListener('click', (e) => { e.preventDefault(); viewAs(null); });
   // Back and forward move between the team and a rep's screens, as the address says.
   addEventListener('popstate', () => { S.tab = null; start(); });

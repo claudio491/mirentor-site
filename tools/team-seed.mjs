@@ -95,8 +95,36 @@ function practiceSite(dir, rep, boss, day) {
   return out;
 }
 
-/** `practice` adds a practice site for the rep andrea with three placeholder workers, for looking at the install screens. */
-export function seed(dir, { now = new Date(), names = {}, handles = {}, practice = false } = {}) {
+/** What the leadership view needs to be looked at: a leader account, two weeks of hours and, in one city, a site
+ *  installed before the app and one installed with it, with placeholder workers. Every name reads as a placeholder and
+ *  every number is made up. */
+export const SAMPLE_LEADER = { id: 'r_sample_liderazgo', handle: 'liderazgo', name: 'Liderazgo de Ejemplo', city: '', role: 'leader' };
+function leadership(dir, rep, boss, ws) {
+  const out = [], T = (day, hhmm) => at(day, hhmm), by = rep;
+  // two weeks of hours, in minutes: one pushed from the Scorecard, one typed by a manager
+  out.push({ type: 'hours.week', week: addDays(ws, -14), delivered: 1830, accepted: 1290, source: 'manual', by: boss, t: T(addDays(ws, -7), '09:00') });
+  out.push({ type: 'hours.week', week: addDays(ws, -7), delivered: 2615, accepted: 2075, source: 'scorecard', t: T(ws, '09:00') });
+  // a site from before the app: its consents are on paper, not here
+  out.push({ type: 'site', id: 's_sample_legacy', rep, lead: { id: null, name: 'Sitio de ejemplo A' }, city: 'Panama City', eligible: 9, legacy: true, by: boss, t: T(addDays(ws, -30), '10:00') });
+  // a site installed with the app: four placeholder workers, all signed, three with a phone
+  const site = 's_sample_app', day = addDays(ws, -6);
+  out.push({ type: 'site', id: site, rep, lead: { id: null, name: 'Sitio de ejemplo B' }, city: 'Panama City', eligible: 7, by: boss, t: T(addDays(ws, -9), '10:00') });
+  out.push({ type: 'site.phones', siteId: site, count: 3, by: boss, t: T(day, '08:30') });
+  const imeis = ['356938035643809', '358472091234566', '352099001761481'];   // valid check digits, none the practice site's
+  for (let n = 1; n <= 4; n += 1) {
+    const id = `w_sampleB${n}`, kept = saveConsent(dir, id, BLANK_PNG);
+    out.push({ type: 'worker.added', siteId: site, id, name: `Persona de ejemplo ${n}`, email: `persona${n}@ejemplo.test`, phone: n <= 3, by, t: T(day, `09:${10 + n}`) });
+    out.push({ type: 'worker.consent', workerId: id, ext: kept.ext, v: kept.v, form: 'v1', by, t: T(day, `09:${20 + n}`) });
+    if (n <= 3) out.push({ type: 'worker.phone', workerId: id, imei: imeis[n - 1], by, t: T(day, `09:${30 + n}`) }, { type: 'worker.clip', workerId: id, by, t: T(day, `09:${40 + n}`) });
+  }
+  out.push({ type: 'install.close', siteId: site, by, t: T(day, '11:00') });
+  out.push({ type: 'site.step', siteId: site, what: 'installed', by: boss, t: T(addDays(day, 1), '09:00') });
+  return out;
+}
+
+/** `practice` adds a practice site for the rep andrea with three placeholder workers, for looking at the install screens.
+ *  `leader` adds what the leadership view needs (see leadership above). */
+export function seed(dir, { now = new Date(), names = {}, handles = {}, practice = false, leader = false } = {}) {
   const events = path.join(dir, 'team', 'events.jsonl');
   if (existsSync(events) && readFileSync(events, 'utf8').trim()) throw new Error(`${events} already holds events: the seed only fills an empty folder`);
   mkdirSync(path.join(dir, 'team'), { recursive: true });
@@ -105,7 +133,7 @@ export function seed(dir, { now = new Date(), names = {}, handles = {}, practice
   const out = [];
   const push = (e) => { if (e.t <= nowIso) out.push(e); };
 
-  for (const r of SAMPLE_REPS) {
+  for (const r of leader ? [...SAMPLE_REPS, SAMPLE_LEADER] : SAMPLE_REPS) {
     const start = r.isNew ? addDays(today, -5) : addDays(today, -60), t = at(start, '08:00');
     const handle = typeof handles[r.handle] === 'string' && /^[a-z0-9][a-z0-9._-]{1,39}$/.test(handles[r.handle]) ? handles[r.handle] : r.handle;
     // An address under .test, the ending kept for examples: it can never be anyone's.
@@ -153,16 +181,17 @@ export function seed(dir, { now = new Date(), names = {}, handles = {}, practice
   clap('omar', ids['andrea:1:meeting'], addDays(ws, 1), '12:50'); clap('nadia', ids['andrea:1:meeting'], addDays(ws, 1), '13:15');
   push({ type: 'badge.give', id: 'sample-badge-1', rep: id('luis'), text: 'Volvió tres veces a la misma cuadra hasta encontrar al dueño.', by: id('lider'), t: at(addDays(ws, 2), '17:00') });
   const ms = monthStart(today), signed = addDays(ms, 2) < ws ? addDays(ms, 2) : addDays(ws, -3);
-  push({ type: 'site', id: 's_sample_1', rep: id('omar'), lead: { id: null, name: 'Astillero El Faro' }, by: id('lider'), t: at(signed, '16:00') });
+  push({ type: 'site', id: 's_sample_1', rep: id('omar'), lead: { id: null, name: 'Astillero El Faro' }, city: 'Colón', by: id('lider'), t: at(signed, '16:00') });
   push({ type: 'site.step', siteId: 's_sample_1', what: 'installed', by: id('lider'), t: at(addDays(signed, 3), '11:00') });
 
   if (practice) out.push(...practiceSite(dir, id('andrea'), id('lider'), addDays(today, -1)));
+  if (leader) out.push(...leadership(dir, id('luis'), id('lider'), ws).filter((e) => e.t <= nowIso));
 
   out.sort((x, y) => (x.t < y.t ? -1 : x.t > y.t ? 1 : 0));
   const store = openTeamStore(dir);
   for (const e of out) store.append(e);
   store.setLeads(Object.entries(LEADS).map(([key, [company, zone, city, known]]) => ({ id: leadId(key), company, zone, city, stage: known ? 'Contacted' : 'New', ...(known ? { lastContact: addDays(ws, -16) } : {}) })));
-  return { events: out.length, reps: SAMPLE_REPS.map((r) => `${r.handle} (${r.role})`) };
+  return { events: out.length, reps: (leader ? [...SAMPLE_REPS, SAMPLE_LEADER] : SAMPLE_REPS).map((r) => `${r.handle} (${r.role})`) };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {

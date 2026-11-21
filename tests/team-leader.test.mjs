@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { start, mail, as, logBody } from './team-helper.mjs';
 import { emptyState, applyEvent } from '../lib/team/state.mjs';
 import { leaderView } from '../lib/team/leader.mjs';
+import { SCORECARD_ACCEPTED_GOAL_HOURS } from '../lib/team/rules.mjs';
 
 const API = '/equipo/api';
 const JPG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]), Buffer.from('JFIF consent bytes'), Buffer.from([0xff, 0xd9])]);
@@ -163,6 +164,12 @@ test('a site event written before this build replays and shows with its facts em
   const view = leaderView(state, { now: '2026-11-16T15:00:00Z' });
   assert.deepEqual(view.cities.map((c) => c.city), ['']);
   assert.deepEqual(view.cities[0].sites, [{ id: 's_oldsite001', name: 'Negocio Viejo', state: 'waiting_phones', eligible: null, consents: 0, phones: 0, workers: 0 }]);
+});
+
+test('the view carries the Scorecard\'s weekly accepted-hours goal, in minutes, from the one named constant', () => {
+  const view = leaderView(emptyState(), { now: '2026-11-16T15:00:00Z' });
+  assert.equal(SCORECARD_ACCEPTED_GOAL_HOURS, 3750);
+  assert.equal(view.goalAccepted, SCORECARD_ACCEPTED_GOAL_HOURS * 60);
 });
 
 test('hours pushed by the routine show with their percentage and source', async (t) => {

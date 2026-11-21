@@ -56,3 +56,20 @@ test('the practice seed gives the first rep a practice site with phones marked a
   const plain = fresh(); seed(plain, { now: THU_3PM });
   assert.equal(openTeamStore(plain).state.sites.has('s_sample_practice'), false);
 });
+
+test('the leader seed gives the leadership view a leader, two weeks of hours and, in one city, a legacy site and one installed with the app', async () => {
+  const { leaderView } = await import('../lib/team/leader.mjs');
+  const dir = fresh(); seed(dir, { now: THU_3PM, practice: true, leader: true });
+  const store = openTeamStore(dir), view = leaderView(store.state, { now: THU_3PM.toISOString(), leads: store.leads() });
+  assert.equal([...store.state.reps.values()].filter((r) => r.role === 'leader').length, 1);
+  assert.deepEqual(view.hours.map((x) => [x.week, x.source]), [['2026-11-09', 'scorecard'], ['2026-11-02', 'manual']]);
+  const pc = view.cities.find((c) => c.city === 'Panama City');
+  assert.deepEqual(pc.sites.map((x) => [x.name, x.state, x.eligible, x.consents, x.phones, x.workers]),
+    [['Sitio de ejemplo A', 'legacy', 9, 0, 0, 0], ['Sitio de ejemplo B', 'installed', 7, 4, 3, 4]]);
+  assert.equal(view.practiceHidden, 1);
+  // the practice worker kept its phone: the leader seed uses other IMEIs
+  assert.equal(store.state.workers.get('w_sampleWorker1').imei, '490154203237518');
+  // without the option the sample has no leader and no hours
+  const plain = fresh(); seed(plain, { now: THU_3PM });
+  assert.deepEqual([[...openTeamStore(plain).state.reps.values()].some((r) => r.role === 'leader'), openTeamStore(plain).state.hours.size], [false, 0]);
+});

@@ -7,7 +7,7 @@ import { DICT, makeT, LANGS } from '../team/i18n.js';
 import { KINDS, CHANNELS, RULES } from '../lib/team/rules.mjs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const SCRIPTS = ['team/app.js', 'team/install.js', 'team/install-steps.js', 'team/ladder.js', 'team/ladder-steps.js', 'team/shrink.js', 'team/hand.js', 'team/manager.js', 'team/ui.js', 'team/queue.js', 'team/door.js', 'team/fx.js', 'team/moments.js', 'team/stops.js', 'team/stage.js', 'team/player.js', 'team/art.js'];
+const SCRIPTS = ['team/app.js', 'team/install.js', 'team/install-steps.js', 'team/ladder.js', 'team/ladder-steps.js', 'team/leader.js', 'team/leader-steps.js', 'team/shrink.js', 'team/hand.js', 'team/manager.js', 'team/ui.js', 'team/queue.js', 'team/door.js', 'team/fx.js', 'team/moments.js', 'team/stops.js', 'team/stage.js', 'team/player.js', 'team/art.js'];
 const flat = (v) => (Array.isArray(v) ? v.join(' ') : v);
 const holes = (v) => [...new Set(flat(v).match(/\{\w+\}/g) || [])].sort();
 
@@ -30,8 +30,9 @@ test('no em dash anywhere a person reads, and the fixed vocabulary holds', () =>
   // Who confirms is "líder" in Spanish and "manager" in English, everywhere.
   for (const [k, v] of Object.entries(DICT.es)) assert.equal(/\bmanagers?\b/i.test(flat(v)), false, `es.${k} says manager`);
   for (const [k, v] of Object.entries(DICT.en)) assert.equal(/l[ií]der/i.test(flat(v)), false, `en.${k} says líder`);
-  // "Meta" and "goal" name only the weekly goal a rep picks; the team's number is "objetivo" and "target".
-  const outsideGoal = (lang, re) => Object.entries(DICT[lang]).filter(([k, v]) => !/^(goal\.|err\.goal|col\.goal)/.test(k) && re.test(flat(v).replace(/\{\w+\}/g, ''))).map(([k]) => k);
+  // "Meta" and "goal" name only the weekly goal a rep picks, and the Scorecard's own goal on the leadership view
+  // (lead.goal.*, always attributed to the Scorecard); the team's number is "objetivo" and "target".
+  const outsideGoal = (lang, re) => Object.entries(DICT[lang]).filter(([k, v]) => !/^(goal\.|err\.goal|col\.goal|lead\.goal\.)/.test(k) && re.test(flat(v).replace(/\{\w+\}/g, ''))).map(([k]) => k);
   assert.deepEqual([outsideGoal('es', /\bmetas?\b/i), outsideGoal('en', /\bgoals?\b/i)], [[], []]);
 });
 
