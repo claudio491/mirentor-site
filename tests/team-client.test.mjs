@@ -78,6 +78,14 @@ test('the dictionary source has no duplicate key in either language', () => {
   }
 });
 
+test('no two role labels are the same within a language', () => {
+  for (const lang of LANGS) {
+    const labels = Object.entries(DICT[lang]).filter(([k]) => /^role\.[a-z]+$/.test(k)).map(([, v]) => v);
+    assert.ok(labels.length >= 4);
+    assert.equal(new Set(labels).size, labels.length, `${lang} repeats a role label: ${labels.join(', ')}`);
+  }
+});
+
 test('t fills the blanks, picks the plural and never returns a bare key', () => {
   const es = makeT('es'), en = makeT('en');
   assert.equal(es('today.of', { a: 1, b: 4 }), '1 de 4');

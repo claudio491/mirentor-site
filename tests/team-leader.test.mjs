@@ -1,18 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { start, mail, as, logBody } from './team-helper.mjs';
 import { emptyState, applyEvent } from '../lib/team/state.mjs';
 import { leaderView } from '../lib/team/leader.mjs';
-import { createServer } from '../server.mjs';
-import { openStore } from '../lib/store.mjs';
-import { createTeam } from '../lib/team/api.mjs';
-import { openTeamStore } from '../lib/team/store.mjs';
 
 const API = '/equipo/api';
 const JPG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]), Buffer.from('JFIF consent bytes'), Buffer.from([0xff, 0xd9])]);
@@ -224,20 +214,29 @@ test('a week that is not a Monday, or minutes that are not numbers, are refused 
   assert.equal((await put([week({ delivered: 100000, accepted: 0 })])).status, 200);
 });
 
-test('team-admin can make a leader with --role leader, even after the team has an admin', async (t) => {
-  const run = promisify(execFile);
-  const TOOL = fileURLToPath(new URL('../tools/team-admin.mjs', import.meta.url));
-  const TOKEN = 'tok-for-this-test-only';
-  const dir = mkdtempSync(path.join(tmpdir(), 'team-leader-tool-'));
-  const team = createTeam({ dir, base: '/ventas/equipo', identify: () => null, domain: 'equipo.test', pushToken: TOKEN, dev: true });
-  const srv = createServer({ store: openStore(dir), sheets: null, origins: [], team });
-  await new Promise((r) => srv.listen(0, r)); t.after(() => srv.close());
-  const base = `http://127.0.0.1:${srv.address().port}`;
-  const env = { ...process.env, TEAM_PUSH_TOKEN: TOKEN, DESK_PUSH_TOKEN: '' };
-  await run(process.execPath, [TOOL, base, 'jefe@equipo.test', 'Jefe', 'Uno'], { env });
-  const ok = await run(process.execPath, [TOOL, base, 'lider@equipo.test', 'Lider', 'Uno', '--role', 'leader'], { env });
-  assert.match(ok.stdout, /Lider Uno \(lider@equipo\.test\) is a leader/);
-  await run(process.execPath, [TOOL, base, '--role', 'leader', 'lider@equipo.test', 'Lider', 'Uno'], { env });   // again, flag first: the same person, no error
-  assert.deepEqual([...openTeamStore(dir).state.reps.values()].map((r) => [r.email, r.role]), [['jefe@equipo.test', 'admin'], ['lider@equipo.test', 'leader']]);
-  await assert.rejects(run(process.execPath, [TOOL, base, 'otro@equipo.test', 'Otro', '--role', 'owner'], { env }), (e) => e.code === 1 && /usage/.test(e.stderr));
+test('the service token never makes a leader, before or after an admin exists', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const leaders = () => s.lines().filter((e) => e.type === 'rep.created' && e.role === 'leader');
+  const ask = (email) => s.call('POST', `${API}/bootstrap`, { email, name: 'Lider Token', role: 'leader' }, { bearer: 'push-token' });
+  await ask(mail('lider1'));
+  assert.equal(leaders().length, 0);
+  await s.admin();
+  const after = await ask(mail('lider2'));
+  assert.equal(after.json.error, 'bootstrap_closed');
+  assert.equal(leaders().length, 0);
+  assert.equal(s.lines().some((e) => e.type === 'rep.created' && e.email === mail('lider2')), false);
+});
+
+test('hours where accepted is more than delivered are refused, and a manager retyping a week adds nothing', async (t) => {
+  const { s, mgr } = await setup(t);
+  const n = s.lines().length, weeks = [{ week: '2026-11-16', delivered: 60, accepted: 61 }];
+  const put = await s.call('PUT', `${API}/hours`, { weeks, source: 'scorecard' }, { bearer: 'push-token' });
+  const post = await s.call('POST', `${API}/hours`, { weeks }, { cookie: mgr.cookie });
+  assert.deepEqual([put.status, put.json.error, post.status, post.json.error], [400, 'fields', 400, 'fields']);
+  assert.equal(s.lines().length, n);
+  const ok = { weeks: [{ week: '2026-11-16', delivered: 60, accepted: 60 }] };
+  await s.call('POST', `${API}/hours`, ok, { cookie: mgr.cookie });
+  assert.equal(s.lines().length, n + 1);
+  await s.call('POST', `${API}/hours`, ok, { cookie: mgr.cookie });
+  assert.equal(s.lines().length, n + 1);
 });

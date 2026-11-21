@@ -2,7 +2,7 @@
 // The server sends codes and numbers; nothing a person reads is written anywhere else.
 // A value that is a pair, [one, many], is picked by the `n` given to t().
 // Fixed words: puntos / points (the score), luces / lights (the hand's joints), meta / goal (the weekly goal a rep picks),
-// objetivo del equipo / team target, teléfono / phone (a device), líder / manager (who confirms).
+// objetivo del equipo / team target, teléfono / phone (a device), líder / manager (who confirms), liderazgo / leadership (the read-only role).
 export const APP_NAME = 'cancha';   // a working name, kept in one place
 export const LANGS = ['es', 'en'];
 export const LOCALE = { es: 'es-PA', en: 'en-US' };
@@ -319,7 +319,7 @@ const es = {
   'reps.dayoff': 'Día libre', 'reps.dayoff.title': 'marcar un día libre', 'reps.dayoff.p': 'Ese día no cuenta para la mano ni para la racha.', 'reps.dayoff.date': 'Fecha', 'reps.dayoff.scope': 'Para quién',
   'reps.dayoff.all': 'Todo el equipo', 'reps.dayoff.country': 'Todo {country}', 'reps.dayoff.submit': 'Marcar día libre', 'reps.dayoff.done': 'Día libre marcado.',
   'reps.badge': 'Dar un reconocimiento', 'reps.badge.title': 'reconocimiento', 'reps.badge.p': 'Una línea sobre lo que hizo bien. Lo ve todo el equipo.', 'reps.badge.text': 'Por qué', 'reps.badge.ph': 'Ej.: volvió tres veces hasta encontrar al dueño', 'reps.badge.submit': 'Dar el reconocimiento', 'reps.badge.done': 'Reconocimiento dado.',
-  'reps.start': 'Desde {date}', 'role.rep': 'Vendedor', 'role.manager': 'Líder', 'role.leader': 'Líder', 'role.admin': 'Administrador',
+  'reps.start': 'Desde {date}', 'role.rep': 'Vendedor', 'role.manager': 'Líder', 'role.leader': 'Liderazgo', 'role.admin': 'Administrador',
   'void.row': 'Anular este registro',
 };
 const en = {
@@ -635,7 +635,7 @@ const en = {
   'reps.dayoff': 'Day off', 'reps.dayoff.title': 'mark a day off', 'reps.dayoff.p': 'That day does not count against the hand or the streak.', 'reps.dayoff.date': 'Date', 'reps.dayoff.scope': 'For whom',
   'reps.dayoff.all': 'The whole team', 'reps.dayoff.country': 'All of {country}', 'reps.dayoff.submit': 'Mark the day off', 'reps.dayoff.done': 'Day off marked.',
   'reps.badge': 'Give a recognition', 'reps.badge.title': 'recognition', 'reps.badge.p': 'One line about what they did well. The whole team sees it.', 'reps.badge.text': 'Why', 'reps.badge.ph': 'E.g. went back three times until the owner was there', 'reps.badge.submit': 'Give the recognition', 'reps.badge.done': 'Recognition given.',
-  'reps.start': 'Since {date}', 'role.rep': 'Rep', 'role.manager': 'Manager', 'role.leader': 'Leader', 'role.admin': 'Admin',
+  'reps.start': 'Since {date}', 'role.rep': 'Rep', 'role.manager': 'Manager', 'role.leader': 'Leadership', 'role.admin': 'Admin',
   'void.row': 'Void this log',
 };
 export const DICT = { es, en };
