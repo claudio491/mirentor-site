@@ -97,6 +97,7 @@
     <section class="card light inst-card" id="installCard" hidden aria-labelledby="icName"></section>
     <section class="card light inst-card lad-card rt-card" id="routeCard" hidden aria-labelledby="rtCardName"></section>
     <section class="card light inst-card lad-card" id="ladderCard" hidden aria-labelledby="ladCardName"></section>
+    <button class="btn wide lad-learn sa-entry" type="button" id="sitesCard" hidden></button>
     <button class="btn wide lad-learn doc-entry" type="button" id="docsCard" hidden></button>
   </section>
 
@@ -431,6 +432,18 @@
         <ul class="inst-rows" id="wyList"></ul>
       </section>
     </div>
+  </section>
+
+  <!-- MY ACTIVE SITES: what the rep's live sites made this week, and each one with the way to add a worker or give or
+       return a phone (the install's own screens). Every amount comes from the server in cents. -->
+  <section class="screen inst" id="s-sites" hidden aria-labelledby="stGiant">
+    <div class="hud-row"><button class="mini-btn inst-back" type="button" id="stBack" data-t="install.back"></button><span class="chip"><i class="dot"></i><span data-t="sites.chip"></span></span><span class="chip ghost" id="stCount"></span></div>
+    <p class="lead" data-t="sites.lead"></p>
+    <h1 class="giant" id="stGiant"></h1>
+    <p class="support" id="stSupport"></p>
+    <p class="note inst-ro" id="stRO" hidden data-t="sites.ro"></p>
+    <p class="note" id="stEmpty" hidden data-t="sites.empty"></p>
+    <div class="inst-zones lrn-zones" id="stList"></div>
   </section>
 
   <!-- DOCUMENTS: the team's documents in four fixed groups, each one opening in a new tab. A manager or an admin, on

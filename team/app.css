@@ -1322,3 +1322,25 @@ html.greeting{overflow:hidden}
 .lad-row .lad-docs{grid-column:2 / -1}
 .doc-hook .inst-tag{align-self:center}
 @media (hover:hover) and (pointer:fine){.doc-hook:hover{background:rgba(233,235,236,.05)}.inst-prep .doc-hook:hover{background:rgba(27,29,32,.05)}}
+
+/* ---- what the sites make: "Mis sitios activos", a teammate's line on Equipo and their card ---- */
+.sa-entry{margin-top:16px}
+.sa-dot{flex:none;width:12px;height:12px;border-radius:50%;background:var(--signal);box-shadow:0 0 0 4px rgba(233,235,236,.08)}
+.sa-facts{margin-top:10px;font-size:14px;line-height:1.4;color:var(--mist)}
+.inst-prep .sa-facts{color:var(--slate)}
+.sa-figs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.sa-fig{min-width:0;display:grid;gap:4px}
+.sa-fig b{font-weight:700;font-size:19px;line-height:1.1;letter-spacing:-.03em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.sa-fig.earn b,.sa-fig.earn .src{color:var(--signal)}
+.inst-prep .sa-fig.earn b,.inst-prep .sa-fig.earn .src{color:var(--signal-ink)}
+.sa-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.sa-mate .inst-rows{margin-bottom:6px}
+.sa-mate .sa-figs{grid-template-columns:repeat(2,minmax(0,1fr))}
+.sa-src{margin-top:10px}
+.trow .who .mate-ln{all:unset;box-sizing:border-box;display:block;max-width:100%;margin-top:3px;cursor:pointer;font:500 12.5px/1.35 var(--mono);color:var(--porcelain);opacity:.86;font-variant-numeric:tabular-nums;white-space:normal;overflow-wrap:anywhere}
+.trow .who .mate-ln:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+@media (hover:hover) and (pointer:fine){.trow .who .mate-ln:hover{opacity:1;text-decoration:underline;text-underline-offset:3px}}
+.ld-earn{margin-top:10px;font-size:13.5px;line-height:1.35}
+.ld-earn .src{white-space:normal;text-align:left}
+#stGiant{text-transform:none;font-size:clamp(52px,17vw,128px)}
+#stGiant.word{font-size:clamp(40px,11vw,96px)}

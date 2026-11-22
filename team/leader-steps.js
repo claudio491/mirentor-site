@@ -31,8 +31,9 @@ export const SOURCES = { site: 'lead.src.site', rep: 'lead.src.rep', ladder: 'le
 /** A city's own counts: its sites (from their records) and its reps (from their logs). */
 export const cityFacts = (c) => [{ key: 'sites', value: c.sites.length, source: 'site' }, { key: 'reps', value: c.reps.length, source: 'rep' }];
 const REP_KEYS = ['visits', 'conversations', 'meetings', 'contracts'];
-/** A rep's numbers: the week's four from their logs, and a new rep's step on the first-days ladder. */
-export const repFacts = (rep) => [...REP_KEYS.map((k) => ({ key: k, value: rep.week[k], source: 'rep' })), ...(rep.isNew ? [{ key: 'ladder', value: rep.ladderDone, source: 'ladder' }] : [])];
+/** A rep's numbers: the week's four from their logs, their active sites, and a new rep's step on the first-days ladder. */
+export const repFacts = (rep) => [...REP_KEYS.map((k) => ({ key: k, value: rep.week[k], source: 'rep' })), ...(rep.sites != null ? [{ key: 'sites', value: rep.sites, source: 'site' }] : []),
+  ...(rep.isNew ? [{ key: 'ladder', value: rep.ladderDone, source: 'ladder' }] : [])];
 
 /** The practice sites and the practice rep are never listed. When there is one or more, the page says how many, once
  *  each, and names none. */

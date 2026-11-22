@@ -15,6 +15,8 @@ import { createLadder } from './ladder.js';
 import { createLeader } from './leader.js';
 import { createDocs } from './docs.js';
 import { createRoute } from './route.js';
+import { createSites } from './sites.js';
+import { mateLine } from './sites-steps.js';
 import { shellFor } from './leader-steps.js';
 import { verdict, mine as waitingOf, requestTimeout } from './queue.js';
 import { sessionMove, HOME, LEAVE } from './door.js';
@@ -56,7 +58,7 @@ const S = { me: null, sig: '', tab: null, docs: [], period: 'week', as: null, mg
   hold: null,     // the stop a log landed on, kept on the stage until its answer has played
   owed: null,     // an answer that waits for a sheet to close
   taught: false };
-const SCREENS = ['boot', 'gate', 'today', 'week', 'table', 'profile', 'team', 'needs', 'reps', 'install', 'worker', 'iclose', 'ladder', 'zones', 'learn', 'lead', 'docs', 'route', 'ways'];
+const SCREENS = ['boot', 'gate', 'today', 'week', 'table', 'profile', 'team', 'needs', 'reps', 'install', 'worker', 'iclose', 'ladder', 'zones', 'learn', 'lead', 'docs', 'route', 'ways', 'sites'];
 // A rep's three zones. On a wide screen they are one page, a band under the other; anywhere else one shows at a time.
 const BANDS = ['today', 'week', 'table'], WIDE = matchMedia('(min-width:1080px)');
 const banded = () => WIDE.matches && !S.mgr && !S.lead && !!S.me;
@@ -118,7 +120,7 @@ function renderTop() {
   for (const b of $$('#langSeg button')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang()));
   $('#asBar').hidden = !S.as;
   // the practice rep says so on every screen: its chip and one line that nothing here counts
-  if (S.as && S.me) put($('#asText'), ...(mode() === 'practice' ? [h('span', { class: 'chip inst-prac', text: t('install.practice') }), ' ', t('top.practice')] : [t('top.viewAs', { name: S.me.me.name })]));
+  if (S.as && S.me) put($('#asText'), ...(mode() === 'practice' ? [h('span', { class: 'chip inst-prac', text: t('install.practice') }), ' ', S.me.me.example ? t('top.practice.example', { name: S.me.me.name }) : t('top.practice')] : [t('top.viewAs', { name: S.me.me.name })]));
   $('#asBar').classList.toggle('prac', !!S.as && mode() === 'practice');
 }
 function renderNav() {
@@ -145,6 +147,8 @@ function markTab() {
 }
 function setTab(name, { instant = false } = {}) {
   const from = S.tab, changed = from !== name;
+  // coming back to "Mis sitios activos" from a site's screens: it shows what those screens just changed
+  if (name === 'sites' && S.me && !S.mgr && !S.lead) quiet(() => sites.render());
   S.tab = name;
   // The screen shown is always the last one asked for: two quick taps may run this twice, in either order.
   const go = () => {
@@ -225,6 +229,7 @@ function renderAll(animate = false) {
     if (INSTALL_TABS.has(S.tab)) install.render(false);
     if (LADDER_TABS.has(S.tab)) ladder.render(false);
     if (S.tab === 'docs') docs.render();
+    if (S.tab === 'sites' && !S.mgr && !S.lead) sites.render();
     if (!S.mgr && !S.lead) route.render(false);   // the route last opened, so coming back from its install finds it current
     $('#docsBtn').hidden = !S.mgr;   // a manager's way to the documents; a rep's is on Hoy and in the profile
     // a manager's way to what a new rep sees, on their own account
@@ -279,6 +284,7 @@ function renderToday(animate) {
   install.card($('#installCard'));   // an install that waits: the phones reached the site
   route.card($('#routeCard'));       // the business furthest along on its route, with something to do now
   ladder.card($('#ladderCard'));     // the first days, while a step is open
+  sites.entry($('#sitesCard'));   // my active sites and what they made, one tap from Hoy, once a site is live
   $('#docsCard').hidden = false; docs.entry($('#docsCard'));   // the documents, one tap from Hoy
 }
 /** What the stage shows: the stop the day stands on, or the one the person tapped. While a log is being answered
@@ -445,7 +451,7 @@ function fingerDetail(hit) {
 
 // ---- the table, on the strip and on its own screen ----
 function newRow(tag) {
-  return () => h(tag, { class: 'trow' }, h('span', { class: 'pos num' }), h('span', { class: 'fc' }), h('span', { class: 'h' }), h('span', { class: 'who' }, h('b'), h('small')),
+  return () => h(tag, { class: 'trow' }, h('span', { class: 'pos num' }), h('span', { class: 'fc' }), h('span', { class: 'h' }), h('span', { class: 'who' }, h('b'), h('small'), h('button', { class: 'mate-ln', type: 'button' })),
     h('span', { class: 'sc' }, h('span', { class: 'pts num' }, h('span', { class: 'pv' }), h('small')), h('span', { class: 'gap num' })),
     h('i', { class: 'race', 'aria-hidden': 'true' }, h('i', { class: 'run' })), h('i', { class: 'vf', 'aria-hidden': 'true' }));
 }
@@ -458,10 +464,21 @@ function paintRow(row, r, period, lead) {
   $('.h', row).replaceChildren(miniHand(r.hand, rowWrist(r)));
   $('.who b', row).textContent = r.mine ? t('table.you', { name: r.first }) : r.name;
   put($('.who small', row), cityName(r.city), r.isNew ? h('span', { class: 'tag', text: t('table.new') }) : null);
+  paintMate($('.mate-ln', row), r);
   const pv = $('.pv', row), unit = $('.pts small', row), gap = $('.gap', row);
   if (!ranked) { delete pv.dataset.v; pv.textContent = num(r.marks); unit.textContent = `/${num(r.marksMax)}`; gap.textContent = t('u.marks'); }
   else if (period === 'month') { delete pv.dataset.v; pv.textContent = num(r.sites); unit.textContent = unitWord('u.sites', r.sites); gap.textContent = t('u.meetings', { n: r.meetings }); }
   else { countTo(pv, r.score); unit.textContent = t('u.pts'); gap.textContent = r.place === 1 ? t('table.gap.lead') : `−${num(lead - r.score)}`; }
+}
+/** A person's line under their name on Equipo: active sites, the week's accepted hours and earnings (or "monto por
+ *  definir"). A tap opens their card; one's own opens "Mis sitios activos". */
+function paintMate(btn, r) {
+  const entry = (S.me.crew || []).find((c) => c.id === r.id), line = mateLine(entry, t);
+  btn.hidden = !line;
+  if (!line) return;
+  btn.textContent = line;
+  btn.setAttribute('aria-label', `${line}. ${t('mate.open.aria', { name: r.name })}`);
+  btn.onclick = (e) => { e.stopPropagation(); if (r.mine || r.id === S.me.me.id) sites.open('table'); else sites.mate(r.id, r.name); };
 }
 /** The rows a rep may see with a number: the podium and their own. */
 function shownRows(table) {
@@ -525,8 +542,9 @@ function renderTable(animate = false) {
   $('#restLabel').hidden = !T.rest.length;
   $('#restRows').replaceChildren(...T.rest.map((r) => {
     const sc = src(h('button', { class: 'sc', type: 'button' }, h('span', { class: 'pts num' }, h('span', { class: 'pv', text: num(r.marks) }), h('small', { text: `/${num(r.marksMax)}` })), h('span', { class: 'gap', text: t('u.marks') })), () => t('c.source'), () => t('src.marks'));
+    const mateBtn = h('button', { class: 'mate-ln', type: 'button' }); paintMate(mateBtn, r);
     return h('li', { class: 'trow open' }, h('span', { class: 'pos num', text: '·', 'aria-hidden': 'true' }), h('span', { class: 'h' }, miniHand(r.hand, rowWrist(r))),
-      h('span', { class: 'who' }, h('b', { text: r.name }), h('small', {}, cityName(r.city), r.isNew ? h('span', { class: 'tag', text: t('table.new') }) : null)), sc);
+      h('span', { class: 'who' }, h('b', { text: r.name }), h('small', {}, cityName(r.city), r.isNew ? h('span', { class: 'tag', text: t('table.new') }) : null), mateBtn), sc);
   }));
   renderSquad(T, period);
   // the field: the last play and what the team is doing
@@ -1150,8 +1168,10 @@ const install = createInstall({ api, S, errText, refresh, setTab, hooks: docs.ho
 const ladder = createLadder({ api, S, errText, adopt, renderAll, setTab, openLog, hooks: docs.hooks });
 const route = createRoute({ api, S, errText, adopt, renderAll, setTab, openLog, openInstall: (id, from) => install.open(id, from), hooks: docs.hooks });
 const leader = createLeader({ api, S, errText, setTab });
+const sites = createSites({ api, S, errText, adopt, renderAll, setTab, openInstall: (id, from, to) => install.open(id, from, to) });
 function wire() {
-  initPop(); initSheets(); install.wire(); ladder.wire(); route.wire(); leader.wire(); docs.wire();
+  initPop(); initSheets(); install.wire(); ladder.wire(); route.wire(); leader.wire(); docs.wire(); sites.wire();
+  $('#sitesCard').addEventListener('click', () => sites.open('today'));
   $('#docsCard').addEventListener('click', () => docs.open('today'));
   $('#docsBtn').addEventListener('click', () => docs.open('team'));
   $('#ldDocs').addEventListener('click', () => docs.open('lead'));

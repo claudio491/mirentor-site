@@ -4,9 +4,10 @@ import { $, h, put, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, day
 import { miniHand, lens, setLens, portrait, setPortrait } from './hand.js';
 import { STOPS } from './stops.js';
 import { shortNames } from './moments.js';
-import { siteBody, siteActions, roleOptions, recordUrl, siteReps, siteLeadId } from './manager-steps.js';
+import { siteBody, siteActions, roleOptions, recordUrl, siteReps, siteLeadId, siteHoursBody, recentMondays, payBody } from './manager-steps.js';
+import { usd } from './sites-steps.js';
 import { siteStateKey } from './leader-steps.js';
-import { practiceActions } from './practice-steps.js';
+import { practiceActions, exampleActions } from './practice-steps.js';
 
 const MONDAY = '2026-11-16';   // any Monday: only used to name the days of the week
 const dayName = (n) => wdShort(addDays(MONDAY, n - 1));
@@ -14,7 +15,7 @@ const dayName = (n) => wdShort(addDays(MONDAY, n - 1));
 export function createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs, openInstall }) {
   let team = null, city = 'all';
   const tzOf = (rep) => (rep && rep.tz) || S.me.me.tz;
-  const repById = (id) => team.reps.find((r) => r.id === id) || team.others.find((r) => r.id === id) || (team.practice && team.practice.id === id ? { ...team.practice, name: t('reps.practice.name') } : null);
+  const repById = (id) => team.reps.find((r) => r.id === id) || team.others.find((r) => r.id === id) || (team.practice && team.practice.id === id ? { ...team.practice, name: t('reps.practice.name') } : null) || (team.example || []).find((r) => r.id === id) || null;
   const isAdmin = () => S.me.viewer.role === 'admin';
   /** A link to a rep's screens opens them in place. With a modifier key it stays a plain link, for a new tab. */
   const openAs = (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); viewAs(e.currentTarget.dataset.as); };
@@ -185,12 +186,21 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
         team = await siteCall(s.id, { what: 'phones', count }); toast(t('site.phones.done')); await refresh(false);
       } });
   }
+  /** A live site's accepted hours for one week, as the buyers' report gives them. A later value replaces the earlier. */
+  function siteHours(s) {
+    const today = dayOf(team.serverTime, S.me.me.tz), weeks = recentMondays(today, 6);
+    formSheet({ title: t('sites.hours.title'), intro: t('sites.hours.p', { name: s.lead.name }), submit: t('site.phones.submit'),
+      fields: [{ name: 'week', type: 'select', label: t('site.hours.week'), value: weeks[0], options: weeks.map((w) => ({ value: w, label: t('week.of', { date: dayMonth(w) }) })) },
+        { name: 'h', type: 'number', label: t('site.hours.h') }, { name: 'm', type: 'number', label: t('site.hours.m') }],
+      onSubmit: async (v) => { team = await siteCall(s.id, siteHoursBody(v)); toast(t('site.hours.done')); await refresh(false); } });
+  }
   function siteButton(kind, s) {
     const btn = (key, cls, run) => h('button', { class: cls ? `mini-btn ${cls}` : 'mini-btn', type: 'button', 'data-act': kind, text: t(key), onclick: run });
     if (kind === 'install') return btn('site.act.install', '', () => openInstall(s.id));
     if (kind === 'phones') return btn('site.act.phones', '', () => phonesArrived(s));
     if (kind === 'confirm') return btn('site.act.confirm', 'primary', (e) => act(e.currentTarget, () => siteCall(s.id, { what: 'installed' }), s.practice ? 'route.prac.saved' : 'site.confirmed'));   // a practice site counts in no total
     if (kind === 'installed' || kind === 'first_hour') return btn(`needs.sites.mark.${kind}`, '', (e) => act(e.currentTarget, () => siteCall(s.id, { what: kind }), 'needs.sites.done'));
+    if (kind === 'hours') return btn('site.act.hours', '', () => siteHours(s));
     if (kind === 'record') return h('a', { class: 'mini-btn', 'data-act': kind, href: recordUrl(s.id), download: `record-${s.id}.csv`, text: t('site.act.record') });
     if (kind === 'remove') return btn('site.act.remove', '', (e) => { const b = e.currentTarget; twice(b, 'site.act.remove.confirm', () => act(b, () => siteCall(s.id, { what: 'remove' }), 'site.removed')); });
     return btn('needs.sites.void', '', (e) => { const b = e.currentTarget; twice(b, 'needs.sites.void.confirm', () => act(b, () => siteCall(s.id, { what: 'void' }), 'needs.sites.voided')); });
@@ -282,7 +292,37 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
         : btn('remove', '', (e) => { const b = e.currentTarget; twice(b, 'reps.practice.remove.confirm', () => act(b, () => api('POST', 'practice/remove', {}), 'reps.practice.removed')); })));
     const who = p ? h('span', { class: 'pers' }, face({ ...p, name: t('reps.practice.name') }), h('span', { class: 'pt' }, h('b', {}, t('reps.practice.name'), ' ', h('span', { class: 'chip inst-prac', text: t('install.practice') })), h('small', { text: t('reps.practice.p') })))
       : h('span', { class: 'pers' }, h('span', { class: 'pt' }, h('small', { text: t('reps.practice.p') })));
-    return h('section', { class: 'group', id: 'practiceGroup' }, h('h2', { text: t('reps.practice.h') }), h('ul', { class: 'items' }, h('li', {}, who, h('span', { class: 'acts' }, controls))));
+    return h('section', { class: 'group', id: 'practiceGroup' }, h('h2', { text: t('reps.practice.h') }), h('ul', { class: 'items' }, h('li', {}, who, h('span', { class: 'acts' }, controls)), exampleGroup()));
+  }
+  /** The example team: one control to load it; then a way into each one's screens (writes allowed, practice only) and
+   *  one remove, in two taps, for all four. */
+  function exampleGroup() {
+    const acts = exampleActions(team, S.me.viewer.role);
+    if (!acts.length) return null;
+    if (acts[0] === 'load') {
+      return h('li', { 'data-example': 'none' }, h('span', { class: 'pers' }, h('span', { class: 'pt' }, h('b', { text: t('reps.example.load') }), h('small', { text: t('reps.example.p') }))),
+        h('span', { class: 'acts' }, h('button', { class: 'mini-btn primary', type: 'button', 'data-act': 'example-load', text: t('reps.example.load'), onclick: (e) => act(e.currentTarget, () => api('POST', 'practice/example', {}), 'reps.example.loaded') })));
+    }
+    const rows = team.example.map((r) => h('li', { 'data-example': r.example },
+      h('span', { class: 'pers' }, face(r), h('span', { class: 'pt' }, h('b', {}, r.name, ' ', h('span', { class: 'chip inst-prac', text: t('install.practice') })), h('small', { text: r.isNew ? t('table.new') : cityName(r.city) || t('install.practice') }))),
+      h('span', { class: 'acts' }, h('a', { class: 'mini-btn primary', 'data-act': 'example-view', href: `?as=${encodeURIComponent(r.id)}`, 'data-as': r.id, onclick: openAs, text: t('reps.example.view', { name: r.name }) }))));
+    const remove = h('li', {}, h('span', { class: 'pers' }, h('span', { class: 'pt' }, h('small', { text: t('reps.example.p') }))),
+      h('span', { class: 'acts' }, h('button', { class: 'mini-btn', type: 'button', 'data-act': 'example-remove', text: t('reps.example.remove'), onclick: (e) => { const b = e.currentTarget; twice(b, 'reps.example.remove.confirm', () => act(b, () => api('POST', 'practice/example/remove', {}), 'reps.example.removed')); } })));
+    return [...rows, remove];
+  }
+  /** What a rep earns per accepted hour. Everyone sees it; only an admin sets it. */
+  function payLine() {
+    const p = team.pay;
+    const text = p ? t('pay.now', { r: usd(p.cents), date: dayMonth(p.from) }) : t('pay.none');
+    return h('div', { class: 'line', id: 'payLine' }, h('span', {}, h('b', { text: t('pay.h') }), ' ', text),
+      isAdmin() ? h('button', { class: 'mini-btn', type: 'button', 'data-act': 'pay', text: t(p ? 'c.change' : 'pay.set'), onclick: payForm }) : null);
+  }
+  function payForm() {
+    const today = dayOf(team.serverTime, S.me.me.tz), weeks = recentMondays(today, 6);
+    formSheet({ title: t('pay.form.title'), intro: t('pay.form.p'), submit: t('site.phones.submit'),
+      fields: [{ name: 'usd', label: t('pay.form.usd'), hint: t('pay.form.usd.hint'), value: team.pay ? (team.pay.cents / 100).toFixed(2) : '', max: 8 },
+        { name: 'from', type: 'select', label: t('pay.form.from'), value: weeks[0], options: weeks.map((w) => ({ value: w, label: t('week.of', { date: dayMonth(w) }) })) }],
+      onSubmit: async (v) => { team = await api('POST', 'pay', payBody(v)); renderAll(false); toast(t('pay.saved')); refresh(false); } });
   }
   function renderReps() {
     $('#repsGiant').replaceChildren(num(team.reps.length), h('em', { text: '.' }));
@@ -290,7 +330,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       team.reps.length ? h('ul', { class: 'items' }, team.reps.map((r) => repItem(r, true))) : h('p', { class: 'note', text: t('mgr.none') }),
       practiceGroup(),
       team.others.length ? h('section', { class: 'group' }, h('h2', { text: t('reps.others') }), h('ul', { class: 'items' }, team.others.map((r) => repItem(r, false)))) : null,
-      h('section', { class: 'group' }, h('h2', { text: t('profile.settings') }), h('div', { class: 'settings' },
+      h('section', { class: 'group' }, h('h2', { text: t('profile.settings') }), h('div', { class: 'settings' }, payLine(),
         h('div', { class: 'line' }, h('span', { text: S.me.viewer.email ? t('profile.account', { email: S.me.viewer.email }) : '' }), h('button', { class: 'mini-btn signout', type: 'button', text: t('profile.signout'), onclick: signOut })))));
   }
 

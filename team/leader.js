@@ -8,10 +8,11 @@ import { $, h, s, put, t, num, dayMonth, upper, cityName, countTo, src, toast, q
 import { portrait, drawIn } from './hand.js';
 import { reveal, stagger, lockIn } from './fx.js';
 import { hm, siteCard, practiceNote, hoursModel, cityFacts, repFacts, SOURCES } from './leader-steps.js';
+import { money, paySource } from './sites-steps.js';
 import { hoursBody, recordUrl } from './manager-steps.js';
 
 const R = 40, C = 2 * Math.PI * R;
-const LABELS = { visits: 'col.visits', conversations: 'col.convs', meetings: 'col.meetings', contracts: 'col.contracts' };
+const LABELS = { visits: 'col.visits', conversations: 'col.convs', meetings: 'col.meetings', contracts: 'col.contracts', sites: 'lead.rep.sites' };
 const MAX_CELLS = 40;   // a site's meter draws one cell per eligible worker, up to this many
 
 export function createLeader({ api, S, errText, setTab }) {
@@ -124,7 +125,9 @@ export function createLeader({ api, S, errText, setTab }) {
     return h('li', { class: 'ld-rep' },
       h('div', { class: 'ld-who' }, portrait({ id: rep.id, name: rep.first, photo: rep.photo }, { share: rep.isNew ? rep.ladderDone / 10 : null }),
         h('div', { class: 'ld-wn' }, h('b', { text: rep.first }), step ? h('small', {}, sentence('lead.rep.new', { n: srcNum('', step.value, from(step.source)) })) : null)),
-      h('div', { class: 'ld-nums' }, facts.filter((f) => f.key !== 'ladder').map((f) => h('div', { class: 'ld-n' }, srcNum('ld-nv', f.value, from(f.source)), h('span', { class: 'label', text: t(LABELS[f.key]) })))));
+      h('div', { class: 'ld-nums' }, facts.filter((f) => f.key !== 'ladder').map((f) => h('div', { class: 'ld-n' }, srcNum('ld-nv', f.value, from(f.source)), h('span', { class: 'label', text: t(LABELS[f.key]) })))),
+      // the week's accepted hours and earnings, to the cent or "monto por definir", opening into hours times rate
+      rep.minutes != null ? h('p', { class: 'ld-earn' }, src(h('button', { class: 'src', type: 'button', text: t('lead.rep.earn', { h: hm(rep.minutes), m: money(rep.cents, t) }) }), () => t('c.source'), () => paySource(rep.minutes, rep.rate ?? null, t))) : null);
   }
   function cityNode(c) {
     const name = c.city ? cityName(c.city) : t('lead.city.none');

@@ -32,7 +32,8 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
   const ctl = (w = null) => controls({ readOnly: readOnly(), site: view.site, worker: w });
   const write = (method, path, body) => (readOnly() ? Promise.reject(Object.assign(new Error('read_only'), { code: 'read_only' })) : api(method, path, body));
 
-  /** Open a site's install. `to` is the screen to land on: the site, or its close (from a closed install's card). */
+  /** Open a site's install. `to` is the screen to land on: the site, its close (from a closed install's card), or the
+   *  site with its add-a-worker sheet open ('add', from "Mis sitios activos"). */
   async function open(id, from, to = 'install') {
     siteId = id; back = from || 'today';
     try {
@@ -43,6 +44,8 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     if (to === 'iclose') { openClose(); return; }
     setTab('install');
     setTimeout(arrive, reduce ? 0 : 90);
+    // from "Mis sitios activos": the site, and its add-a-worker sheet over it (the same sheet and the same lock)
+    if (to === 'add') setTimeout(addWorker, reduce ? 0 : 320);
   }
   /** A new site on screen starts from empty: no row, no tick, no counter carries over from the last one. */
   function reset() {

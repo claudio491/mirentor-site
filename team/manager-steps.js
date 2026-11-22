@@ -62,12 +62,37 @@ export function hoursBody(v) {
   return { weeks: [{ week, delivered, accepted }] };
 }
 
+/** The body of a site's accepted hours for one week (POST site/<id> what=hours): a Monday, whole hours and minutes. */
+export function siteHoursBody(v) {
+  const week = trim(v.week);
+  if (!isMonday(week)) refuse('week');
+  const accepted = minutesOf(v.h, v.m);
+  if (accepted == null) refuse('hours_minutes');
+  return { what: 'hours', week, accepted };
+}
+/** The last `n` Mondays up to the week of `today`, newest first: the weeks a site's hours can be recorded for. */
+export function recentMondays(today, n = 6) {
+  const d = new Date(`${today}T12:00:00Z`), back = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - back);
+  return Array.from({ length: n }, (_, i) => { const x = new Date(d); x.setUTCDate(x.getUTCDate() - 7 * i); return x.toISOString().slice(0, 10); });
+}
+/** The body of POST pay: dollars typed with up to two decimals become integer cents, read as text so no float rounds
+ *  them; from US$0.01 to US$1,000 per accepted hour, from a Monday. */
+export function payBody(v) {
+  const text = trim(v.usd), m = /^(\d{1,4})(?:\.(\d{1,2}))?$/.exec(text);
+  if (!m) refuse('pay_amount');
+  const cents = Number(m[1]) * 100 + Number((m[2] || '').padEnd(2, '0') || 0);
+  if (cents < 1 || cents > 100000) refuse('pay_amount');
+  if (!isMonday(trim(v.from))) refuse('week');
+  return { cents, from: trim(v.from) };
+}
+
 /** The controls a site offers a manager, in the order they show.
  *  install: open its install screens (any site but a legacy one, which is not installed here);
  *  phones: "Llegaron teléfonos", until the install is closed;
  *  confirm: "Confirmar instalación" once the rep closed it;
  *  installed: the old way of marking, for a legacy site or one with nobody on it;
- *  first_hour, record (the audit file, once someone is on it), void: real sites only. A practice site is removed instead, and has no record. */
+ *  first_hour, hours (accepted minutes per week, once installed), record (the audit file, once someone is on it), void: real sites only. A practice site is removed instead, and has no record. */
 export function siteActions(site) {
   const out = [], done = !!(site.steps && site.steps.installed), closed = site.state === 'closed' || (site.practice && !!site.closed);
   if (!site.legacy) out.push('install');
@@ -75,6 +100,7 @@ export function siteActions(site) {
   if (closed && !done) out.push('confirm');
   if (!site.practice && !done && (site.legacy || !site.workers)) out.push('installed');
   if (!site.practice && done && !(site.steps && site.steps.first_hour)) out.push('first_hour');
+  if (!site.practice && !site.legacy && done) out.push('hours');   // accepted hours, per week, once it is live
   if (!site.practice && !site.legacy && site.workers) out.push('record');   // a record with nobody in it is an empty file
   out.push(site.practice ? 'remove' : 'void');
   return out;

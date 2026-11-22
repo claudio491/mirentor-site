@@ -40,6 +40,13 @@ export function practiceActions(team, role) {
   return team.practice ? ['view', 'remove'] : ['create'];
 }
 
+/** The example team's row of the Vendedores screen, for a manager or an admin: load it when there is none; view each of
+ *  the four and remove them all (two taps) when there is. */
+export function exampleActions(team, role) {
+  if (!team || (role !== 'manager' && role !== 'admin')) return [];
+  return Array.isArray(team.example) && team.example.length ? ['view', 'remove'] : ['load'];
+}
+
 /** Whether a closed day stops a new log. It does on every rep's screens but the practice rep's: a demonstration goes
  *  on after its day is closed (the server takes those logs too). */
 export const logLocked = (today, mode) => !!(today && today.closed) && mode !== 'practice';
