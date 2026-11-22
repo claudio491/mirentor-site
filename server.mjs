@@ -10,6 +10,7 @@ import { syncOne, syncPending } from './lib/sync.mjs';
 import { createDesk } from './lib/desk.mjs';
 import { createSales } from './lib/sales.mjs';
 import { startTeam } from './lib/team/api.mjs';
+import { createAlerts, slackApi } from './lib/alerts.mjs';
 
 const MAX_BODY = 16 * 1024;
 const WINDOW_MS = 10 * 60 * 1000;
@@ -30,7 +31,7 @@ const sameToken = (given, want) => {
   return a.length === b.length && timingSafeEqual(a, b);
 };
 
-export function createServer({ store, sheets, origins, limit = 10, visitLimit = 30, desk = null, sales = null, adminToken = '', team = null, log = console.error }) {
+export function createServer({ store, sheets, origins, limit = 10, visitLimit = 30, desk = null, sales = null, adminToken = '', team = null, alerts = null, log = console.error }) {
   const hits = new Map();
   const visitHits = new Map();
 
@@ -99,6 +100,20 @@ export function createServer({ store, sheets, origins, limit = 10, visitLimit = 
       if (req.method !== 'GET') return send(405, { ok: false });
       return send(200, { ok: true, visits: store.visits() });
     }
+    // Speed-to-lead alerts: their config (mode, reps, routes, Slack token) and the alert list, behind the same token.
+    if ((pathname === '/api/alerts' || pathname === '/api/alerts/config') && alerts && adminToken) {
+      const auth = String(req.headers.authorization || '');
+      if (!auth.startsWith('Bearer ') || !sameToken(auth.slice(7), adminToken)) return send(401, { ok: false });
+      if (pathname === '/api/alerts') return req.method === 'GET' ? send(200, { ok: true, alerts: alerts.list() }) : send(405, { ok: false });
+      if (req.method === 'GET') return send(200, { ok: true, config: alerts.publicConfig() });
+      if (req.method !== 'PUT') return send(405, { ok: false });
+      let raw = '';
+      for await (const chunk of req) {
+        raw += chunk;
+        if (raw.length > MAX_BODY) return send(413, { ok: false });
+      }
+      try { return send(200, { ok: true, config: alerts.configure(JSON.parse(raw)) }); } catch (err) { return send(400, { ok: false, error: err.message }); }
+    }
     if (pathname !== '/api/waitlist') return send(404, { ok: false });
     if (!allowed) return send(403, { ok: false });
     if (req.method === 'OPTIONS') {
@@ -120,7 +135,10 @@ export function createServer({ store, sheets, origins, limit = 10, visitLimit = 
     if (!r.ok) return send(400, { ok: false, errors: r.errors });
     if (r.spam) return send(200, { ok: true });
 
+    const isNew = !store.get(r.entry.id);
     const kept = store.put(r.entry);
+    // The rep's alert goes out on its own; the visitor's answer never waits on Slack.
+    if (isNew && alerts) alerts.onEntry(kept);
     const synced = kept.row != null || (await sync(kept));
     return send(synced ? 200 : 202, { ok: true, leadId: kept.leadId, synced });
   };
@@ -152,6 +170,9 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   // The sales team's board is off until TEAM_ENABLED=1, and needs the portal: people come in through its Google sign-in.
   // If it cannot start, the waitlist, the desk and the portal start without it.
   const team = startTeam(process.env, store.dir, { sales });
-  createServer({ store, sheets, origins, desk, sales, adminToken, team }).listen(port, () => console.log(`waitlist on ${port}, sheets ${sheets ? 'on' : 'off'}, desk ${desk ? 'on' : 'off'}, sales ${sales ? 'on' : 'off'}, team ${team ? 'on' : 'off'}, ${store.pending().length} pending`));
+  // Speed-to-lead alerts read their config from the data disk; until PUT /api/alerts/config sets one they are off.
+  const alerts = createAlerts({ dir: store.dir, api: slackApi() });
+  setInterval(() => alerts.tick(), 60_000).unref();
+  createServer({ store, sheets, origins, desk, sales, adminToken, team, alerts }).listen(port, () => console.log(`waitlist on ${port}, sheets ${sheets ? 'on' : 'off'}, desk ${desk ? 'on' : 'off'}, sales ${sales ? 'on' : 'off'}, team ${team ? 'on' : 'off'}, alerts ${alerts.publicConfig().mode}, ${store.pending().length} pending`));
   if (sheets) { syncPending(store, sheets); setInterval(() => syncPending(store, sheets), 60_000); }
 }
