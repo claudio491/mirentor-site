@@ -36,7 +36,7 @@ export function checkDoc(input) {
   if (!DOC_LANGS.includes(lang)) return { error: 'doc_lang' };
   const step = blank(d.step) ? null : d.step;
   if (step !== null && !DOC_STEPS.includes(step)) return { error: 'doc_step' };
-  if (d.order !== undefined && !(Number.isInteger(d.order) && d.order >= 0 && d.order <= 9999)) return { error: 'doc_order' };
+  if (d.order !== undefined && !(Number.isInteger(d.order) && d.order >= 0 && d.order <= MAX_ORDER)) return { error: 'doc_order' };
   return { doc: { title, note: pair(d.note, MAX.note), url, group: d.group, lang, step, ...(d.order !== undefined ? { order: d.order } : {}) } };
 }
 
@@ -87,8 +87,10 @@ export function moveOrders(docs, id, dir) {
   const next = [...g]; [next[i], next[j]] = [next[j], next[i]];
   return next.map((d, k) => ({ id: d.id, order: k })).filter((x, k) => (next[k].order || 0) !== x.order);
 }
-/** The number a new document takes at the end of its group. */
-export const nextOrder = (docs, group) => (Array.isArray(docs) ? docs : []).filter((d) => d && d.group === group).reduce((m, d) => Math.max(m, (d.order || 0) + 1), 0);
+/** The number a new document takes at the end of its group. It never passes the last number a document may carry
+ *  (MAX_ORDER): past it the document would be refused on replay and lost. Two at the end share it and sort by age. */
+export const MAX_ORDER = 9999;
+export const nextOrder = (docs, group) => Math.min(MAX_ORDER, (Array.isArray(docs) ? docs : []).filter((d) => d && d.group === group).reduce((m, d) => Math.max(m, (d.order || 0) + 1), 0));
 
 /** The form's flat values as the document the server checks. */
 export function docBody(v) {

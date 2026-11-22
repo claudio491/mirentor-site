@@ -17,10 +17,11 @@ export function ladderCount(ladder) {
 export const ladderOnHoy = (ladder) => !!nextStep(ladder);
 
 /** An address the screen may open (a video, a document): https, nothing else. javascript:, data:, http: and a
- *  relative address are refused. The documents use this same rule on the server too (docs-steps.js). */
+ *  relative address are refused, and so is one carrying an account (a name or a password before the host): it would
+ *  hand that account to everyone on the team. The documents use this same rule on the server too (docs-steps.js). */
 export function safeUrl(url) {
   if (typeof url !== 'string' || !/^https:\/\//i.test(url)) return null;
-  try { const u = new URL(url); return u.protocol === 'https:' && u.hostname ? u.href : null; } catch { return null; }
+  try { const u = new URL(url); return u.protocol === 'https:' && u.hostname && !u.username && !u.password ? u.href : null; } catch { return null; }
 }
 const videoOf = (key, videos) => {
   const url = safeUrl(videos && videos[key]);

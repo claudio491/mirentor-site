@@ -115,3 +115,17 @@ test('the form: what a manager types becomes the document the server checks', ()
   assert.deepEqual([f.titleEs, f.titleEn, f.step, f.group], ['A', 'B', 'pitch', 'sitio']);
   assert.deepEqual(docFields(null).group, 'contrato');
 });
+
+test('an address carrying an account (a name or a password) is refused, for documents and videos alike', () => {
+  for (const bad of ['https://usuario:clave@example.com/x', 'https://usuario@example.com/x', 'https://:clave@example.com/x']) {
+    assert.equal(safeUrl(bad), null, bad);
+    assert.equal(docUrl(bad), null, bad);
+  }
+  assert.equal(safeUrl('https://example.com/ruta?correo=a@b'), 'https://example.com/ruta?correo=a@b');
+});
+
+test('the next order never passes the last one a document may carry, so a new document is never dropped', () => {
+  assert.equal(nextOrder([{ group: 'vender', order: 9999 }], 'vender'), 9999);
+  assert.equal(nextOrder([{ group: 'vender', order: 9998 }], 'vender'), 9999);
+  assert.equal(checkDoc({ title: { es: 'Ejemplo', en: '' }, url: 'https://example.com/x', group: 'vender', lang: 'es', order: nextOrder([{ group: 'vender', order: 9999 }], 'vender') }).error, undefined);
+});

@@ -264,3 +264,24 @@ test('the practice controls of the route: only while a manager acts as the pract
   const team = await s.call('GET', `${API}/team`, undefined, { cookie: a.cookie });
   assert.equal(team.json.routes.some((r) => r.rep === P), false);
 });
+
+test('a site a manager opened with no business id is that business\'s site when the name matches, accents and case aside', () => {
+  const r = routeOf(replay([...signed, site({ lead: { id: null, name: 'panaderia LA espiga ' } })]), 'r1', LEAD.id);
+  assert.deepEqual(statuses(r), ['done', 'done', 'done', 'done', 'wait', 'later']);
+  assert.equal(r.site.id, 's_route0001');
+  // another rep's site, or another name, is not
+  assert.equal(routeOf(replay([...signed, site({ rep: 'r2', lead: { id: null, name: LEAD.name } })]), 'r1', LEAD.id).site, null);
+  assert.equal(routeOf(replay([...signed, site({ lead: { id: null, name: 'Panadería Otra' } })]), 'r1', LEAD.id).site, null);
+});
+
+test('a legacy site is complete for the route and stays out of both lists', () => {
+  const s = replay([...signed, site({ legacy: true })]);
+  const r = routeOf(s, 'r1', LEAD.id);
+  assert.equal(r.complete, true);
+  assert.deepEqual(statuses(r), ['done', 'done', 'done', 'done', 'done', 'done']);
+  assert.deepEqual(routesOf(s, 'r1'), []);
+  assert.deepEqual(teamRoutes(s), []);
+  // one a manager opened with no business at all is out too
+  const bare = replay([...base, site({ legacy: true, lead: { id: null, name: 'Sitio Antiguo' } })]);
+  assert.deepEqual([routesOf(bare, 'r1'), teamRoutes(bare)], [[], []]);
+});

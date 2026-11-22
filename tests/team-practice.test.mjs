@@ -60,7 +60,8 @@ test('a manager writes as the practice rep: each event names the practice rep an
   assert.equal(logged.json.me.today.conversations, 1);
   const log = s.lines().find((e) => e.type === 'log');
   assert.deepEqual([log.rep, log.by], [P, a.id]);
-  const lead = s.lines().find((e) => e.type === 'lead.added');
+  const lead = s.lines().find((e) => e.type === 'practice.lead.added');
+  assert.equal(s.lines().some((e) => e.type === 'lead.added'), false);   // never a plain lead.added: an older build would export it
   assert.deepEqual([lead.lead.practice, lead.lead.by, lead.by], [true, P, a.id]);
 
   assert.equal((await s.call('POST', asP('goal', P), { k: logged.json.me.goalPick.options[0] }, { cookie: a.cookie })).status, 200);
@@ -161,7 +162,7 @@ test('a practice business is never offered to a real rep, and the same name type
   const { s, a, ana, create, asP } = await setup(t);
   const P = (await create()).json.practice.id;
   await s.call('POST', asP('log', P), logBody('prac-log-000001', { lead: { name: 'Tienda Ensayo', zone: 'Centro' } }), { cookie: a.cookie });
-  const practiceLead = s.lines().find((e) => e.type === 'lead.added').lead.id;
+  const practiceLead = s.lines().find((e) => e.type === 'practice.lead.added').lead.id;
   const found = await s.call('GET', `${API}/leads?q=Ensayo`, undefined, { cookie: ana.cookie });
   assert.deepEqual(found.json.leads, []);
   const byId = await s.call('POST', `${API}/log`, logBody('ana-log-0000001', { lead: { id: practiceLead } }), { cookie: ana.cookie });
@@ -243,8 +244,8 @@ test('removing the practice rep clears it from every view; the events stay; a ne
   assert.equal(gone.status, 200);
   assert.equal(gone.json.practice, null);
   assert.equal(gone.json.sites.some((x) => x.rep === P), false);
-  assert.equal(s.lines().length, before + 1);
-  assert.equal(s.lines().at(-1).type, 'rep.practice.removed');
+  // its site leaves first with an event every build knows, then the practice rep
+  assert.deepEqual(s.lines().slice(before).map((e) => [e.type, e.siteId || e.id]), [['site.removed', 's_practice001'], ['rep.practice.removed', P]]);
   assert.equal((await s.call('GET', asP('me', P), undefined, { cookie: a.cookie })).status, 404);
   assert.equal((await s.call('POST', asP('log', P), logBody('prac-log-000009'), { cookie: a.cookie })).status, 403);
   const lead = (await s.call('GET', `${API}/lead`, undefined, { cookie: lia.cookie })).json;
