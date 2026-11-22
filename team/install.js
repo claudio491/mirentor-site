@@ -22,7 +22,7 @@ function setTick(node, on, now = false) {
   node.dataset.seen = '1';
 }
 
-export function createInstall({ api, S, errText, refresh, setTab }) {
+export function createInstall({ api, S, errText, refresh, setTab, hooks = () => {} }) {
   let view = null, back = 'today', siteId = null, wid = null;
   const failed = new Map();   // worker id -> the shrunk photo whose upload did not arrive, kept for the retry
   const tz = () => S.me.me.tz;
@@ -141,6 +141,7 @@ export function createInstall({ api, S, errText, refresh, setTab }) {
             onclick: (e) => act(e.currentTarget, () => write('POST', `install/${encodeURIComponent(siteId)}/prep`, { what: r.key }), 'install.prep.saved') }));
         } else put(slot);
       });
+    hooks($('#instDocs'), 'install');   // the documents for this step, at hand before recording
     $('#instPrepCount').textContent = t('install.zone.count', { a: rows.filter((r) => r.done).length, b: rows.length });
   }
   function coordinator(site) {
@@ -240,6 +241,7 @@ export function createInstall({ api, S, errText, refresh, setTab }) {
       put(shot, w.consent ? h('img', { src: `api/consent/${encodeURIComponent(w.id)}?v=${encodeURIComponent(w.consent.v)}`, alt: t('install.w.photo.alt', { name: w.name }), decoding: 'async' })
         : [h('span', { class: 'inst-doc', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'), h('i'), h('i')), h('span', { class: 'inst-shot-t', text: t('install.w.photo.hint') })]);
     }
+    hooks($('#wkDocs'), 'consent');   // the consent form and what to say, next to the photo
     $('#wkMeta').hidden = !w.consent;
     if (w.consent) $('#wkMeta').textContent = t('install.w.saved', { form: w.consent.form, when: stamp(w.consent.t, tz()) });
     $('#wkFileT').textContent = t(w.consent ? 'install.w.photo.again' : 'install.w.photo');

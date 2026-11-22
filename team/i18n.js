@@ -527,6 +527,25 @@ const es = {
   'next.pay.chip': 'Tu semana', 'next.pay.ptitle': 'lo que ganas.', 'next.pay.phones': 'Teléfonos activados', 'next.pay.hours': 'Horas grabadas',
   'next.pay.amount': 'monto por definir', 'next.pay.total': 'Total de la semana', 'next.pay.bonus': 'Bono', 'next.pay.pts': 'Tus puntos',
   'next.pay.threshold': 'Umbral por definir', 'next.pay.bonus.d': 'Al pasarlo, los puntos se vuelven bono: monto por definir.', 'next.pay.ex': 'Barra de ejemplo, sin datos.',
+  // ---- documents: a list a manager fills in the app; each title and note is typed by them in both languages ----
+  'docs.chip': 'Documentos', 'docs.lead': 'Lo que puedes necesitar, a mano', 'docs.giant': 'documentos.',
+  'docs.count': ['{n} documento', '{n} documentos'], 'docs.support': 'Contratos, acuerdos y material para vender, agrupados. Cada uno se abre en otra pestaña.',
+  'docs.empty': 'Todavía no hay documentos. Aparecen aquí cuando tu líder los agregue.', 'docs.empty.mgr': 'Todavía no hay documentos. Agrega el primero: el equipo lo ve en su app al momento.',
+  'docs.group.contrato': 'Contratos y consentimiento', 'docs.group.vender': 'Para vender', 'docs.group.sitio': 'En el sitio', 'docs.group.equipo': 'Para ti',
+  'docs.chip.es': 'En español', 'docs.chip.en': 'En inglés', 'docs.open.aria': '{title}. Se abre en otra pestaña.',
+  'docs.hooks': 'Documentos para este paso',
+  'docs.step.contract': 'Paso del contrato', 'docs.step.install': 'Instalación: antes de grabar', 'docs.step.consent': 'Consentimiento del trabajador', 'docs.step.pitch': 'Primera conversación',
+  'docs.add': 'Agregar documento', 'docs.edit': 'Editar', 'docs.remove': 'Quitar', 'docs.remove.aria': 'Quitar {title}', 'docs.edit.aria': 'Editar {title}',
+  'docs.up.aria': 'Subir {title}', 'docs.down.aria': 'Bajar {title}',
+  'docs.remove.confirm': 'Toca Quitar otra vez para sacarlo de la app de todo el equipo.', 'docs.removed': 'Documento quitado.', 'docs.saved': 'Documento guardado.', 'docs.added': 'Documento agregado. El equipo ya lo ve.',
+  'docs.form.add': 'Nuevo documento', 'docs.form.edit': 'Editar documento', 'docs.form.p': 'Escribe el título y la nota en los dos idiomas. Si dejas uno vacío, se muestra el otro.',
+  'docs.form.titleEs': 'Título en español', 'docs.form.titleEn': 'Título en inglés', 'docs.form.noteEs': 'Cuándo usarlo, en español', 'docs.form.noteEn': 'Cuándo usarlo, en inglés',
+  'docs.form.url': 'Dirección del documento', 'docs.form.url.hint': 'Empieza con https://. Se abre en otra pestaña.', 'docs.form.group': 'Grupo', 'docs.form.lang': 'Idioma del documento',
+  'docs.form.lang.both': 'Español e inglés', 'docs.form.lang.es': 'Solo español', 'docs.form.lang.en': 'Solo inglés',
+  'docs.form.step': 'Mostrarlo también en', 'docs.form.step.none': 'Solo en Documentos', 'docs.form.submit': 'Guardar',
+  'err.doc_title': 'Falta el título: escríbelo en un idioma al menos.', 'err.doc_url': 'La dirección debe empezar con https:// y ser una dirección completa.',
+  'err.doc_group': 'Elige uno de los cuatro grupos.', 'err.doc_lang': 'Elige el idioma del documento.', 'err.doc_step': 'Elige un paso de la lista, o ninguno.',
+  'err.doc_order': 'El orden no es válido. Recarga la página y vuelve a intentar.', 'err.doc': 'Ese documento ya no está. Recarga la página.',
 };
 const en = {
   // ---- shared ----
@@ -1049,6 +1068,25 @@ const en = {
   'next.pay.chip': 'Your week', 'next.pay.ptitle': 'what you earn.', 'next.pay.phones': 'Activated phones', 'next.pay.hours': 'Hours recorded',
   'next.pay.amount': 'amount to be defined', 'next.pay.total': 'Total for the week', 'next.pay.bonus': 'Bonus', 'next.pay.pts': 'Your points',
   'next.pay.threshold': 'Threshold to be defined', 'next.pay.bonus.d': 'Past it, points become a bonus: amount to be defined.', 'next.pay.ex': 'Example bar, no data.',
+  // ---- documents: a list a manager fills in the app; each title and note is typed by them in both languages ----
+  'docs.chip': 'Documents', 'docs.lead': 'What you may need, at hand', 'docs.giant': 'documents.',
+  'docs.count': ['{n} document', '{n} documents'], 'docs.support': 'Contracts, agreements and selling material, grouped. Each one opens in a new tab.',
+  'docs.empty': 'No documents yet. They show up here when your manager adds them.', 'docs.empty.mgr': 'No documents yet. Add the first one: the team sees it in their app right away.',
+  'docs.group.contrato': 'Contracts and consent', 'docs.group.vender': 'For selling', 'docs.group.sitio': 'On site', 'docs.group.equipo': 'For you',
+  'docs.chip.es': 'In Spanish', 'docs.chip.en': 'In English', 'docs.open.aria': '{title}. Opens in a new tab.',
+  'docs.hooks': 'Documents for this step',
+  'docs.step.contract': 'Contract step', 'docs.step.install': 'Install: before recording', 'docs.step.consent': 'Worker consent', 'docs.step.pitch': 'First conversation',
+  'docs.add': 'Add a document', 'docs.edit': 'Edit', 'docs.remove': 'Remove', 'docs.remove.aria': 'Remove {title}', 'docs.edit.aria': 'Edit {title}',
+  'docs.up.aria': 'Move {title} up', 'docs.down.aria': 'Move {title} down',
+  'docs.remove.confirm': 'Tap Remove again to take it out of the whole team\'s app.', 'docs.removed': 'Document removed.', 'docs.saved': 'Document saved.', 'docs.added': 'Document added. The team sees it now.',
+  'docs.form.add': 'New document', 'docs.form.edit': 'Edit document', 'docs.form.p': 'Write the title and the note in both languages. If you leave one empty, the other one shows.',
+  'docs.form.titleEs': 'Title in Spanish', 'docs.form.titleEn': 'Title in English', 'docs.form.noteEs': 'When to use it, in Spanish', 'docs.form.noteEn': 'When to use it, in English',
+  'docs.form.url': 'Document address', 'docs.form.url.hint': 'Starts with https://. Opens in a new tab.', 'docs.form.group': 'Group', 'docs.form.lang': 'Document language',
+  'docs.form.lang.both': 'Spanish and English', 'docs.form.lang.es': 'Spanish only', 'docs.form.lang.en': 'English only',
+  'docs.form.step': 'Also show it in', 'docs.form.step.none': 'Only in Documents', 'docs.form.submit': 'Save',
+  'err.doc_title': 'The title is missing: write it in one language at least.', 'err.doc_url': 'The address must start with https:// and be a full address.',
+  'err.doc_group': 'Pick one of the four groups.', 'err.doc_lang': 'Pick the document\'s language.', 'err.doc_step': 'Pick a step from the list, or none.',
+  'err.doc_order': 'The order is not valid. Reload the page and try again.', 'err.doc': 'That document is gone. Reload the page.',
 };
 export const DICT = { es, en };
 /** t(key, vars): the sentence in one language. Numbers are written the way that language writes them. */

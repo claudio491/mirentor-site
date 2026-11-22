@@ -16,10 +16,11 @@ export function ladderCount(ladder) {
 /** The ladder keeps its card on Hoy while a step is open. After ten of ten it leaves Hoy and stays in the profile. */
 export const ladderOnHoy = (ladder) => !!nextStep(ladder);
 
-/** A video address the screen may open: a web address, nothing else. */
+/** An address the screen may open (a video, a document): https, nothing else. javascript:, data:, http: and a
+ *  relative address are refused. The documents use this same rule on the server too (docs-steps.js). */
 export function safeUrl(url) {
-  if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) return null;
-  try { const u = new URL(url); return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : null; } catch { return null; }
+  if (typeof url !== 'string' || !/^https:\/\//i.test(url)) return null;
+  try { const u = new URL(url); return u.protocol === 'https:' && u.hostname ? u.href : null; } catch { return null; }
 }
 const videoOf = (key, videos) => {
   const url = safeUrl(videos && videos[key]);

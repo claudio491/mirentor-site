@@ -1287,3 +1287,31 @@ html.greeting{overflow:hidden}
 /* a signed site in "Pendientes": its facts, then the controls its state allows, on their own line so the name never narrows */
 .items li.site-li{grid-template-columns:minmax(0,1fr)}
 .items li.site-li .acts{justify-content:flex-start}
+/* ---- documents: the look of "Aprender". A row opens its document in a new tab; the paper is the consent step's, small ---- */
+.doc-page{position:relative;flex:none;display:block;width:22px;height:28px;padding:4px 4px;border-radius:2px;background:var(--paper);box-shadow:0 3px 8px rgba(27,29,32,.24);transform:rotate(-4deg)}
+.doc-page i{display:block;height:2px;margin-bottom:3px;background:#c9cdd0}
+.doc-page i:last-child{width:60%;height:4px;margin-top:4px;background:none;border-bottom:2px solid var(--signal-ink)}
+.doc-row .lrn-slot{display:grid;place-items:center;width:72px}
+.doc-row .doc-page{width:36px;height:46px;padding:7px 6px}
+.doc-row .doc-page i{height:3px;margin-bottom:5px}
+.doc-row .doc-page i:last-child{height:7px;margin-top:7px}
+.doc-row .inst-n small{margin-top:2px}
+.doc-acts{grid-column:2 / -1;grid-row:3;position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.doc-mv{padding:0 10px}
+.doc-mv svg.ic{width:18px;height:18px}
+.doc-add{margin-top:18px;max-width:760px}
+.doc-empty{margin-top:18px;max-width:46ch}
+.doc-entry{margin-top:16px}
+.doc-hooks{margin-top:12px}
+.doc-hooks>.label{margin-bottom:6px}
+.doc-hooks ul{display:grid;gap:6px}
+.doc-hook{display:flex;align-items:center;gap:12px;min-height:48px;padding:8px 10px;border-radius:12px;border:1px solid var(--rule);color:inherit;text-decoration:none}
+.inst-prep .doc-hook{border-color:rgba(27,29,32,.18)}
+.doc-hook:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.doc-hook-t{flex:1;min-width:0}
+.doc-hook-t b{display:block;font-weight:600;font-size:14px;line-height:1.25;overflow-wrap:anywhere}
+.doc-hook-t small{display:block;font-size:13px;line-height:1.35;color:var(--mist)}
+.inst-prep .doc-hook-t small{color:var(--slate)}
+.lad-row .lad-docs{grid-column:2 / -1}
+.doc-hook .inst-tag{align-self:center}
+@media (hover:hover) and (pointer:fine){.doc-hook:hover{background:rgba(233,235,236,.05)}.inst-prep .doc-hook:hover{background:rgba(27,29,32,.05)}}

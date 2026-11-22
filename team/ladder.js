@@ -23,7 +23,7 @@ function setTick(node, on, now = false) {
 /** A small picture of a video: the play mark when it can be opened, an empty dashed frame while it has no address. */
 const thumb = (playable) => h('span', { class: `lrn-thumb${playable ? '' : ' none'}`, 'aria-hidden': 'true' }, playable ? h('i') : null);
 
-export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLog }) {
+export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLog, hooks = () => {} }) {
   // `offered` is the only thing kept between screens: the zones of the city, tagged with the identity that fetched
   // them, and asked again each time the picker opens. What a person picked always comes from their own answer (S.me.zones).
   let back = 'today', learnBack = 'ladder', offered = null, picked = [];
@@ -110,7 +110,7 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
 
   function paintRows(list, steps, next) {
     flipList(list, steps, (x) => x.step,
-      () => h('li', { class: 'inst-row lad-row' }, tickNode(), h('span', { class: 'inst-n' }, h('b'), h('small')), h('span', { class: 'inst-act' }), h('div', { class: 'lad-more' })),
+      () => h('li', { class: 'inst-row lad-row' }, tickNode(), h('span', { class: 'inst-n' }, h('b'), h('small')), h('span', { class: 'inst-act' }), h('div', { class: 'lad-more' }), h('div', { class: 'doc-hooks lad-docs', hidden: true })),
       (li, x) => {
         const now = !!next && next.step === x.step, was = li.classList.contains('lad-now'), c = ladderControls({ readOnly: readOnly(), step: x, canLog: canLog() });
         setTick($('.inst-tick', li), x.done, now);
@@ -126,6 +126,9 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
           // the step that is next now opens: what it asks for arrives, and its ring answers
           if (!was && li.dataset.painted && !isQuiet()) { stagger([more], { y: 10, delay: 220 }); ringAt($('.inst-tick', li)); }
         } else put(more);
+        // the first conversation keeps the documents for the pitch at hand, open or done
+        const docsBox = $('.lad-docs', li);
+        if (x.step === 'talk') hooks(docsBox, 'pitch'); else docsBox.hidden = true;
         li.dataset.painted = '1';
       });
   }
