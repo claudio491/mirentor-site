@@ -252,3 +252,12 @@ test('server: a new sign-up alerts once, a repeat post does not, and the visitor
   const list = await (await s.admin('/api/alerts')).json();
   assert.equal(list.alerts.length, 1);
 });
+
+test('the daily form check (city TEST) is ignored unless TEST has a route', async () => {
+  const s = setup();
+  await s.alerts.onEntry(entry({ city: 'TEST', country: 'other' }));
+  assert.equal(s.slack.posts.length, 0);
+  const r = setup({ config: { ...CONFIG, mode: 'test', routes: { ...CONFIG.routes, TEST: ['uno', 'dos'] } } });
+  await r.alerts.onEntry(entry({ city: 'TEST', country: 'other' }));
+  assert.match(r.slack.posts[0].text, /PRUEBA.*Rep Uno/);
+});
