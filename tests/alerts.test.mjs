@@ -261,3 +261,15 @@ test('the daily form check (city TEST) is ignored unless TEST has a route', asyn
   await r.alerts.onEntry(entry({ city: 'TEST', country: 'other' }));
   assert.match(r.slack.posts[0].text, /PRUEBA.*Rep Uno/);
 });
+
+test('slackApi sends a form with the token as a header, so read methods accept it', async () => {
+  const { slackApi } = await import('../lib/alerts.mjs');
+  let seen;
+  const api = slackApi(async (url, init) => { seen = { url, init }; return new Response('{"ok":true}'); });
+  const r = await api('conversations.replies', { channel: 'D1', ts: '1.2', limit: 20 }, 'xoxb-t');
+  assert.equal(r.ok, true);
+  assert.equal(seen.url, 'https://slack.com/api/conversations.replies');
+  assert.equal(seen.init.headers.authorization, 'Bearer xoxb-t');
+  assert.equal(seen.init.headers['content-type'], 'application/x-www-form-urlencoded');
+  assert.equal(String(seen.init.body), 'channel=D1&ts=1.2&limit=20');
+});
