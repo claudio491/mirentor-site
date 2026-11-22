@@ -9,6 +9,7 @@ import { $, $$, h, s, put, t, num, stamp, countTo, recount, flipList, toast, src
 import { reveal, stagger } from './fx.js';
 import { stopLine, stopControls, routeCard, openSiteBody, routeCount } from './route-steps.js';
 import { actingMode, readOnlyIn } from './practice-steps.js';
+import { docsAt } from './docs-steps.js';
 
 const DEAL = [0, 1, 2], SITE = [3, 4, 5];   // the contract's stops, then the site's
 
@@ -107,7 +108,7 @@ export function createRoute({ api, S, errText, adopt, renderAll, setTab, openLog
     flipList(list, idx.map((i) => ({ i, stop: r.stops[i] })), (x) => x.stop.key,
       () => h('li', { class: 'inst-row lad-row rt-row' }, tickNode(), h('span', { class: 'inst-n' }, h('b'), h('small')), h('span', { class: 'inst-tag' }), h('div', { class: 'lad-more' }), h('div', { class: 'doc-hooks lad-docs', hidden: true })),
       (li, { i, stop }) => {
-        const now = i === r.at, was = li.classList.contains('lad-now'), ctl = stopControls(r, i, mode()), line = stopLine(r, i);
+        const now = i === r.at, was = li.classList.contains('lad-now'), ctl = stopControls(r, i, mode()), line = stopLine(r, i, { agreement: docsAt(S.docs || [], 'contract').length > 0 });
         setTick($('.inst-tick', li), stop.status === 'done', now);
         li.classList.toggle('lad-now', now); li.classList.toggle('done', stop.status === 'done');
         $('b', li).textContent = t(`route.stop.${stop.key}`);

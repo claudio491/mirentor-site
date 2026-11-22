@@ -6,14 +6,14 @@ const refuse = (code) => { throw Object.assign(new Error(code), { code }); };
 const trim = (v) => String(v ?? '').trim();
 const KINDS = { normal: {}, practice: { practice: true }, legacy: { legacy: true } };
 
-/** The body of POST site. Optional facts are sent only when typed: `eligible` is left out when empty (the server
+/** The body of POST site, with the business id when the name is one the rep already has (siteLeadId). Optional facts are sent only when typed: `eligible` is left out when empty (the server
  *  refuses null), the coordinator goes with both a name and a phone or not at all. A site is one kind: normal, practice
  *  or legacy, so practice and legacy can never both be set. */
-export function siteBody(v, id) {
+export function siteBody(v, id, leadId = null) {
   const name = trim(v.name);
   if (!v.rep || name.length < 2) refuse('fields');
   if (!Object.hasOwn(KINDS, v.kind || 'normal')) refuse('site_kind');
-  const body = { id, rep: v.rep, lead: { name } };
+  const body = { id, rep: v.rep, lead: leadId ? { id: leadId, name } : { name } };
   const city = trim(v.city);
   if (city) body.city = city;
   const eligible = trim(v.eligible);
@@ -27,6 +27,16 @@ export function siteBody(v, id) {
     body.coordinator = { name: cn, phone: cp };
   }
   return Object.assign(body, KINDS[v.kind || 'normal']);
+}
+
+const plain = (v) => trim(v).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+/** The business a site is for, when its name is one of that rep's businesses on the way (`team.routes`), accents and
+ *  case aside: the site form then sends its id, so the rep's route sees the site and cannot open a second one. */
+export function siteLeadId(team, rep, name) {
+  const want = plain(name);
+  if (!want) return null;
+  const hit = ((team && team.routes) || []).find((r) => r && r.rep === rep && r.lead && r.lead.id && plain(r.lead.name) === want);
+  return hit ? hit.lead.id : null;
 }
 
 const isMonday = (day) => {

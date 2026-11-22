@@ -6,10 +6,13 @@
 const refuse = (code) => { throw Object.assign(new Error(code), { code }); };
 const trim = (v) => String(v ?? '').trim();
 
-/** What a stop says, as an i18n key, and the time it carries (the day it was done). */
-export function stopLine(route, i) {
+/** What a stop says, as an i18n key, and the time it carries (the day it was done). Sending the contract points at
+ *  the agreement below only when a document is hooked to the contract step (`agreement`); without one it says the
+ *  manager has not added it yet. */
+export function stopLine(route, i, { agreement = false } = {}) {
   const s = route.stops[i];
   if (s.status === 'done') return s.at ? { key: 'route.done.at', at: s.at } : { key: 'route.done.passed', at: null };
+  if (s.status === 'now' && s.key === 'sent' && !agreement) return { key: 'route.now.sent.nodoc', at: null };
   return { key: `route.${s.status}.${s.key}`, at: null };
 }
 

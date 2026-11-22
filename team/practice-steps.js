@@ -4,9 +4,11 @@
 // "as" another person only for the practice rep, and only from a manager or an admin.
 
 /** How the screens are open. `as` is whose screens the address asked for; `me` is the server's answer. Only an answer
- *  that is the practice rep itself opens writes: anything else asked for through `as` is read only. */
+ *  that is the practice rep itself opens writes: anything else asked for through `as` is read only. With no `as` but
+ *  an answer that is still someone else's (leaving practice mode or a view-as, before the person's own answer
+ *  arrives), the screens read only too: a write then would go as the manager, on screens that are not theirs. */
 export function actingMode(as, me) {
-  if (!as) return 'self';
+  if (!as) return me && me.viewer && me.viewer.as ? 'view' : 'self';
   const who = me && me.me;
   return who && who.practice === true && who.id === as ? 'practice' : 'view';
 }
@@ -37,3 +39,11 @@ export function practiceActions(team, role) {
   if (!team || (role !== 'manager' && role !== 'admin')) return [];
   return team.practice ? ['view', 'remove'] : ['create'];
 }
+
+/** Whether a closed day stops a new log. It does on every rep's screens but the practice rep's: a demonstration goes
+ *  on after its day is closed (the server takes those logs too). */
+export const logLocked = (today, mode) => !!(today && today.closed) && mode !== 'practice';
+
+/** An answer that says the rep the address names is gone (the practice rep was removed, then Back or a reload): the
+ *  address is dropped and the screens start as the person. */
+export const staleAs = (err, as) => !!as && !!err && err.status === 404 && err.code === 'rep';

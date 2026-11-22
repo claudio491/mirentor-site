@@ -18,7 +18,7 @@ import { createRoute } from './route.js';
 import { shellFor } from './leader-steps.js';
 import { verdict, mine as waitingOf, requestTimeout } from './queue.js';
 import { sessionMove, HOME, LEAVE } from './door.js';
-import { actingMode, readOnlyIn, repControls, withAs } from './practice-steps.js';
+import { actingMode, readOnlyIn, repControls, withAs, logLocked, staleAs } from './practice-steps.js';
 
 const API = 'api';   // every address is relative to the page, so the app works wherever it is mounted
 const KEY = { lang: 'cancha.lang', queue: 'cancha.queue', me: 'cancha.me', greet: 'cancha.greet' };
@@ -768,7 +768,8 @@ const L = { lead: null, kind: null, channel: null, voicemail: false, tag: null, 
 /** The log sheet. From a business's route it opens with that business and the result already picked, and goes back to
  *  the route once saved; from anywhere else (a click event is passed then) it opens empty. */
 function openLog(preset = null) {
-  if (S.me.today.closed) { toast(t('log.closed')); return; }
+  if (readOnly()) return;   // screens that are not the person's own (view-as, or leaving practice mode) log nothing
+  if (logLocked(S.me.today, mode())) { toast(t('log.closed')); return; }   // the practice rep logs on after closing, for the demonstration
   const given = preset && preset.lead ? preset : null;
   Object.assign(L, { lead: null, kind: null, channel: null, voicemail: false, tag: null, contact: '', when: '', note: '', more: false, q: '', found: null, from: null });
   if (given) Object.assign(L, { lead: { id: given.lead.id, name: given.lead.name, zone: '', known: true }, kind: given.kind, channel: CHANNELS[given.kind] ? CHANNELS[given.kind][0] : null, from: given.from || null });
@@ -879,7 +880,7 @@ function renderLeadList() {
   if (had) { input.focus(); try { input.setSelectionRange(at, at); } catch { /* not a text field in this browser */ } }
 }
 function saveLog() {
-  if (!logReady()) return undefined;
+  if (!logReady() || readOnly()) return undefined;
   keepFields();
   const body = { id: newId(), kind: L.kind, clientAt: new Date().toISOString(), lead: L.lead.isNew ? { name: $('#newName').value.trim(), zone: $('#newZone').value.trim() } : { id: L.lead.id } };
   if (L.channel) body.channel = L.channel;
@@ -1077,7 +1078,7 @@ async function poll() {
     if (S.lead || S.tab === 'lead') await leader.load();
     renderAll(true);
     if (!S.mgr && !S.lead && !readOnly()) playMoments(moments(before, me));   // something confirmed elsewhere can be a moment here
-  } catch (e) { shutOut(e); }
+  } catch (e) { if (staleAs(e, S.as)) viewAs(null); else shutOut(e); }
 }
 async function refresh(animate = false) {
   try {
@@ -1120,10 +1121,16 @@ function signOut() { store.del(KEY.me); store.del(KEY.greet); location.href = LE
 /** `as` is whose screens to open as their manager. Left out, the page's own address says it. */
 async function start(as = undefined) {
   const url = new URL(location.href);
+  // A sheet left open (the log sheet, say) belongs to the screens being left: it closes before the identity changes,
+  // so nothing in it can be saved as someone else. Until the new answer arrives the screens read only (actingMode).
+  for (const dlg of document.querySelectorAll('dialog[open]')) closeSheet(dlg);
   S.as = as === undefined ? url.searchParams.get('as') : as;
+  if (S.me && !S.lead && !S.mgr) renderNav();   // the log button goes at once while the screens read only
   try { S.gate = null; enter(await api('GET', S.as ? `me?as=${encodeURIComponent(S.as)}` : 'me')); }
   catch (e) {
     const cached = store.get(KEY.me, null);
+    // The address names a rep who is gone (the practice rep was removed, then Back or a reload): drop it, start as the person.
+    if (staleAs(e, S.as)) { url.searchParams.delete('as'); try { history.replaceState(null, '', url); } catch { /* the view changes all the same */ } S.tab = null; await start(null); return; }
     if (e.code === 'offline' && cached && !S.as) { enter(cached); toast(t('err.offline')); }
     else if (!shutOut(e)) showGate('error', errText(e));
   }

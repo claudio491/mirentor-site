@@ -4,6 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { stopLine, stopControls, routeCard, openSiteBody, routeCount } from '../team/route-steps.js';
+import { makeT } from '../team/i18n.js';
 
 const KEYS = ['interested', 'sent', 'signed', 'site', 'phones', 'install'];
 /** A route as the server sends it, from its statuses. */
@@ -96,4 +97,17 @@ test('the "open the site" form sends the business id and only the facts that wer
   assert.throws(() => openSiteBody({ eligible: '-3' }, 's_x', 'APP-1'), { code: 'site_eligible' });
   assert.throws(() => openSiteBody({ eligible: '9000' }, 's_x', 'APP-1'), { code: 'site_eligible' });
   assert.throws(() => openSiteBody({ coordName: 'A', coordPhone: '' }, 's_x', 'APP-1'), { code: 'site_coordinator' });
+});
+
+test('stop 2 promises the agreement only when a document is hooked to the contract step', () => {
+  const N = { status: 'now' }, D = { status: 'done', at: '2026-11-20T15:00:00Z' }, L = { status: 'later' };
+  const r = { stops: ['interested', 'sent', 'signed', 'site', 'phones', 'install'].map((key, i) => ({ key, ...[D, N, L, L, L, L][i] })) };
+  assert.deepEqual(stopLine(r, 1, { agreement: true }), { key: 'route.now.sent', at: null });
+  assert.deepEqual(stopLine(r, 1, { agreement: false }), { key: 'route.now.sent.nodoc', at: null });
+  assert.deepEqual(stopLine(r, 1), { key: 'route.now.sent.nodoc', at: null });
+  // the other stops say the same either way
+  assert.deepEqual(stopLine(r, 0, { agreement: false }), stopLine(r, 0, { agreement: true }));
+  const T = makeT('es'), E = makeT('en');
+  assert.equal(T('route.now.sent.nodoc').includes('Tu líder todavía no cargó el acuerdo en Documentos.'), true);
+  assert.equal(E('route.now.sent.nodoc').includes('Your manager has not added the agreement to Documents yet.'), true);
 });

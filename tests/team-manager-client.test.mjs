@@ -3,7 +3,7 @@
 // team/manager-steps.js, away from the page, so they can be tested here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { siteBody, hoursBody, siteActions, roleOptions, siteReps } from '../team/manager-steps.js';
+import { siteBody, hoursBody, siteActions, roleOptions, siteReps, siteLeadId } from '../team/manager-steps.js';
 import { DICT } from '../team/i18n.js';
 
 const base = { rep: 'r_1', name: '  Negocio de Prueba ', city: 'Panama City', eligible: '', coordName: '', coordPhone: '', kind: 'normal' };
@@ -82,4 +82,15 @@ test('a team with no reps still offers someone for a site: the active managers a
   assert.equal(m.value, 'r_ana', 'with reps on the team, a rep is the default');
   // nobody at all: nothing to offer, the button stays off
   assert.deepEqual(siteReps({ reps: [], others: [] }, 'r_x'), { options: [], value: '' });
+});
+
+test('the site form sends the business id when the name is one of that rep\'s businesses on the way', () => {
+  const team = { routes: [{ rep: 'r_ana', lead: { id: 'APP-0001', name: 'Panadería La Espiga' } }, { rep: 'r_beto', lead: { id: 'APP-0002', name: 'Taller Dos' } }] };
+  assert.equal(siteLeadId(team, 'r_ana', ' panaderia la ESPIGA '), 'APP-0001');
+  assert.equal(siteLeadId(team, 'r_ana', 'Taller Dos'), null);   // another rep's business
+  assert.equal(siteLeadId(team, 'r_ana', 'Otro Negocio'), null);
+  assert.equal(siteLeadId({}, 'r_ana', 'Panadería La Espiga'), null);
+  const v = { rep: 'r_ana', name: 'Panadería La Espiga' };
+  assert.deepEqual(siteBody(v, 's_1', 'APP-0001').lead, { id: 'APP-0001', name: 'Panadería La Espiga' });
+  assert.deepEqual(siteBody(v, 's_1').lead, { name: 'Panadería La Espiga' });
 });

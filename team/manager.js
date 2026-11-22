@@ -4,7 +4,7 @@ import { $, h, put, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, day
 import { miniHand, lens, setLens, portrait, setPortrait } from './hand.js';
 import { STOPS } from './stops.js';
 import { shortNames } from './moments.js';
-import { siteBody, siteActions, roleOptions, recordUrl, siteReps } from './manager-steps.js';
+import { siteBody, siteActions, roleOptions, recordUrl, siteReps, siteLeadId } from './manager-steps.js';
 import { siteStateKey } from './leader-steps.js';
 import { practiceActions } from './practice-steps.js';
 
@@ -216,7 +216,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
         { name: 'eligible', type: 'number', label: t('site.form.eligible'), hint: t('site.form.eligible.hint') },
         { name: 'coordName', label: t('site.form.coord.name'), max: 80 }, { name: 'coordPhone', type: 'tel', label: t('site.form.coord.phone'), max: 30 },
         { name: 'kind', type: 'select', label: t('site.form.kind'), value: 'normal', options: ['normal', 'practice', 'legacy'].map((k) => ({ value: k, label: t(`site.kind.${k}`) })) }],
-      onSubmit: async (v) => { team = await api('POST', 'site', siteBody(v, siteId)); toast(t('needs.sites.added')); await refresh(false); } });
+      onSubmit: async (v) => { team = await api('POST', 'site', siteBody(v, siteId, siteLeadId(team, v.rep, v.name))); toast(t('needs.sites.added')); await refresh(false); } });
   }
 
   // ---- reps ----

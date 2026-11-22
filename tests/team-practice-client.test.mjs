@@ -3,7 +3,7 @@
 // The server stays the judge; these decide only what the screen offers.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { actingMode, readOnlyIn, repControls, withAs, practiceActions } from '../team/practice-steps.js';
+import { actingMode, readOnlyIn, repControls, withAs, practiceActions, logLocked, staleAs } from '../team/practice-steps.js';
 import { controls, imeiFor, practiceImei } from '../team/install-steps.js';
 import { ladderControls, postSeen } from '../team/ladder-steps.js';
 import { practiceNote } from '../team/leader-steps.js';
@@ -98,4 +98,35 @@ test('the leadership view says how many practice reps it leaves out, with the pr
   const both = practiceNote({ practiceHidden: 2, practiceReps: 1 }, es);
   assert.match(both, /2 sitios de práctica/);
   assert.match(both, /1 vendedor de práctica/);
+});
+
+test('leaving practice mode: until the answer arrives the screens are someone else\'s, so they read only', () => {
+  // the address already says "nobody" while the loaded screens are still the practice rep's (or a real rep's)
+  const loadedPrac = { ...prac, viewer: { id: 'r_boss', role: 'admin', as: 'r_prac' } }, loadedReal = { ...real, viewer: { id: 'r_boss', role: 'admin', as: 'r_ana' } };
+  assert.equal(actingMode(null, loadedPrac), 'view');
+  assert.equal(actingMode(null, loadedReal), 'view');
+  assert.equal(repControls(actingMode(null, loadedPrac)).log, false);
+  assert.equal(withAs('log', actingMode(null, loadedPrac), null), 'log');   // and no write leaves: nothing offers one
+  // entering: the address names the practice rep while the loaded screens are still the manager's own
+  assert.equal(actingMode('r_prac', { me: { id: 'r_boss' }, viewer: { id: 'r_boss', role: 'admin', as: null } }), 'view');
+  // a person's own screens, loaded as their own, are theirs
+  assert.equal(actingMode(null, { me: { id: 'r_ana' }, viewer: { id: 'r_ana', role: 'rep', as: null } }), 'self');
+  assert.equal(actingMode(null, null), 'self');
+});
+
+test('a closed day locks logging, except the practice rep\'s', () => {
+  const closed = { closed: '2026-11-21T22:00:00Z' }, open = { closed: null };
+  assert.equal(logLocked(closed, 'self'), true);
+  assert.equal(logLocked(closed, 'practice'), false);
+  assert.equal(logLocked(open, 'self'), false);
+  assert.equal(logLocked(null, 'self'), false);
+});
+
+test('an address that names a rep who is gone is dropped, and the screens start as the person', () => {
+  const gone = { code: 'rep', status: 404 };
+  assert.equal(staleAs(gone, 'r_prac'), true);
+  assert.equal(staleAs(gone, null), false);
+  assert.equal(staleAs({ code: 'offline', status: 0 }, 'r_prac'), false);
+  assert.equal(staleAs({ code: 'read_only', status: 403 }, 'r_prac'), false);
+  assert.equal(staleAs(null, 'r_prac'), false);
 });
