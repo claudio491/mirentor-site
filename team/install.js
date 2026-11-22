@@ -6,8 +6,9 @@
 import { $, $$, h, s, put, t, num, cityName, stamp, dayMonth, giant, countTo, recount, flipList, toast, src, once, formSheet, ringAt, lock, buzz, reduce, isQuiet, quiet, showErr, EASE } from './ui.js';
 import { reveal, stagger } from './fx.js';
 import { lens, setLens, drawIn } from './hand.js';
-import { workerOrder, workerSteps, prepRows, statusKey, newWorkerId, isDone, installCard, cleanImei, imeiFromScan, stepNow, recordRows, closeState, consentFailed, controls, keepForRetry } from './install-steps.js';
-import { shrink } from './shrink.js';
+import { workerOrder, workerSteps, prepRows, statusKey, newWorkerId, isDone, installCard, imeiFor, imeiFromScan, stepNow, recordRows, closeState, consentFailed, controls, keepForRetry } from './install-steps.js';
+import { shrink, examplePage } from './shrink.js';
+import { actingMode, readOnlyIn } from './practice-steps.js';
 
 const tail = (imei) => (imei ? String(imei).slice(-4) : '');
 
@@ -25,9 +26,9 @@ export function createInstall({ api, S, errText, refresh, setTab }) {
   let view = null, back = 'today', siteId = null, wid = null;
   const failed = new Map();   // worker id -> the shrunk photo whose upload did not arrive, kept for the retry
   const tz = () => S.me.me.tz;
-  // A manager looking through a rep's screens (view-as) reads only: the screens show no control that writes, and no
-  // install write leaves this module, whatever is tapped.
-  const readOnly = () => !!S.as;
+  // A manager looking through a real rep's screens (view-as) reads only: the screens show no control that writes, and no
+  // install write leaves this module, whatever is tapped. Acting as the practice rep is not read only.
+  const readOnly = () => readOnlyIn(actingMode(S.as, S.me));
   const ctl = (w = null) => controls({ readOnly: readOnly(), site: view.site, worker: w });
   const write = (method, path, body) => (readOnly() ? Promise.reject(Object.assign(new Error('read_only'), { code: 'read_only' })) : api(method, path, body));
 
@@ -246,6 +247,7 @@ export function createInstall({ api, S, errText, refresh, setTab }) {
     $('#wkFileBtn').classList.toggle('primary', !w.consent && !retry);
     $('#wkRetry').hidden = !retry || !c.consent;
     $('#wkRetry').classList.toggle('primary', retry);
+    $('#wkExample').hidden = !c.example;   // a practice site only: a drawn page instead of a camera
 
     // 2 · the phone: locked until the consent is on file. A coworker who signs only has no phone step.
     const only = w.phone === false, open2 = !only && steps[1].open, s2 = $('#wkS2');
@@ -277,11 +279,15 @@ export function createInstall({ api, S, errText, refresh, setTab }) {
     $('#wkClipDone').hidden = !(steps[2] && steps[2].done);
     opened(s3, c.clip, $('#wkClipBody'));
   }
-  /** The IMEI as it is typed: how many digits are there, and whether the check digit holds. */
+  /** The IMEI as it is typed: how many digits are there, and whether the check digit holds. On a practice site any
+   *  IMEI-shaped text will do, and the hint says so. */
   function imeiHint() {
-    const v = $('#wkImei').value, digits = v.replace(/[\s-]/g, ''), ok = !!cleanImei(v);
+    const v = $('#wkImei').value, digits = v.replace(/[\s-]/g, ''), practice = !!(view && view.site.practice), ok = !!imeiFor(view && view.site, v);
+    const input = $('#wkImei');
+    input.placeholder = t(practice ? 'install.w.imei.practice.ph' : 'install.w.imei.ph'); input.inputMode = practice ? 'text' : 'numeric';
     $('#wkImeiSave').disabled = !ok;
-    $('#wkImeiHint').textContent = ok ? t('install.w.imei.ok') : digits.length === 15 && /^\d+$/.test(digits) ? t('install.w.imei.check') : /[^\d\s-]/.test(v) ? t('install.w.imei.chars') : t('install.w.imei.count', { n: digits.length });
+    $('#wkImeiHint').textContent = practice ? t(ok ? 'install.w.imei.practice.ok' : 'install.w.imei.practice')
+      : ok ? t('install.w.imei.ok') : digits.length === 15 && /^\d+$/.test(digits) ? t('install.w.imei.check') : /[^\d\s-]/.test(v) ? t('install.w.imei.chars') : t('install.w.imei.count', { n: digits.length });
     $('#wkImeiHint').classList.toggle('ok', ok);
   }
   /** A consent photo: shrunk to JPEG on the phone, then sent for this worker's id. A failed upload keeps the photo and
@@ -429,9 +435,11 @@ export function createInstall({ api, S, errText, refresh, setTab }) {
     $('#clsBack').addEventListener('click', () => setTab('install'));
     $('#wkFile').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; pickConsent(f); });
     $('#wkRetry').addEventListener('click', (e) => { const blob = failed.get(wid); if (blob) once(e.currentTarget, () => sendConsent(blob)); });
+    // On a practice site: a page drawn here, with only the word EJEMPLO on it, is filed as the consent so the lock can be shown opening.
+    $('#wkExample').addEventListener('click', (e) => { const w = worker(); if (w && ctl(w).example) once(e.currentTarget, async () => sendConsent(await examplePage(t('install.w.example.word')))); });
     $('#wkScan').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; scanImei(f); });
     $('#wkImei').addEventListener('input', () => { $('#wkErr2').hidden = true; imeiHint(); });
-    $('#wkImeiSave').addEventListener('click', (e) => { const imei = cleanImei($('#wkImei').value); if (imei) act(e.currentTarget, () => write('POST', `worker/${encodeURIComponent(wid)}/phone`, { imei }), 'install.w.phone.saved', $('#wkErr2')); });
+    $('#wkImeiSave').addEventListener('click', (e) => { const imei = imeiFor(view && view.site, $('#wkImei').value); if (imei) act(e.currentTarget, () => write('POST', `worker/${encodeURIComponent(wid)}/phone`, { imei }), 'install.w.phone.saved', $('#wkErr2')); });
     $('#wkClipBtn').addEventListener('click', (e) => act(e.currentTarget, () => write('POST', `worker/${encodeURIComponent(wid)}/clip`, {}), 'install.w.clip.saved', $('#wkErr3')));
     $('#wkReturn').addEventListener('click', returnTap);
     $('#clsGo').addEventListener('click', closeTap);

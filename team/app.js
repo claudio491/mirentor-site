@@ -16,6 +16,7 @@ import { createLeader } from './leader.js';
 import { shellFor } from './leader-steps.js';
 import { verdict, mine as waitingOf, requestTimeout } from './queue.js';
 import { sessionMove, HOME, LEAVE } from './door.js';
+import { actingMode, readOnlyIn, repControls, withAs } from './practice-steps.js';
 
 const API = 'api';   // every address is relative to the page, so the app works wherever it is mounted
 const KEY = { lang: 'cancha.lang', queue: 'cancha.queue', me: 'cancha.me', greet: 'cancha.greet' };
@@ -29,6 +30,7 @@ const store = {
 class ApiError extends Error { constructor(code, status, data = null) { super(code); this.code = code; this.status = status; this.data = data; } }
 async function api(method, path, body) {
   let res;
+  path = withAs(path, mode(), S.as);   // acting as the practice rep: every request names it, and the server judges
   // A request that hangs is treated as no signal: a log then waits on the phone and goes out again with the same id.
   // A consent photo gets longer than the rest (queue.js says how long).
   const stop = new AbortController(), timer = setTimeout(() => stop.abort(), requestTimeout(body));
@@ -66,7 +68,10 @@ const ONE_LEVEL = new Set(['first_log', 'first_meeting', 'first_site_live']);
 const MAIN_KINDS = ['talk', 'absent', 'call', 'message', 'meeting', 'contract'], MORE_KINDS = ['noanswer', 'reply', 'baddata'];
 const LEDGER_RULE = { visit: 'visit', conversation: 'conversation', followup: 'followup', message: 'message', reply: 'reply', meeting_booked: 'meetingBooked', meeting_held: 'meetingHeld',
   contract_sent: 'contractSent', contract_signed: 'contractSigned', site_signed: 'siteSigned', site_installed: 'siteInstalled', site_first_hour: 'siteFirstHour', day_closed: 'dayClosedOnTime' };
-const readOnly = () => !!S.as;
+/** How a rep's screens are open: a person's own, a real rep through view-as (read only), or the practice rep (writes allowed). */
+const mode = () => actingMode(S.as, S.me);
+const readOnly = () => readOnlyIn(mode());
+const may = () => repControls(mode());
 const INSTALL_TABS = new Set(['install', 'worker', 'iclose']);   // the install's own screens: renderAll draws the open one again, so a language change or a poll reaches it
 const LADDER_TABS = new Set(['ladder', 'zones', 'learn']);   // the first days' screens, drawn again the same way
 const tz = () => S.me.me.tz;
@@ -108,7 +113,9 @@ function renderTop() {
   $('#queueChip').setAttribute('aria-label', t('top.queue.aria'));
   for (const b of $$('#langSeg button')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang()));
   $('#asBar').hidden = !S.as;
-  if (S.as && S.me) $('#asText').textContent = t('top.viewAs', { name: S.me.me.name });
+  // the practice rep says so on every screen: its chip and one line that nothing here counts
+  if (S.as && S.me) put($('#asText'), ...(mode() === 'practice' ? [h('span', { class: 'chip inst-prac', text: t('install.practice') }), ' ', t('top.practice')] : [t('top.viewAs', { name: S.me.me.name })]));
+  $('#asBar').classList.toggle('prac', !!S.as && mode() === 'practice');
 }
 function renderNav() {
   // A leader reads one page: no tabs and nothing to log, so there is no bar at all.
@@ -616,7 +623,7 @@ function submitClose() {
 
 // ---- the feed and the plays ----
 function kudosButton(f) {
-  const btn = h('button', { class: 'kudos', type: 'button', 'aria-pressed': String(!!f.clapped), 'aria-label': t('kudos.aria', { name: f.name }), disabled: f.mine || readOnly() }, icon('clap'), h('span', { class: 'num', text: String(f.kudos), hidden: !f.kudos }));
+  const btn = h('button', { class: 'kudos', type: 'button', 'aria-pressed': String(!!f.clapped), 'aria-label': t('kudos.aria', { name: f.name }), disabled: f.mine || !may().kudos }, icon('clap'), h('span', { class: 'num', text: String(f.kudos), hidden: !f.kudos }));
   btn.addEventListener('click', () => clap(f, btn));
   return btn;
 }
@@ -680,7 +687,7 @@ function openGoal() {
 function renderProfile() {
   const { me, level, badges, ledger, rules, pending } = S.me;
   if (!level) return;
-  $('#whoChip').textContent = me.name; $('#whoCity').textContent = cityName(me.city);
+  $('#whoChip').textContent = me.practice ? t('reps.practice.name') : me.name; $('#whoCity').textContent = cityName(me.city);
   putFace($('#portrait'), me, (person) => portrait(person, { share: 0 }));
   setPortrait($('#portrait .portrait'), level.next == null ? 1 : (level.xp - level.floor) / Math.max(1, level.next - level.floor));
   const levelWord = t(`level.${level.name}`);
@@ -723,7 +730,8 @@ function renderProfile() {
   $('#ledgerEmpty').hidden = ledger.length > 0;
 
   const box = $('#settings');
-  if (readOnly()) {
+  if (mode() === 'practice') put(box, ...ladder.profileButtons(), h('button', { class: 'btn', type: 'button', text: t('profile.rules'), 'data-open': 'rulesSheet' }));
+  else if (may().manage) {
     put(box,
       ...ladder.profileButtons(),
       h('button', { class: 'btn', type: 'button', text: t('reps.badge'), onclick: () => manager.giveBadge(me) }),
@@ -973,7 +981,8 @@ async function flush() {
 // ---- session ----
 /** What a view says, leaving out the clock: two reads that match have nothing new to draw. */
 const signature = (me) => JSON.stringify({ ...me, serverTime: null });
-function adopt(me) { S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); if (!readOnly() && me.me) store.set(KEY.me, me); }
+// Only a person's own screens are kept on the phone for a start without signal: never a view-as, never the practice rep.
+function adopt(me) { S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); if (!S.as && me.me) store.set(KEY.me, me); }
 /** A leader has no board of their own: they land on the leadership view, with no tabs, no log and no entrance. */
 function enterLeader(me) {
   S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); S.lastPaint = Date.now();
@@ -997,7 +1006,7 @@ function enter(me) {
   if (own && own !== lang()) { setLang(own); store.set(KEY.lang, own); applyStatic(); }
   S.mgr = !S.as && me.viewer.role !== 'rep';
   document.body.classList.remove('bare'); document.body.classList.toggle('mgr', S.mgr);
-  if (!readOnly()) store.set(KEY.me, me);
+  if (!S.as) store.set(KEY.me, me);
   S.seenFeed = null; waiting.length = 0;
   S.stop = null; S.hold = null; S.owed = null;
   const first = S.mgr ? 'team' : 'today';

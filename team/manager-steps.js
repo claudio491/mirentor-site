@@ -71,12 +71,14 @@ export function siteActions(site) {
 }
 
 /** Who the site form offers to install a site: the active reps, then the active managers and admins (a leader changes
- *  nothing, so never). The default is the first rep; with no reps it is the viewer, so a lone admin can open a site. */
+ *  nothing, so never), then the practice rep, marked `practice` (its site is always a practice site). The default is the
+ *  first rep; with no reps it is the viewer, so a lone admin can open a site. */
 export function siteReps(team, viewerId) {
   const byName = (a, b) => a.name.localeCompare(b.name, 'es');
   const reps = (team.reps || []).filter((r) => r.active !== false).sort(byName);
   const bosses = (team.others || []).filter((r) => r.active && (r.role === 'manager' || r.role === 'admin')).sort(byName);
   const options = [...reps, ...bosses].map((r) => ({ value: r.id, label: r.name }));
+  if (team.practice) options.push({ value: team.practice.id, label: team.practice.name, practice: true });
   const value = reps.length ? reps[0].id : (bosses.find((r) => r.id === viewerId) || bosses[0] || { id: '' }).id;
   return { options, value };
 }

@@ -39,3 +39,20 @@ export async function shrink(file, { maxSide = 1600, maxBytes = 800 * 1024 } = {
   if (!out || out.size > maxBytes) throw Object.assign(new Error('too_big'), { code: 'too_big' });
   return out;
 }
+
+/** The example consent for a practice site: a white page with one word on it (EJEMPLO or EXAMPLE) and a few grey lines
+ *  where a form's text would be. Drawn here, so no picture with real content exists anywhere. A JPEG, like any consent. */
+export async function examplePage(word) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 600; canvas.height = 800;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 600, 800);
+  ctx.fillStyle = '#d9d9d9';
+  for (let i = 0; i < 9; i += 1) ctx.fillRect(70, 110 + i * 34, i % 3 === 2 ? 300 : 460, 10);
+  ctx.fillRect(70, 660, 220, 3);   // where a signature would go
+  ctx.save(); ctx.translate(300, 470); ctx.rotate(-0.32);
+  ctx.fillStyle = '#9a9a9a'; ctx.font = '700 92px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(String(word || ''), 0, 0);
+  ctx.restore();
+  return toJpeg(canvas, 0.8);
+}

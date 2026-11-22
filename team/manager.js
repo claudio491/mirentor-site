@@ -6,6 +6,7 @@ import { STOPS } from './stops.js';
 import { shortNames } from './moments.js';
 import { siteBody, siteActions, roleOptions, recordUrl, siteReps } from './manager-steps.js';
 import { siteStateKey } from './leader-steps.js';
+import { practiceActions } from './practice-steps.js';
 
 const MONDAY = '2026-11-16';   // any Monday: only used to name the days of the week
 const dayName = (n) => wdShort(addDays(MONDAY, n - 1));
@@ -13,7 +14,7 @@ const dayName = (n) => wdShort(addDays(MONDAY, n - 1));
 export function createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs, openInstall }) {
   let team = null, city = 'all';
   const tzOf = (rep) => (rep && rep.tz) || S.me.me.tz;
-  const repById = (id) => team.reps.find((r) => r.id === id) || team.others.find((r) => r.id === id);
+  const repById = (id) => team.reps.find((r) => r.id === id) || team.others.find((r) => r.id === id) || (team.practice && team.practice.id === id ? { ...team.practice, name: t('reps.practice.name') } : null);
   const isAdmin = () => S.me.viewer.role === 'admin';
   /** A link to a rep's screens opens them in place. With a modifier key it stays a plain link, for a new tab. */
   const openAs = (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); viewAs(e.currentTarget.dataset.as); };
@@ -203,7 +204,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     const siteId = `s_${newId()}`, known = team.cities || [], who = siteReps(team, S.me.viewer.id), first = repById(who.value);
     const city = (first && (known.find((k) => sameText(k, first.city)) || first.city)) || known[0] || '';
     formSheet({ title: t('needs.sites.title'), submit: t('needs.sites.submit'),
-      fields: [{ name: 'rep', type: 'select', label: t('needs.sites.rep'), value: who.value, options: who.options }, { name: 'name', label: t('needs.sites.name') },
+      fields: [{ name: 'rep', type: 'select', label: t('needs.sites.rep'), value: who.value, options: who.options.map((o) => (o.practice ? { value: o.value, label: `${t('reps.practice.name')} · ${t('install.practice')}` } : o)) }, { name: 'name', label: t('needs.sites.name') },
         known.length ? { name: 'city', type: 'pick', label: t('site.form.city'), value: city, max: 60, other: t('reps.form.city.other'), otherLabel: t('reps.form.city.other.label'),
           options: [...known, ...(city && !known.includes(city) ? [city] : [])].map((c) => ({ value: c, label: cityName(c) })) } : { name: 'city', label: t('site.form.city'), value: city, max: 60 },
         { name: 'eligible', type: 'number', label: t('site.form.eligible'), hint: t('site.form.eligible.hint') },
@@ -264,10 +265,24 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
         canTouch && (r.role === 'rep' || !self) ? h('button', { class: 'mini-btn', type: 'button', text: t('reps.edit'), onclick: () => repForm(r) }) : null,
         canTouch && !self ? h('button', { class: 'mini-btn', type: 'button', text: t(r.active ? 'reps.deactivate' : 'reps.activate'), onclick: (e) => act(e.currentTarget, () => api('POST', `reps/${encodeURIComponent(r.id)}`, { patch: { active: !r.active } }), 'reps.saved') }) : null));
   }
+  /** The practice rep: one control to create it, then a way into its screens (writes allowed) and a remove in two taps. */
+  function practiceGroup() {
+    const acts = practiceActions(team, S.me.viewer.role);
+    if (!acts.length) return null;
+    const p = team.practice;
+    const btn = (key, cls, run) => h('button', { class: cls ? `mini-btn ${cls}` : 'mini-btn', type: 'button', 'data-act': `practice-${key}`, text: t(`reps.practice.${key}`), onclick: run });
+    const controls = acts.map((k) => (k === 'create' ? btn('create', 'primary', (e) => act(e.currentTarget, () => api('POST', 'practice', {}), 'reps.practice.created'))
+      : k === 'view' ? h('a', { class: 'mini-btn primary', 'data-act': 'practice-view', href: `?as=${encodeURIComponent(p.id)}`, 'data-as': p.id, onclick: openAs, text: t('reps.practice.view') })
+        : btn('remove', '', (e) => { const b = e.currentTarget; twice(b, 'reps.practice.remove.confirm', () => act(b, () => api('POST', 'practice/remove', {}), 'reps.practice.removed')); })));
+    const who = p ? h('span', { class: 'pers' }, face({ ...p, name: t('reps.practice.name') }), h('span', { class: 'pt' }, h('b', {}, t('reps.practice.name'), ' ', h('span', { class: 'chip inst-prac', text: t('install.practice') })), h('small', { text: t('reps.practice.p') })))
+      : h('span', { class: 'pers' }, h('span', { class: 'pt' }, h('small', { text: t('reps.practice.p') })));
+    return h('section', { class: 'group', id: 'practiceGroup' }, h('h2', { text: t('reps.practice.h') }), h('ul', { class: 'items' }, h('li', {}, who, h('span', { class: 'acts' }, controls))));
+  }
   function renderReps() {
     $('#repsGiant').replaceChildren(num(team.reps.length), h('em', { text: '.' }));
     put($('#repsBody'),
       team.reps.length ? h('ul', { class: 'items' }, team.reps.map((r) => repItem(r, true))) : h('p', { class: 'note', text: t('mgr.none') }),
+      practiceGroup(),
       team.others.length ? h('section', { class: 'group' }, h('h2', { text: t('reps.others') }), h('ul', { class: 'items' }, team.others.map((r) => repItem(r, false)))) : null,
       h('section', { class: 'group' }, h('h2', { text: t('profile.settings') }), h('div', { class: 'settings' },
         h('div', { class: 'line' }, h('span', { text: S.me.viewer.email ? t('profile.account', { email: S.me.viewer.email }) : '' }), h('button', { class: 'mini-btn signout', type: 'button', text: t('profile.signout'), onclick: signOut })))));

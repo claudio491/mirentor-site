@@ -7,6 +7,7 @@
 import { $, $$, h, s, put, t, num, cityName, joinList, giant, countTo, recount, flipList, toast, src, once, ringAt, lock, reduce, isQuiet, quiet, showErr } from './ui.js';
 import { reveal, stagger } from './fx.js';
 import { nextStep, ladderCount, ladderOnHoy, stepVideo, learnRows, ladderControls, postSeen, pickZone, zonesReady, rowZones, whoKey, offeredFor } from './ladder-steps.js';
+import { actingMode, readOnlyIn } from './practice-steps.js';
 
 const START = ['video', 'kit', 'whatsapp', 'zones'];   // the rep's own steps: the porcelain zone
 
@@ -27,7 +28,7 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
   // them, and asked again each time the picker opens. What a person picked always comes from their own answer (S.me.zones).
   let back = 'today', learnBack = 'ladder', offered = null, picked = [];
   const sending = new Set();   // videos whose `seen` is on its way: a second tap waits for the first
-  const readOnly = () => !!S.as;
+  const readOnly = () => readOnlyIn(actingMode(S.as, S.me));   // view-as on a real rep reads only; the practice rep writes
   const preview = () => !!S.mgr;   // a manager or an admin, on their own account
   const canLog = () => !S.mgr && !readOnly() && !!(S.me && S.me.today);
   const write = (method, path, body) => (readOnly() ? Promise.reject(Object.assign(new Error('read_only'), { code: 'read_only' })) : api(method, path, body));

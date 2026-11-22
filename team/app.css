@@ -1072,6 +1072,7 @@ html.greeting{overflow:hidden}
 .inst-crew .inst-meta{color:var(--mist)}
 .inst-file{position:relative;margin-top:14px;cursor:pointer}
 .inst-file.busy{opacity:.6;pointer-events:none}
+.inst-ex{margin-top:10px}   /* the practice site's example photo, under the camera button */
 .inst-file:focus-within{outline:2px solid var(--signal-ink);outline-offset:2px}
 .inst-prep .btn:not(.primary){border-color:rgba(27,29,32,.32)}
 .inst-prep .btn.primary{background:var(--graphite);border-color:var(--graphite);color:var(--porcelain)}

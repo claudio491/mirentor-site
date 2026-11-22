@@ -34,10 +34,12 @@ const REP_KEYS = ['visits', 'conversations', 'meetings', 'contracts'];
 /** A rep's numbers: the week's four from their logs, and a new rep's step on the first-days ladder. */
 export const repFacts = (rep) => [...REP_KEYS.map((k) => ({ key: k, value: rep.week[k], source: 'rep' })), ...(rep.isNew ? [{ key: 'ladder', value: rep.ladderDone, source: 'ladder' }] : [])];
 
-/** The practice site is never listed. When there is one or more, the page says how many, once, and names none. */
+/** The practice sites and the practice rep are never listed. When there is one or more, the page says how many, once
+ *  each, and names none. */
 export function practiceNote(view, t) {
-  const n = Number(view && view.practiceHidden) || 0;
-  return n > 0 ? t('lead.practice', { n }) : null;
+  const n = Number(view && view.practiceHidden) || 0, r = Number(view && view.practiceReps) || 0;
+  const parts = [n > 0 ? t('lead.practice', { n }) : null, r > 0 ? t('lead.practice.rep', { n: r }) : null].filter(Boolean);
+  return parts.length ? parts.join(' ') : null;
 }
 
 /** What the shell offers: the tabs, whether there is a log button, and the screen the home mark opens. A leader reads

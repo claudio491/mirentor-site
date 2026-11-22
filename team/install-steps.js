@@ -17,6 +17,16 @@ export function cleanImei(input) {
   return sum % 10 === 0 ? d : null;
 }
 
+/** On a practice site the phone step is open: any IMEI-shaped text, 4 to 20 letters, digits, spaces or dashes, with no
+ *  check digit, kept in capitals with its spaces folded. The same rule as lib/team/install.mjs. */
+export function practiceImei(input) {
+  if (typeof input !== 'string') return null;
+  const v = input.trim().replace(/\s+/g, ' ').toUpperCase();
+  return /^[A-Z0-9 -]{4,20}$/.test(v) && /[A-Z0-9]/.test(v) ? v : null;
+}
+/** The phone identifier as the site's kind reads it: the real IMEI rule, or the open one on a practice site. */
+export const imeiFor = (site, input) => (site && site.practice ? practiceImei(input) : cleanImei(input));
+
 /** A worker's steps in order: the signed consent, the phone they receive, the test clip. A step opens only once the one
  *  before it is done: without a consent on file the phone step stays shut. A coworker who gets no phone has one step. */
 export function workerSteps(w) {
@@ -105,16 +115,18 @@ export function closeState(view) {
   return { kind: view.progress.ready > 0 ? 'ready' : 'nobody' };
 }
 
-/** Which controls a screen offers. A manager looking through a rep's screens (view-as) reads only: no control that writes.
- *  Otherwise each one shows only when it can act: the phone with a consent and no phone yet, the return and the clip with
- *  a phone, the close until the install is closed. Late workers can still be added to a closed install. */
+/** Which controls a screen offers. A manager looking through a real rep's screens (view-as) reads only: no control that
+ *  writes. Otherwise each one shows only when it can act: the phone with a consent and no phone yet, the return and the
+ *  clip with a phone, the close until the install is closed. Late workers can still be added to a closed install. On a
+ *  practice site, and only there, the consent step also offers an example photo while no consent is on file, so the lock
+ *  can be opened without a camera. */
 export function controls({ readOnly, site, worker }) {
-  const none = { prep: false, addWorker: false, close: false, consent: false, phone: false, returnPhone: false, clip: false };
+  const none = { prep: false, addWorker: false, close: false, consent: false, example: false, phone: false, returnPhone: false, clip: false };
   if (readOnly) return none;
   const out = { ...none, prep: true, addWorker: true, close: !(site && site.closed) };
   if (!worker) return out;
   const records = worker.phone !== false;
-  return { ...out, consent: true, phone: records && !!worker.consent && !worker.imei, returnPhone: records && !!worker.imei, clip: records && !!worker.imei && !worker.clip };
+  return { ...out, consent: true, example: !!(site && site.practice) && !worker.consent, phone: records && !!worker.consent && !worker.imei, returnPhone: records && !!worker.imei, clip: records && !!worker.imei && !worker.clip };
 }
 
 /** A consent photo is kept for "Reintentar con la misma foto" only when the signal or the server failed. A refusal of the
