@@ -3,7 +3,7 @@
 // team/manager-steps.js, away from the page, so they can be tested here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { siteBody, hoursBody, siteActions, roleOptions, siteReps, siteLeadId } from '../team/manager-steps.js';
+import { siteBody, hoursBody, siteActions, roleOptions, siteReps, siteLeadId, newRepBody } from '../team/manager-steps.js';
 import { DICT } from '../team/i18n.js';
 
 const base = { rep: 'r_1', name: '  Negocio de Prueba ', city: 'Panama City', eligible: '', coordName: '', coordPhone: '', kind: 'normal' };
@@ -93,4 +93,14 @@ test('the site form sends the business id when the name is one of that rep\'s bu
   const v = { rep: 'r_ana', name: 'Panadería La Espiga' };
   assert.deepEqual(siteBody(v, 's_1', 'APP-0001').lead, { id: 'APP-0001', name: 'Panadería La Espiga' });
   assert.deepEqual(siteBody(v, 's_1').lead, { name: 'Panadería La Espiga' });
+});
+
+test('the person form sends a rep with no access as access none, with no email and no role', () => {
+  const v = { name: ' Rosa Sin Correo ', email: 'rosa@equipo.test', city: 'Panama City', country: 'PA', startDate: '2026-10-01', workdays: [1, 2, 3], role: 'manager' };
+  assert.deepEqual(newRepBody({ ...v, access: 'none' }), { access: 'none', name: ' Rosa Sin Correo ', city: 'Panama City', country: 'PA', startDate: '2026-10-01', workdays: [1, 2, 3] });
+  assert.deepEqual(newRepBody({ ...v, access: 'mail' }), { email: 'rosa@equipo.test', name: ' Rosa Sin Correo ', city: 'Panama City', country: 'PA', startDate: '2026-10-01', workdays: [1, 2, 3], role: 'manager' });
+  // no choice in the form (an older page): the email path, as before
+  assert.equal(newRepBody(v).email, 'rosa@equipo.test');
+  for (const k of ['reps.form.access', 'reps.form.access.mail', 'reps.form.access.none', 'reps.form.access.hint', 'reps.noaccess', 'reps.form.email.give', 'reps.added.noaccess']) for (const l of ['es', 'en']) assert.ok(DICT[l][k], `${l} ${k}`);
+  assert.deepEqual([DICT.es['reps.form.access.none'], DICT.en['reps.form.access.none'], DICT.es['reps.noaccess'], DICT.en['reps.noaccess']], ['Sin acceso por ahora', 'No access for now', 'Sin acceso', 'No access']);
 });

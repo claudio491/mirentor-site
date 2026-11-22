@@ -4,7 +4,7 @@ import { $, h, put, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, day
 import { miniHand, lens, setLens, portrait, setPortrait } from './hand.js';
 import { STOPS } from './stops.js';
 import { shortNames } from './moments.js';
-import { siteBody, siteActions, roleOptions, recordUrl, siteReps, siteLeadId, siteHoursBody, recentMondays, payBody } from './manager-steps.js';
+import { siteBody, siteActions, roleOptions, recordUrl, siteReps, siteLeadId, siteHoursBody, recentMondays, payBody, newRepBody } from './manager-steps.js';
 import { usd } from './sites-steps.js';
 import { siteStateKey } from './leader-steps.js';
 import { practiceActions, exampleActions } from './practice-steps.js';
@@ -235,7 +235,10 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     const fields = [{ name: 'name', label: t('reps.form.name'), value: rep ? rep.name : '', max: 80 }];
     // The address is the person's way in. Nobody edits their own: a slip would lock them out.
     const own = !!rep && rep.id === S.me.viewer.id;
-    if (!own) fields.push({ name: 'email', type: 'email', label: t('reps.form.email'), hint: t('reps.form.email.hint'), value: rep ? rep.email : '', lower: true, max: 120 });
+    // A new person may come in with no access for now: on the team and counted, with nobody signing in as them.
+    if (!rep) fields.push({ name: 'access', type: 'select', label: t('reps.form.access'), hint: t('reps.form.access.hint'), value: 'mail', options: ['mail', 'none'].map((k) => ({ value: k, label: t(`reps.form.access.${k}`) })) });
+    // A person with no address yet is given one here, under the same rules: from then on that account opens the board.
+    if (!own) fields.push({ name: 'email', type: 'email', label: t(rep && !rep.email ? 'reps.form.email.give' : 'reps.form.email'), hint: t('reps.form.email.hint'), value: rep ? rep.email : '', lower: true, max: 120 });
     // The city decides which businesses a rep can pick, so it comes from the business list. Another one can still be written.
     const known = team.cities || [], listed = (c) => known.find((k) => sameText(k, c));
     const city = rep ? (listed(rep.city) || rep.city) : (listed('Panama City') || known[0] || 'Panama City');
@@ -248,16 +251,22 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       { name: 'workdays', type: 'days', label: t('reps.form.workdays'), value: rep ? rep.workdays : [1, 2, 3, 4, 5], options: [1, 2, 3, 4, 5].map((n) => ({ value: n, label: dayName(n) })) });
     const roles = rep ? [] : roleOptions(S.me.viewer.role);   // only an admin picks a role, Liderazgo among them
     if (roles.length) fields.push({ name: 'role', type: 'select', label: t('reps.form.role'), value: 'rep', options: roles.map((r) => ({ value: r, label: t(`role.${r}`) })) });
-    formSheet({ title: t(rep ? 'reps.edit.title' : 'reps.add.title'), submit: t(rep ? 'reps.form.save' : 'reps.form.submit'), fields,
+    const dlg = formSheet({ title: t(rep ? 'reps.edit.title' : 'reps.add.title'), submit: t(rep ? 'reps.form.save' : 'reps.form.submit'), fields,
       onSubmit: async (v) => {
         if (!v.city) throw { code: 'fields' };
         v.city = listed(v.city) || v.city;   // the list's own spelling when it is the same city
         if (rep) { team = await api('POST', `reps/${encodeURIComponent(rep.id)}`, { patch: { name: v.name, city: v.city, country: v.country, startDate: v.startDate, workdays: v.workdays, ...(own || v.email.toLowerCase() === (rep.email || '') ? {} : { email: v.email }) } }); toast(t('reps.saved')); renderAll(false); return false; }
         // Nothing to hand over: from now on that Google account opens the board.
-        team = await api('POST', 'reps', { email: v.email, name: v.name, city: v.city, country: v.country, startDate: v.startDate, workdays: v.workdays, role: v.role });
-        toast(t('reps.added', { name: v.name.trim().split(/\s+/)[0] })); renderAll(false);
+        team = await api('POST', 'reps', newRepBody(v));
+        toast(t(v.access === 'none' ? 'reps.added.noaccess' : 'reps.added', { name: v.name.trim().split(/\s+/)[0] })); renderAll(false);
         return false;
       } });
+    // "No access for now" hides the email and the role: the server skips both on that path.
+    const access = dlg.querySelector('#fs-access');
+    if (access) {
+      const sync = () => { for (const n of ['email', 'role']) { const f = dlg.querySelector(`[data-name="${n}"]`); if (f) f.hidden = access.value === 'none'; } };
+      access.onchange = sync; sync();
+    }
   }
   function dayOff() {
     const today = dayOf(team.serverTime, S.me.me.tz), countries = [...new Set(team.reps.map((r) => r.country))];
@@ -268,13 +277,13 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
   }
   function repItem(r, isPlayer) {
     // Without an address nobody can come in as this person: the list says so until a manager adds it.
-    const status = !r.active ? h('small', { text: t('reps.inactive') }) : r.email ? null : h('small', { class: 'warn', text: t('reps.noemail') });
+    const status = !r.active ? h('small', { text: t('reps.inactive') }) : null;
     const days = r.workdays.map(dayName).join(' ');
     const canTouch = isPlayer || isAdmin(), self = r.id === S.me.viewer.id;
     // How many businesses of the list this rep can pick. None means the city is written another way than in the list.
     const leads = !isPlayer || !team.leadCount || !r.active ? null : r.leadsInCity ? h('small', { text: t('reps.leads', { n: r.leadsInCity }) }) : h('small', { class: 'warn', text: t('reps.leads.none') });
     return h('li', {},
-      h('span', { class: 'pers' }, face(r), h('span', { class: 'pt' }, h('b', { text: r.name }), r.email ? h('small', { class: 'mail', text: r.email }) : null, h('small', { text: `${isPlayer ? '' : `${t(`role.${r.role}`)} · `}${cityName(r.city)} · ${t('reps.start', { date: dayMonth(r.startDate) })} · ${days}` }), status, leads)),
+      h('span', { class: 'pers' }, face(r), h('span', { class: 'pt' }, h('b', { text: r.name }), r.email ? h('small', { class: 'mail', text: r.email }) : h('span', { class: 'chip ghost noacc', text: t('reps.noaccess') }), h('small', { text: `${isPlayer ? '' : `${t(`role.${r.role}`)} · `}${cityName(r.city)} · ${t('reps.start', { date: dayMonth(r.startDate) })} · ${days}` }), status, leads)),
       h('span', { class: 'acts' },
         isPlayer ? h('a', { class: 'mini-btn', href: `?as=${encodeURIComponent(r.id)}`, 'data-as': r.id, onclick: openAs, text: t('mgr.viewas', { name: r.first }) }) : null,
         // A rep is edited by any manager; a manager or an admin, by an admin, and never by themselves.

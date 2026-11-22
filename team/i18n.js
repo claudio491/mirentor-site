@@ -29,7 +29,10 @@ const es = {
   'gate.error.title': 'no cargó.', 'gate.retry': 'Volver a intentar', 'gate.enter': 'Entrar', 'gate.switch': 'Entrar con otra cuenta',
   'profile.account': 'Cuenta: {email}',
   'reps.form.email': 'Correo de Mirentor', 'reps.form.email.hint': 'Con esa cuenta de Google entra. No hay clave que compartir.',
-  'reps.added': '{name} ya puede entrar con su cuenta de Google.', 'reps.noemail': 'Falta su correo: todavía no puede entrar.',
+  'reps.added': '{name} ya puede entrar con su cuenta de Google.', 'reps.noaccess': 'Sin acceso', 'reps.added.noaccess': '{name} ya está en el equipo, sin acceso por ahora.',
+  'reps.form.access': 'Acceso', 'reps.form.access.mail': 'Entra con su correo de Mirentor', 'reps.form.access.none': 'Sin acceso por ahora',
+  'reps.form.access.hint': 'Sin acceso, aparece en el equipo y sus números cuentan, pero nadie entra como esa persona hasta que le des un correo.',
+  'reps.form.email.give': 'Dar acceso: correo de Mirentor',
 
   'err.origin': 'Abre la app desde su dirección oficial.',
   'err.content_type': 'La app envió algo que el servidor no entiende. Recarga la página.',
@@ -640,7 +643,10 @@ const en = {
   'gate.error.title': 'did not load.', 'gate.retry': 'Try again', 'gate.enter': 'Sign in', 'gate.switch': 'Use another account',
   'profile.account': 'Account: {email}',
   'reps.form.email': 'Mirentor email', 'reps.form.email.hint': 'They sign in with that Google account. There is no password to share.',
-  'reps.added': '{name} can now sign in with their Google account.', 'reps.noemail': 'No email yet: they cannot sign in.',
+  'reps.added': '{name} can now sign in with their Google account.', 'reps.noaccess': 'No access', 'reps.added.noaccess': '{name} is on the team, with no access for now.',
+  'reps.form.access': 'Access', 'reps.form.access.mail': 'Signs in with their Mirentor email', 'reps.form.access.none': 'No access for now',
+  'reps.form.access.hint': 'With no access, they show on the team and their numbers count, but nobody signs in as them until you add an email.',
+  'reps.form.email.give': 'Give access: Mirentor email',
 
   'err.origin': 'Open the app from its official address.',
   'err.content_type': 'The app sent something the server does not understand. Reload the page.',

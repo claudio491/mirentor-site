@@ -122,5 +122,12 @@ export function siteReps(team, viewerId) {
 /** Which roles the person form lists. Only an admin chooses one, and only an admin can make a leader. */
 export const roleOptions = (viewerRole) => (viewerRole === 'admin' ? ['rep', 'manager', 'admin', 'leader'] : []);
 
+/** The body of POST reps. "No access for now" sends `access: 'none'` with no email and no role: the server makes a rep
+ *  nobody signs in as until a manager adds an email. Otherwise the email path, as before. */
+export function newRepBody(v) {
+  const base = { name: v.name, city: v.city, country: v.country, startDate: v.startDate, workdays: v.workdays };
+  return v.access === 'none' ? { access: 'none', ...base } : { email: v.email, ...base, role: v.role };
+}
+
 /** The address of a site's record, relative to the page. */
 export const recordUrl = (siteId) => `api/site/${encodeURIComponent(siteId)}/record.csv`;

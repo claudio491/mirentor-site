@@ -445,6 +445,8 @@ dialog.sheet.closing::backdrop{opacity:0}
 .items .pers{display:flex;align-items:center;gap:12px;min-width:0}
 .items .pers .pt{min-width:0}
 .items li small.warn{color:var(--porcelain)}
+/* A real rep nobody signs in as yet: a small HUD chip where the email would be. */
+.items li .chip.noacc{min-height:22px;margin:3px 0 2px;padding:3px 8px;font-size:11.5px;color:var(--porcelain)}
 .items li small.warn::before{content:"";display:inline-block;width:7px;height:7px;margin-right:8px;border-radius:50%;background:var(--signal);vertical-align:1px}
 .items .acts{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
 .items .msg{grid-column:1 / -1;padding:10px 12px;border-left:1px solid var(--hair);color:var(--porcelain);font-size:14px;line-height:1.4}
