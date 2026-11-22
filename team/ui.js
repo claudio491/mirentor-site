@@ -1,7 +1,7 @@
 // ui.js: the small tools every screen uses. Elements are always built node by node, never from a string of markup,
 // so a name or a note typed by a person can never become part of the page's structure.
 import { DICT, LANGS, LOCALE, makeT } from './i18n.js';
-import { countFrame } from './moments.js';
+import { countFrame, dayOnly } from './moments.js';
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -99,8 +99,11 @@ export function hourName(hhmm) {
   const [H, M] = String(hhmm).split(':').map(Number), h12 = H % 12 || 12;
   return `${h12}${M ? `:${String(M).padStart(2, '0')}` : ''} ${H < 12 ? 'am' : 'pm'}`;
 }
-export const stamp = (iso, tz) => { const d = dayOf(iso, tz); return `${wdShort(d)} ${dayMonth(d)} · ${clock(iso, tz)}`; };
+/** A row from the CRM comes as its day alone: the day, and where it came from in place of a time. */
+const crmStamp = (day) => `${wdShort(day)} ${dayMonth(day)} · ${T('time.crm')}`;
+export const stamp = (iso, tz) => { if (dayOnly(iso)) return crmStamp(iso); const d = dayOf(iso, tz); return `${wdShort(d)} ${dayMonth(d)} · ${clock(iso, tz)}`; };
 export function ago(iso, nowIso, tz) {
+  if (dayOnly(iso)) return crmStamp(iso);
   const mins = Math.max(0, Math.round((Date.parse(nowIso) - Date.parse(iso)) / 60000)), day = dayOf(iso, tz), today = dayOf(nowIso, tz);
   if (mins < 1) return T('time.now');
   if (mins < 60) return T('time.min', { n: mins });

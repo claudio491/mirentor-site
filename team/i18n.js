@@ -15,7 +15,7 @@ const es = {
   'u.sites': ['{n} sitio', '{n} sitios'], 'u.meetings': ['{n} reunión', '{n} reuniones'],
   'city.Panama City': 'Ciudad de Panamá', 'city.Colon': 'Colón', 'city.Medellin': 'Medellín', 'city.Bogota': 'Bogotá', 'city.Cali': 'Cali', 'city.David': 'David',
   'country.PA': 'Panamá', 'country.CO': 'Colombia',
-  'time.now': 'ahora', 'time.min': 'hace {n} min', 'time.h': 'hace {n} h', 'time.yesterday': 'ayer', 'time.week': 'Semana {n}', 'time.range': '{a} al {b}',
+  'time.now': 'ahora', 'time.min': 'hace {n} min', 'time.h': 'hace {n} h', 'time.yesterday': 'ayer', 'time.crm': 'desde el CRM', 'time.week': 'Semana {n}', 'time.range': '{a} al {b}',
   // ---- errors: one line per refusal the server can answer ----
   'err.offline': 'Sin señal. Revisa tu conexión y vuelve a intentar.',
   'err.unknown': 'Algo falló de nuestro lado. Vuelve a intentar en un momento.',
@@ -629,7 +629,7 @@ const en = {
   'u.sites': ['{n} site', '{n} sites'], 'u.meetings': ['{n} meeting', '{n} meetings'],
   'city.Panama City': 'Panama City', 'city.Colon': 'Colón', 'city.Medellin': 'Medellín', 'city.Bogota': 'Bogotá', 'city.Cali': 'Cali', 'city.David': 'David',
   'country.PA': 'Panama', 'country.CO': 'Colombia',
-  'time.now': 'just now', 'time.min': '{n} min ago', 'time.h': '{n} h ago', 'time.yesterday': 'yesterday', 'time.week': 'Week {n}', 'time.range': '{a} to {b}',
+  'time.now': 'just now', 'time.min': '{n} min ago', 'time.h': '{n} h ago', 'time.yesterday': 'yesterday', 'time.crm': 'from the CRM', 'time.week': 'Week {n}', 'time.range': '{a} to {b}',
   // ---- errors ----
   'err.offline': 'No signal. Check your connection and try again.',
   'err.unknown': 'Something failed on our side. Try again in a moment.',

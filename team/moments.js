@@ -12,6 +12,9 @@ export function entrance({ lastDay = null, lastId = null, today, id }) {
 /** Which greeting an hour asks for, from the minutes since midnight. */
 export const dayPart = (minutes) => (minutes < 12 * 60 ? 'morning' : minutes < 19 * 60 ? 'afternoon' : 'evening');
 
+/** A moment the server gives as a day alone (YYYY-MM-DD): a row from the CRM, which has no time of its own. */
+export const dayOnly = (at) => typeof at === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(at);
+
 /** The minutes since midnight of a moment in a time zone. */
 export function localMinutes(iso, tz) {
   const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
