@@ -111,7 +111,9 @@ test('nobody signs in as the practice rep, and it gives no kudos', async (t) => 
   const { s, a, ana, create, asP } = await setup(t);
   const P = (await create()).json.practice.id;
   await s.call('POST', `${API}/log`, logBody('ana-log-0000001'), { cookie: ana.cookie });
-  const item = (await s.call('GET', asP('me', P), undefined, { cookie: a.cookie })).json.feed.find((f) => f.rep === ana.id);
+  // the practice rep's own feed holds practice lines only (Task 15): the real line is read from the manager's own screens
+  const item = (await s.call('GET', `${API}/me`, undefined, { cookie: a.cookie })).json.feed.find((f) => f.rep === ana.id);
+  assert.equal((await s.call('GET', asP('me', P), undefined, { cookie: a.cookie })).json.feed.some((f) => f.rep === ana.id), false);
   const clap = await s.call('POST', asP('kudos', P), { target: item.id }, { cookie: a.cookie });
   assert.deepEqual([clap.status, clap.json.error], [403, 'read_only']);
   assert.equal(s.lines().some((e) => e.type === 'kudos'), false);
