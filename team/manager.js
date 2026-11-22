@@ -306,9 +306,12 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     const rows = team.example.map((r) => h('li', { 'data-example': r.example },
       h('span', { class: 'pers' }, face(r), h('span', { class: 'pt' }, h('b', {}, r.name, ' ', h('span', { class: 'chip inst-prac', text: t('install.practice') })), h('small', { text: r.isNew ? t('table.new') : cityName(r.city) || t('install.practice') }))),
       h('span', { class: 'acts' }, h('a', { class: 'mini-btn primary', 'data-act': 'example-view', href: `?as=${encodeURIComponent(r.id)}`, 'data-as': r.id, onclick: openAs, text: t('reps.example.view', { name: r.name }) }))));
+    // a team made for an earlier day: one press brings it to today's week (the old one goes whole, today's comes in)
+    const refresh = acts.includes('refresh') ? h('li', { 'data-example': 'stale' }, h('span', { class: 'pers' }, h('span', { class: 'pt' }, h('b', { text: t('reps.example.stale') }), h('small', { text: t('reps.example.stale.p') }))),
+      h('span', { class: 'acts' }, h('button', { class: 'mini-btn primary', type: 'button', 'data-act': 'example-refresh', text: t('reps.example.refresh'), onclick: (e) => act(e.currentTarget, () => api('POST', 'practice/example', {}), 'reps.example.refreshed') }))) : null;
     const remove = h('li', {}, h('span', { class: 'pers' }, h('span', { class: 'pt' }, h('small', { text: t('reps.example.p') }))),
       h('span', { class: 'acts' }, h('button', { class: 'mini-btn', type: 'button', 'data-act': 'example-remove', text: t('reps.example.remove'), onclick: (e) => { const b = e.currentTarget; twice(b, 'reps.example.remove.confirm', () => act(b, () => api('POST', 'practice/example/remove', {}), 'reps.example.removed')); } })));
-    return [...rows, remove];
+    return [refresh, ...rows, remove].filter(Boolean);
   }
   /** What a rep earns per accepted hour. Everyone sees it; only an admin sets it. */
   function payLine() {

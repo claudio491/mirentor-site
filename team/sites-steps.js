@@ -19,12 +19,16 @@ export const paySource = (minutes, rate, t) => (rate == null ? t('pay.src.none')
 /** A teammate's line on the table: active sites, the week's accepted hours, the week's earnings. */
 export function mateLine(entry, t) {
   if (!entry) return null;
-  return [t('u.sites', { n: entry.sites.length }), hm(entry.minutes || 0), money(entry.cents, t)].join(' · ');
+  return [t('u.active', { n: entry.sites.length }), hm(entry.minutes || 0), money(entry.cents, t)].join(' · ');
 }
+
+/** What sites voided this week still bring, as its own line, so the rows and this line add up to the week's total.
+ *  Null when there is none. */
+export const goneLine = (gone, t) => (gone && gone.minutes > 0 ? t('sites.gone', { h: hm(gone.minutes), m: money(gone.cents, t) }) : null);
 
 /** A teammate's card: each active site by name with its workers counted and its hours, the week's total and its source. */
 export function mateCard(entry, rate, t) {
-  return { sites: entry.sites.map((x) => ({ name: x.name, line: `${t('mate.workers', { n: x.workers })} · ${hm(x.minutes || 0)}` })),
+  return { gone: goneLine(entry.gone, t), sites: entry.sites.map((x) => ({ name: x.name, line: `${t('mate.workers', { n: x.workers })} · ${hm(x.minutes || 0)}` })),
     hours: hm(entry.minutes || 0), total: money(entry.cents, t), source: paySource(entry.minutes, entry.cents == null ? null : rate, t) };
 }
 

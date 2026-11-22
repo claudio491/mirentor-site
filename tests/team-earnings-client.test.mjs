@@ -28,9 +28,9 @@ test('the source of an amount: hours accepted times the rate; with no rate, it s
 
 test('a teammate\'s line on the table and their card: sites counted, the week\'s hours, earnings or "monto por definir"', () => {
   const crew = { id: 'r_b', sites: [{ name: 'Sitio de ejemplo 3', workers: 3, minutes: 640 }], minutes: 640, cents: 1067 };
-  assert.equal(mateLine(crew, es), '1 sitio · 10 h 40 min · US$10.67');
-  assert.equal(mateLine({ ...crew, cents: null }, en), '1 site · 10 h 40 min · amount to be defined');
-  assert.equal(mateLine({ id: 'r_d', sites: [], minutes: 0, cents: 0 }, es), '0 sitios · 0 min · US$0.00');
+  assert.equal(mateLine(crew, es), '1 sitio activo · 10 h 40 min · US$10.67');
+  assert.equal(mateLine({ ...crew, cents: null }, en), '1 active site · 10 h 40 min · amount to be defined');
+  assert.equal(mateLine({ id: 'r_d', sites: [], minutes: 0, cents: 0 }, es), '0 sitios activos · 0 min · US$0.00');
   assert.equal(mateLine(null, es), null, 'no entry: no line');
   const card = mateCard(crew, 100, es);
   assert.deepEqual(card.sites, [{ name: 'Sitio de ejemplo 3', line: '3 trabajadores · 10 h 40 min' }]);

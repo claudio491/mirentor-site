@@ -41,10 +41,12 @@ export function practiceActions(team, role) {
 }
 
 /** The example team's row of the Vendedores screen, for a manager or an admin: load it when there is none; view each of
- *  the four and remove them all (two taps) when there is. */
+ *  the four and remove them all (two taps) when there is; and update it when it was made for an earlier day (its week
+ *  is not this one). */
 export function exampleActions(team, role) {
   if (!team || (role !== 'manager' && role !== 'admin')) return [];
-  return Array.isArray(team.example) && team.example.length ? ['view', 'remove'] : ['load'];
+  if (!(Array.isArray(team.example) && team.example.length)) return ['load'];
+  return team.exampleStale ? ['view', 'refresh', 'remove'] : ['view', 'remove'];
 }
 
 /** Whether a closed day stops a new log. It does on every rep's screens but the practice rep's: a demonstration goes

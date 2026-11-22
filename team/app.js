@@ -120,7 +120,10 @@ function renderTop() {
   for (const b of $$('#langSeg button')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang()));
   $('#asBar').hidden = !S.as;
   // the practice rep says so on every screen: its chip and one line that nothing here counts
-  if (S.as && S.me) put($('#asText'), ...(mode() === 'practice' ? [h('span', { class: 'chip inst-prac', text: t('install.practice') }), ' ', S.me.me.example ? t('top.practice.example', { name: S.me.me.name }) : t('top.practice')] : [t('top.viewAs', { name: S.me.me.name })]));
+  // (on a phone the bar stays in view while the screen scrolls, so it says the same in one short line)
+  const pracName = S.me && S.me.me.example ? S.me.me.name : t('reps.practice.name');
+  if (S.as && S.me) put($('#asText'), ...(mode() === 'practice' ? [h('span', { class: 'chip inst-prac', text: t('install.practice') }), ' ',
+    h('span', { class: 'as-long', text: S.me.me.example ? t('top.practice.example', { name: S.me.me.name }) : t('top.practice') }), h('span', { class: 'as-short', text: t('top.practice.short', { name: pracName }) })] : [t('top.viewAs', { name: S.me.me.name })]));
   $('#asBar').classList.toggle('prac', !!S.as && mode() === 'practice');
 }
 function renderNav() {
@@ -476,7 +479,9 @@ function paintMate(btn, r) {
   const entry = (S.me.crew || []).find((c) => c.id === r.id), line = mateLine(entry, t);
   btn.hidden = !line;
   if (!line) return;
-  btn.textContent = line;
+  // each figure stays whole and a wrapped line never starts with its separator
+  const parts = line.split(' · ');
+  btn.replaceChildren(...parts.flatMap((x, i) => [h('span', { class: 'ml-p', text: i < parts.length - 1 ? `${x} ·` : x }), i < parts.length - 1 ? ' ' : null]).filter(Boolean));
   btn.setAttribute('aria-label', `${line}. ${t('mate.open.aria', { name: r.name })}`);
   btn.onclick = (e) => { e.stopPropagation(); if (r.mine || r.id === S.me.me.id) sites.open('table'); else sites.mate(r.id, r.name); };
 }
@@ -1171,6 +1176,9 @@ const leader = createLeader({ api, S, errText, setTab });
 const sites = createSites({ api, S, errText, adopt, renderAll, setTab, openInstall: (id, from, to) => install.open(id, from, to) });
 function wire() {
   initPop(); initSheets(); install.wire(); ladder.wire(); route.wire(); leader.wire(); docs.wire(); sites.wire();
+  // the top bar's height, for what sticks under it (the practice bar) and for scrolling a heading into view below it
+  const topBar = $('.top');
+  if (topBar && 'ResizeObserver' in window) new ResizeObserver(() => document.documentElement.style.setProperty('--top-h', `${topBar.offsetHeight}px`)).observe(topBar);
   $('#sitesCard').addEventListener('click', () => sites.open('today'));
   $('#docsCard').addEventListener('click', () => docs.open('today'));
   $('#docsBtn').addEventListener('click', () => docs.open('team'));

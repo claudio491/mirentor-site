@@ -5,7 +5,7 @@
 // Every amount comes as cents from the server and becomes words in sites-steps.js; none is computed here.
 import { $, $$, h, put, t, giant, toast, src, formSheet, reduce, quiet, dayMonth } from './ui.js';
 import { reveal, stagger } from './fx.js';
-import { money, paySource, mateCard, siteRows, hasSites } from './sites-steps.js';
+import { money, paySource, mateCard, siteRows, hasSites, goneLine } from './sites-steps.js';
 import { siteHoursBody, recentMondays } from './manager-steps.js';
 import { actingMode, readOnlyIn } from './practice-steps.js';
 import { hm } from './leader-steps.js';
@@ -35,7 +35,9 @@ export function createSites({ api, S, errText, adopt, renderAll, setTab, openIns
     $('#stSupport').textContent = t('sites.support', { h: hm(earn.week.minutes || 0), l: hm(earn.last.minutes || 0) });
     $('#stRO').hidden = !readOnly();
     $('#stEmpty').hidden = rows.length > 0;
-    put($('#stList'), rows.map((r, i) => zone(r, i)));
+    // a site voided this week still brings what was recorded for it: its own line, so the rows add up to the headline
+    const gone = goneLine(earn.week.gone, t);
+    put($('#stList'), [...rows.map((r, i) => zone(r, i)), gone ? h('p', { class: 'note sa-gone', text: gone }) : null].filter(Boolean));
   }
 
   function zone(r, i) {
@@ -78,6 +80,7 @@ export function createSites({ api, S, errText, adopt, renderAll, setTab, openIns
       card.sites.length ? h('ul', { class: 'inst-rows' }, card.sites.map((x) => h('li', { class: 'inst-row two' }, h('span', { class: 'inst-n' }, h('b', { text: x.name }), h('small', { text: x.line }))))) : h('p', { class: 'note', text: t('mate.none') }),
       h('div', { class: 'sa-figs' }, h('div', { class: 'sa-fig' }, h('span', { class: 'label', text: t('sites.h.week') }), h('b', { class: 'num', text: card.hours })),
         h('div', { class: 'sa-fig earn' }, h('span', { class: 'label', text: t('mate.total') }), h('b', { class: 'num', text: card.total }))),
+      card.gone ? h('p', { class: 'note sa-gone', text: card.gone }) : null,
       h('p', { class: 'note sa-src', text: card.source }));
     formSheet({ title: name, intro: t('mate.intro'), body, submit: t('c.close'), onSubmit: async () => false });
   }

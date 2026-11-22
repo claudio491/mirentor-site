@@ -96,6 +96,12 @@ svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;st
 .screen>.giant,.mh-a>.giant,.col-a>.giant{margin-top:4px}
 .screen>.support,.mh-a>.support,.col-a>.support{margin-top:12px}
 .asbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;padding:8px 8px 8px 14px;border:1px solid var(--signal);border-radius:var(--r-input);background:rgba(255,90,54,.08);font-weight:500;font-size:14px}
+/* acting as someone, the bar stays in view while the screen scrolls: opaque, above the content, under the top bar on a wide screen */
+.asbar{position:sticky;top:calc(6px + env(safe-area-inset-top));z-index:6;background:linear-gradient(rgba(255,90,54,.08),rgba(255,90,54,.08)),var(--graphite);box-shadow:0 6px 14px rgba(27,29,32,.85)}
+html:has(#asBar:not([hidden])){scroll-padding-top:84px}
+.asbar::before{content:"";position:absolute;left:-1px;right:-1px;bottom:calc(100% + 1px);height:calc(7px + env(safe-area-inset-top));background:var(--graphite)}
+.asbar .as-short{display:none}
+@media (max-width:719px){.asbar .as-long{display:none}.asbar .as-short{display:inline}}
 .boot{display:grid;place-items:center;min-height:60dvh;color:var(--mist)}
 .boot i{width:13px;height:13px;border-radius:50%;background:var(--signal);animation:bootpulse 1.2s ease-in-out infinite}
 @keyframes bootpulse{50%{opacity:.25}}
@@ -594,6 +600,10 @@ html.greeting{overflow:hidden}
   .top>.nav .tab .count{position:static;margin-left:-2px}
   .top>.nav .log{height:40px;margin-left:2px;padding:0 18px}
   .toast{top:78px}
+  .asbar{top:calc(var(--top-h,68px) + 8px)}
+  .asbar::before{height:9px}
+  html{scroll-padding-top:calc(var(--top-h,68px) + 16px)}
+  html:has(#asBar:not([hidden])){scroll-padding-top:calc(var(--top-h,68px) + 76px)}
 }
 @media (min-width:980px){
   .greet{grid-template-columns:auto minmax(0,560px);column-gap:72px;justify-content:center;align-items:center;padding:40px}
@@ -1338,6 +1348,7 @@ html.greeting{overflow:hidden}
 .sa-mate .sa-figs{grid-template-columns:repeat(2,minmax(0,1fr))}
 .sa-src{margin-top:10px}
 .trow .who .mate-ln{all:unset;box-sizing:border-box;display:block;max-width:100%;margin-top:3px;cursor:pointer;font:500 12.5px/1.35 var(--mono);color:var(--porcelain);opacity:.86;font-variant-numeric:tabular-nums;white-space:normal;overflow-wrap:anywhere}
+.trow .who .mate-ln .ml-p{white-space:nowrap}
 .trow .who .mate-ln:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
 @media (hover:hover) and (pointer:fine){.trow .who .mate-ln:hover{opacity:1;text-decoration:underline;text-underline-offset:3px}}
 .ld-earn{margin-top:10px;font-size:13.5px;line-height:1.35}
