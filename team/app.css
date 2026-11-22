@@ -1175,6 +1175,13 @@ html.greeting{overflow:hidden}
   .lad .inst-zones{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 }
 @media (min-width:1080px){.z-hoy>.lad-card{grid-row:9}}
+/* the site's route: the ladder's screen with six stops; on porcelain the tag of the stop to do is drawn in ink */
+.rt-row .inst-tag{align-self:start;margin-top:2px}
+.inst-prep .rt-row .inst-tag.ok{background:var(--graphite);color:var(--porcelain)}
+.inst-prep .rt-row .inst-tag.miss{box-shadow:inset 0 0 0 1px var(--signal-ink);color:var(--signal-ink)}
+.rt-way .inst-tag{grid-row:1 / span 2;align-self:center}
+.rt-card .rt-more{margin-top:10px;border-color:rgba(27,29,32,.24);color:var(--graphite)}
+@media (min-width:1080px){.z-hoy>.rt-card{grid-row:9}.z-hoy>.lad-card:not(.rt-card){grid-row:10}}
 
 /* =====================================================================================================================
    THE LEADERSHIP VIEW. One page, read only, read on a Monday. The hours lead on the deep ground: the headline is the

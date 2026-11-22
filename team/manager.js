@@ -162,9 +162,15 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       h('span', {}, h('b', { text: x.name }), h('small', { text: t('needs.pace.item', { a: x.marks, b: x.possible }) })),
       h('span', { class: 'acts' }, copyBtn(msg)), h('p', { class: 'msg', lang: 'es', text: msg })); });
     const sites = team.sites.map(siteItem);
+    // every business of every rep on its way to a site, what waits on a manager first (the server orders it)
+    const ways = (team.routes || []).map((r) => {
+      const rep = repById(r.rep), st = r.complete ? null : r.stops[r.at], stop = st ? t(`route.stop.${st.key}`) : '';
+      const line = !st ? t('needs.ways.done') : st.status === 'wait' ? t('needs.ways.you', { stop }) : t('needs.ways.rep', { name: rep ? rep.first : '', stop });
+      return h('li', {}, h('span', {}, h('b', { text: r.lead.name }), h('small', { text: st ? `${rep ? rep.name : ''} · ${t('ways.stop', { n: r.at + 1, b: r.stops.length, stop })}` : (rep ? rep.name : '') }), h('small', { text: line })));
+    });
     const addSite = h('button', { class: 'btn', type: 'button', id: 'addSiteBtn', text: t('needs.sites.add'), disabled: !siteReps(team, S.me.viewer.id).options.length, onclick: siteForm });
     $('#needsBody').replaceChildren(
-      h('div', {}, group('needs.confirm.title', confirm, 'needs.confirm.empty'), group('needs.late.title', late, 'needs.late.empty'), group('needs.sites.title', sites, 'needs.sites.empty', h('p', { class: 'note' }, addSite), false)),
+      h('div', {}, group('needs.confirm.title', confirm, 'needs.confirm.empty'), group('needs.late.title', late, 'needs.late.empty'), group('needs.sites.title', sites, 'needs.sites.empty', h('p', { class: 'note' }, addSite), false), group('needs.ways.title', ways, 'needs.ways.empty')),
       h('div', {}, group('needs.silent.title', silent, 'needs.silent.empty'), group('needs.pace.title', pace, 'needs.pace.empty'), (silent.length || pace.length) ? h('p', { class: 'note', text: t('needs.msg.note') }) : null));
   }
 
@@ -183,7 +189,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     const btn = (key, cls, run) => h('button', { class: cls ? `mini-btn ${cls}` : 'mini-btn', type: 'button', 'data-act': kind, text: t(key), onclick: run });
     if (kind === 'install') return btn('site.act.install', '', () => openInstall(s.id));
     if (kind === 'phones') return btn('site.act.phones', '', () => phonesArrived(s));
-    if (kind === 'confirm') return btn('site.act.confirm', 'primary', (e) => act(e.currentTarget, () => siteCall(s.id, { what: 'installed' }), 'site.confirmed'));
+    if (kind === 'confirm') return btn('site.act.confirm', 'primary', (e) => act(e.currentTarget, () => siteCall(s.id, { what: 'installed' }), s.practice ? 'route.prac.saved' : 'site.confirmed'));   // a practice site counts in no total
     if (kind === 'installed' || kind === 'first_hour') return btn(`needs.sites.mark.${kind}`, '', (e) => act(e.currentTarget, () => siteCall(s.id, { what: kind }), 'needs.sites.done'));
     if (kind === 'record') return h('a', { class: 'mini-btn', 'data-act': kind, href: recordUrl(s.id), download: `record-${s.id}.csv`, text: t('site.act.record') });
     if (kind === 'remove') return btn('site.act.remove', '', (e) => { const b = e.currentTarget; twice(b, 'site.act.remove.confirm', () => act(b, () => siteCall(s.id, { what: 'remove' }), 'site.removed')); });

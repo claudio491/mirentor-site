@@ -95,6 +95,7 @@
       <button class="btn" type="button" id="closeBtn"></button>
     </section>
     <section class="card light inst-card" id="installCard" hidden aria-labelledby="icName"></section>
+    <section class="card light inst-card lad-card rt-card" id="routeCard" hidden aria-labelledby="rtCardName"></section>
     <section class="card light inst-card lad-card" id="ladderCard" hidden aria-labelledby="ladCardName"></section>
     <button class="btn wide lad-learn doc-entry" type="button" id="docsCard" hidden></button>
   </section>
@@ -384,6 +385,50 @@
     <div class="inst-zones lrn-zones">
       <section class="inst-zone inst-crew" data-t-aria="learn.list.aria">
         <ul class="inst-rows" id="lrnList"></ul>
+      </section>
+    </div>
+  </section>
+
+  <!-- THE SITE'S ROUTE: six stops from an interested business to a site that records. The contract on porcelain, the
+       site on graphite; the stop to do open with what it asks for. Acting as the practice rep, the stops that wait on a
+       manager offer the manager's part, labeled practice. -->
+  <section class="screen inst lad" id="s-route" hidden aria-labelledby="rtGiant">
+    <div class="inst-head">
+      <div class="inst-a">
+        <div class="hud-row"><button class="mini-btn inst-back" type="button" id="rtBack" data-t="install.back"></button><span class="chip"><i class="dot"></i><span id="rtName"></span></span><span class="chip inst-prac" id="rtPractice" hidden data-t="install.practice"></span></div>
+        <p class="lead" id="rtLead"></p>
+        <h1 class="giant" id="rtGiant"></h1>
+        <p class="support" id="rtSupport"></p>
+        <p class="note inst-pnote" id="rtPracNote" hidden data-t="route.prac.note"></p>
+        <p class="note inst-ro" id="rtRO" hidden data-t="route.ro"></p>
+      </div>
+      <div class="lad-prog">
+        <div class="inst-meter lad-meter" id="rtMeter" role="img"></div>
+        <p class="label inst-mt" id="rtMeterT"></p>
+      </div>
+    </div>
+    <div class="inst-zones">
+      <section class="inst-zone inst-prep" id="rtDealZone" aria-labelledby="rtDealH">
+        <div class="inst-zh"><b class="inst-k" aria-hidden="true">01</b><h2 id="rtDealH" data-t="route.zone.deal"></h2><span class="label num" id="rtDealCount"></span></div>
+        <ul class="inst-rows" id="rtDeal"></ul>
+      </section>
+      <section class="inst-zone inst-crew" id="rtSiteZone" aria-labelledby="rtSiteH">
+        <div class="inst-zh"><b class="inst-k" aria-hidden="true">02</b><h2 id="rtSiteH" data-t="route.zone.site"></h2><span class="label num" id="rtSiteCount"></span></div>
+        <ul class="inst-rows" id="rtSite"></ul>
+      </section>
+    </div>
+  </section>
+
+  <!-- MY SITES ON THE WAY: every business from the meeting on, with the stop it is at. A tap opens its route. -->
+  <section class="screen inst" id="s-ways" hidden aria-labelledby="wyGiant">
+    <div class="hud-row"><button class="mini-btn inst-back" type="button" id="wyBack" data-t="install.back"></button><span class="chip"><i class="dot"></i><span data-t="ways.chip"></span></span><span class="chip ghost" id="wyCount"></span></div>
+    <p class="lead" data-t="ways.lead"></p>
+    <h1 class="giant" id="wyGiant"></h1>
+    <p class="support" id="wySupport"></p>
+    <p class="note inst-ro" id="wyRO" hidden data-t="route.ro"></p>
+    <div class="inst-zones lrn-zones">
+      <section class="inst-zone inst-crew" data-t-aria="ways.chip">
+        <ul class="inst-rows" id="wyList"></ul>
       </section>
     </div>
   </section>

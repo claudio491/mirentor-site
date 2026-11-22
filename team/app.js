@@ -14,6 +14,7 @@ import { createInstall } from './install.js';
 import { createLadder } from './ladder.js';
 import { createLeader } from './leader.js';
 import { createDocs } from './docs.js';
+import { createRoute } from './route.js';
 import { shellFor } from './leader-steps.js';
 import { verdict, mine as waitingOf, requestTimeout } from './queue.js';
 import { sessionMove, HOME, LEAVE } from './door.js';
@@ -55,7 +56,7 @@ const S = { me: null, sig: '', tab: null, docs: [], period: 'week', as: null, mg
   hold: null,     // the stop a log landed on, kept on the stage until its answer has played
   owed: null,     // an answer that waits for a sheet to close
   taught: false };
-const SCREENS = ['boot', 'gate', 'today', 'week', 'table', 'profile', 'team', 'needs', 'reps', 'install', 'worker', 'iclose', 'ladder', 'zones', 'learn', 'lead', 'docs'];
+const SCREENS = ['boot', 'gate', 'today', 'week', 'table', 'profile', 'team', 'needs', 'reps', 'install', 'worker', 'iclose', 'ladder', 'zones', 'learn', 'lead', 'docs', 'route', 'ways'];
 // A rep's three zones. On a wide screen they are one page, a band under the other; anywhere else one shows at a time.
 const BANDS = ['today', 'week', 'table'], WIDE = matchMedia('(min-width:1080px)');
 const banded = () => WIDE.matches && !S.mgr && !S.lead && !!S.me;
@@ -66,6 +67,8 @@ const CHANNELS = { message: ['whatsapp', 'linkedin', 'email', 'sms'], meeting: [
 const TAGGED = new Set(['talk', 'call', 'reply']);
 const TAGS = ['meeting', 'waitlist', 'not_now', 'not_fit', 'not_interested', 'do_not_call'];
 const ONE_LEVEL = new Set(['first_log', 'first_meeting', 'first_site_live']);
+/** The history rows that belong to a business's route: a tap on their button opens it. */
+const ROUTE_CODES = new Set(['meeting_booked', 'meeting_held', 'contract_sent', 'contract_signed', 'site_signed', 'site_installed', 'site_first_hour']);
 const MAIN_KINDS = ['talk', 'absent', 'call', 'message', 'meeting', 'contract'], MORE_KINDS = ['noanswer', 'reply', 'baddata'];
 const LEDGER_RULE = { visit: 'visit', conversation: 'conversation', followup: 'followup', message: 'message', reply: 'reply', meeting_booked: 'meetingBooked', meeting_held: 'meetingHeld',
   contract_sent: 'contractSent', contract_signed: 'contractSigned', site_signed: 'siteSigned', site_installed: 'siteInstalled', site_first_hour: 'siteFirstHour', day_closed: 'dayClosedOnTime' };
@@ -178,7 +181,7 @@ function arrive(name, { fast = false, landed: lensLanded = false } = {}) {
     reveal($('#todayGiant'));
     const dio = $('#dio');
     if (dio.animate) dio.animate([{ opacity: 0, transform: 'translateY(-34px) scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 760, delay: 160, easing: EASE.lock, fill: 'backwards' });
-    stagger(there([$('#stopChip'), $('#stopCopy'), $('#nextBtn'), ...$$('#route .stop'), $('#closeCard'), $('#installCard'), $('#ladderCard')]), { delay: 380, step: 60 });
+    stagger(there([$('#stopChip'), $('#stopCopy'), $('#nextBtn'), ...$$('#route .stop'), $('#closeCard'), $('#installCard'), $('#routeCard'), $('#ladderCard')]), { delay: 380, step: 60 });
     if (!lensLanded) drawIn($('#meLens'), 140);   // after the entrance the lens lands already drawn
     recount($('#ptsN'));
   } else if (name === 'week' && S.me.week) {
@@ -222,6 +225,7 @@ function renderAll(animate = false) {
     if (INSTALL_TABS.has(S.tab)) install.render(false);
     if (LADDER_TABS.has(S.tab)) ladder.render(false);
     if (S.tab === 'docs') docs.render();
+    if (!S.mgr && !S.lead) route.render(false);   // the route last opened, so coming back from its install finds it current
     $('#docsBtn').hidden = !S.mgr;   // a manager's way to the documents; a rep's is on Hoy and in the profile
     // a manager's way to what a new rep sees, on their own account
     $('#previewBtn').hidden = !(S.mgr && Array.isArray(S.me.ladder) && S.me.ladder.length);
@@ -273,6 +277,7 @@ function renderToday(animate) {
   paintStage(animate);
   renderCloseCard();
   install.card($('#installCard'));   // an install that waits: the phones reached the site
+  route.card($('#routeCard'));       // the business furthest along on its route, with something to do now
   ladder.card($('#ladderCard'));     // the first days, while a step is open
   $('#docsCard').hidden = false; docs.entry($('#docsCard'));   // the documents, one tap from Hoy
 }
@@ -729,22 +734,24 @@ function renderProfile() {
         try { const res = await api('POST', 'held', { logId: e.logId }); adopt(res.me); renderAll(false); toast(t('profile.held.toast')); } catch (err) { toast(errText(err)); }
       }) });
     }
+    // a row about a business on its way to a site opens that business's route
+    if (!act && e.lead && ROUTE_CODES.has(e.code)) act = h('button', { class: 'mini-btn', type: 'button', text: t('route.row'), 'aria-label': t('route.row.aria', { lead: e.lead.name }), onclick: () => route.open(e.lead.id, 'profile') });
     return h('li', { class: waiting ? 'pend' : gone ? 'gone' : null }, h('span', { class: 'p', text: `+${num(e.pts)}` }), row, act);
   }));
   $('#ledgerEmpty').hidden = ledger.length > 0;
 
   const box = $('#settings');
   const docsBtn = h('button', { class: 'btn', type: 'button', text: t('docs.chip'), onclick: () => docs.open('profile') });
-  if (mode() === 'practice') put(box, ...ladder.profileButtons(), docsBtn, h('button', { class: 'btn', type: 'button', text: t('profile.rules'), 'data-open': 'rulesSheet' }));
+  if (mode() === 'practice') put(box, ...ladder.profileButtons(), ...route.profileButtons(), docsBtn, h('button', { class: 'btn', type: 'button', text: t('profile.rules'), 'data-open': 'rulesSheet' }));
   else if (may().manage) {
     put(box,
-      ...ladder.profileButtons(), docsBtn,
+      ...ladder.profileButtons(), ...route.profileButtons(), docsBtn,
       h('button', { class: 'btn', type: 'button', text: t('reps.badge'), onclick: () => manager.giveBadge(me) }),
       S.me.today && S.me.today.closed ? h('button', { class: 'btn', type: 'button', text: t('reps.reopen'), onclick: (ev) => manager.reopenDay(ev.currentTarget, me.id, S.me.today.day) }) : null);
   } else {
     // The account is the Google one the person came in with. A copy with no session (the demonstration) has none to show.
     put(box, S.me.viewer.email ? h('div', { class: 'line' }, h('span', { text: t('profile.account', { email: S.me.viewer.email }) })) : null,
-      ...ladder.profileButtons(), docsBtn,
+      ...ladder.profileButtons(), ...route.profileButtons(), docsBtn,
       h('button', { class: 'btn', type: 'button', text: t('profile.rules'), 'data-open': 'rulesSheet' }),
       h('button', { class: 'btn signout', type: 'button', text: t('profile.signout'), onclick: signOut }));
   }
@@ -757,10 +764,14 @@ function renderRules() {
 }
 
 // ---- logging a contact ----
-const L = { lead: null, kind: null, channel: null, voicemail: false, tag: null, contact: '', when: '', note: '', more: false, q: '', found: null, searching: 0 };
-function openLog() {
+const L = { lead: null, kind: null, channel: null, voicemail: false, tag: null, contact: '', when: '', note: '', more: false, q: '', found: null, searching: 0, from: null };
+/** The log sheet. From a business's route it opens with that business and the result already picked, and goes back to
+ *  the route once saved; from anywhere else (a click event is passed then) it opens empty. */
+function openLog(preset = null) {
   if (S.me.today.closed) { toast(t('log.closed')); return; }
-  Object.assign(L, { lead: null, kind: null, channel: null, voicemail: false, tag: null, contact: '', when: '', note: '', more: false, q: '', found: null });
+  const given = preset && preset.lead ? preset : null;
+  Object.assign(L, { lead: null, kind: null, channel: null, voicemail: false, tag: null, contact: '', when: '', note: '', more: false, q: '', found: null, from: null });
+  if (given) Object.assign(L, { lead: { id: given.lead.id, name: given.lead.name, zone: '', known: true }, kind: given.kind, channel: CHANNELS[given.kind] ? CHANNELS[given.kind][0] : null, from: given.from || null });
   $('#leadQ').value = ''; $('#newName').value = ''; $('#newZone').value = '';
   renderLog(); openSheet($('#logSheet'));
 }
@@ -876,7 +887,7 @@ function saveLog() {
   if (L.tag) body.tag = L.tag;
   for (const k of ['contact', 'when', 'note']) if (L[k]) body[k] = L[k];
   return once($('#saveLog'), async () => {
-    closeSheet($('#logSheet')); setTab('today');
+    closeSheet($('#logSheet')); setTab(L.from || 'today');
     toast(`${t('c.saving')}…`);   // on a slow signal the tap is answered at once; the result replaces this line
     try { const res = await api('POST', 'log', body); setTimeout(() => logged(res, body), reduce ? 0 : 260); }
     catch (e) {
@@ -1130,9 +1141,10 @@ const manager = createManager({ api, S, errText, refresh, renderAll, renderFeed,
 const docs = createDocs({ api, S, errText, setTab });
 const install = createInstall({ api, S, errText, refresh, setTab, hooks: docs.hooks });
 const ladder = createLadder({ api, S, errText, adopt, renderAll, setTab, openLog, hooks: docs.hooks });
+const route = createRoute({ api, S, errText, adopt, renderAll, setTab, openLog, openInstall: (id, from) => install.open(id, from), hooks: docs.hooks });
 const leader = createLeader({ api, S, errText, setTab });
 function wire() {
-  initPop(); initSheets(); install.wire(); ladder.wire(); leader.wire(); docs.wire();
+  initPop(); initSheets(); install.wire(); ladder.wire(); route.wire(); leader.wire(); docs.wire();
   $('#docsCard').addEventListener('click', () => docs.open('today'));
   $('#docsBtn').addEventListener('click', () => docs.open('team'));
   $('#ldDocs').addEventListener('click', () => docs.open('lead'));
