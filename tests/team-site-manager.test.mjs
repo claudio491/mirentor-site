@@ -12,7 +12,7 @@ const JPG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]), Bu
 const API = '/equipo/api';
 const W1 = 'w_11111111', W2 = 'w_22222222', W3 = 'w_33333333';
 const IMEI_A = '490154203237518', IMEI_B = '356938035643809';
-const HEADER = 'worker,email,signed_on,form,imei,given_on,returned_on,worker_id,consent';
+const HEADER = 'worker,email,signed_on,form,imei,given_on,returned_on,worker_id,consent,removed_on';
 
 /** An admin, a rep who installs, and a helper that makes a site for that rep. */
 async function setup(t) {
@@ -132,9 +132,9 @@ test('record.csv has one line per worker and phone with consent and is refused t
   const rows = r.text.trim().split('\n');
   assert.equal(rows[0], HEADER);
   assert.equal(rows.length, 4, r.text);
-  assert.equal(rows[1], `"'=HYPERLINK(""http://x"",""clic"")","p1@equipo.test","2026-11-16","v1","${IMEI_A}","2026-11-16","2026-11-16","${W1}","${API}/consent/${W1}"`);
-  assert.ok(rows[2].endsWith(`"${IMEI_B}","2026-11-16","","${W1}","${API}/consent/${W1}"`), rows[2]);
-  assert.equal(rows[3], `"Persona Sin Telefono","p2@equipo.test","2026-11-16","v1","","","","${W2}","${API}/consent/${W2}"`);
+  assert.equal(rows[1], `"'=HYPERLINK(""http://x"",""clic"")","p1@equipo.test","2026-11-16","v1","${IMEI_A}","2026-11-16","2026-11-16","${W1}","${API}/consent/${W1}",""`);
+  assert.ok(rows[2].endsWith(`"${IMEI_B}","2026-11-16","","${W1}","${API}/consent/${W1}",""`), rows[2]);
+  assert.equal(rows[3], `"Persona Sin Telefono","p2@equipo.test","2026-11-16","v1","","","","${W2}","${API}/consent/${W2}",""`);
   const rep = await s.call('GET', `${API}/site/${id}/record.csv`, undefined, { cookie: ana.cookie });
   assert.deepEqual([rep.status, rep.json.error], [403, 'manager_only']);
   const none = await s.call('GET', `${API}/site/${id}/record.csv`);

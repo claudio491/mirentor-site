@@ -55,7 +55,7 @@ test('a name and an email typed wrong are corrected by the site\'s rep or a mana
 });
 
 test('removing a worker who holds a phone is refused until it comes back; then they leave the list and the counts, and their consent stays on disk', async (t) => {
-  const { s, a, beto, lia, call, addWorker, upload, install, count } = await setup(t);
+  const { s, a, beto, lia, siteId, call, addWorker, upload, install, count } = await setup(t);
   for (const w of [W1, W2]) { await addWorker(w); await upload(w); }
   assert.equal((await call('POST', `worker/${W1}/phone`, { imei: IMEI_A })).status, 200);
   const held = await call('POST', `worker/${W1}/remove`, {});
@@ -72,6 +72,17 @@ test('removing a worker who holds a phone is refused until it comes back; then t
   // the consent photo stays on disk and still answers at its address, for the record
   assert.equal(existsSync(path.join(s.dir, 'team', 'consents', `${W1}.jpg`)), true);
   assert.equal((await call('GET', `consent/${W1}`, undefined, a.cookie)).status, 200);
+  // and the site's record still shows who signed, which phone they held and when they left, with the consent's address
+  const rec = (await call('GET', `site/${siteId}/record.csv`, undefined, a.cookie)).text.trim().split('\n');
+  assert.equal(rec[0].split(',').at(-1), 'removed_on');
+  const line = rec.find((l) => l.includes(W1));
+  assert.ok(line, rec.join('\n'));
+  const cells = line.split(',').map((c) => c.replace(/^"|"$/g, ''));
+  assert.equal(cells[4], IMEI_A);
+  assert.ok(cells[5] && cells[6], 'given and returned days stay');
+  assert.ok(cells[8].endsWith(`/consent/${W1}`));
+  assert.match(cells[9], /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(rec.find((l) => l.includes(W2)).split(',')[9].replace(/"/g, ''), '', 'a worker still on the site has no removed day');
   // nothing more is done to a removed worker; the same id again adds nobody
   assert.deepEqual([(await call('POST', `worker/${W1}/edit`, { name: 'Persona Uno', email: 'p1@equipo.test' })).status], [404]);
   assert.deepEqual([(await call('POST', `worker/${W1}/remove`, {})).status], [404]);
