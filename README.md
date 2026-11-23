@@ -82,7 +82,7 @@ Where the field sales reps log each contact and see their own numbers, and where
 | Anyone on the team | `GET photo/<person id>` |
 | A rep | `GET me`, `GET leads?q=`, `POST log`, `POST close {tomorrow, blocker, preview?}`, `POST goal {k}`, `POST kudos {target, on}`, `POST play {logId, text}`, `POST held {logId}`, `POST lang {lang}` |
 | A manager | `GET me?as=<rep id>` (read only), `GET team`, `POST confirm {logId, what, undo?}`, `POST void {logId, reason}`, `POST reopen {rep, day}`, `POST reps {email, name, city, ...}`, `POST reps/<id> {patch}`, `POST dayoff {scope, date}`, `POST site {id?, rep, lead}`, `POST site/<id> {what}`, `POST badge {rep, text}` |
-| The bearer token | `POST bootstrap {email, name}`, `PUT leads [...]` (`?force=1`), `GET export?since=<iso>`, `POST leadmap {pairs}`, `PUT photo/<person id> {type, data}`, `DELETE photo/<person id>` |
+| The bearer token | `POST bootstrap {email, name}`, `PUT leads [...]` (`?force=1`), `GET export?since=<iso>`, `GET sitereports?since=<iso>`, `POST leadmap {pairs}`, `PUT photo/<person id> {type, data}`, `DELETE photo/<person id>` |
 
 - `POST log {id, lead: {id} or {name, zone}, kind, channel?, tag?, note?, contact?, when?, voicemail?, clientAt}` answers
   `{repeat, updated, gained, pending, tookLead, streakUp, me}`. The `id` is made on the phone, so a retry never counts
@@ -97,6 +97,17 @@ Where the field sales reps log each contact and see their own numbers, and where
 - `POST confirm` takes `what` as `meeting_held`, `contract_sent` or `contract_signed`; `undo: true` takes one back. A
   meeting waits for its confirmation from the day of the meeting, not from the day it was booked. Once the wait is
   over the part earns nothing and a late confirmation answers `409 expired`.
+- The daily site report ("Reporte del día", `lib/team/report.mjs`, form in `team/report.js`): `GET site/<id>/report`
+  answers the site's local day, what the app prefills (people and iPhones working tonight = workers holding a phone on
+  the site; the site; the sender's name as City Lead) and today's report if sent. `POST site/<id>/report` takes
+  `{people, delivered, accepted, phones|headsets|batteries|cords: {out, back, broken, working}, surge: {working, broken},
+  sets, allOk, missing, need, notes}`. Its rep or a manager or an admin, on a site that is installed or legacy and not
+  voided (`409 not_live` otherwise); a leader is refused. One per site and local day: a second one the same day is a new
+  event that replaces the first. Hours are optional (empty stays empty, never 0), from 0 to 24 per person, accepted no
+  more than delivered. Hoy reminds a rep from 5 pm local time while a live site has no report today.
+- `GET sitereports?since=<iso>` (bearer token) answers `{ok, since, until, headers, rows, ids}` for the ops lead's sheet:
+  `headers` is the sheet's 31 column names, each row the newest report of a site and day written since `since` (a report
+  changed later comes back), `ids[i]` is `<site id>|<day>|<event id>`. Practice sites never appear.
 - `POST site` records a signed site. The form makes the `id` (`s_...`), so sending it twice is one site.
   `POST site/<id>` takes `what` as `installed`, `first_hour` or `void`; a voided site pays nothing.
 - A person's photo shows in their profile, in the manager's table and in the list of people; without one the app

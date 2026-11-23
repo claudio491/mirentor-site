@@ -12,7 +12,7 @@ import { practiceActions, exampleActions } from './practice-steps.js';
 const MONDAY = '2026-11-16';   // any Monday: only used to name the days of the week
 const dayName = (n) => wdShort(addDays(MONDAY, n - 1));
 
-export function createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs, openInstall }) {
+export function createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs, openInstall, openReport }) {
   let team = null, city = 'all';
   const tzOf = (rep) => (rep && rep.tz) || S.me.me.tz;
   const repById = (id) => team.reps.find((r) => r.id === id) || team.others.find((r) => r.id === id) || (team.practice && team.practice.id === id ? { ...team.practice, name: t('reps.practice.name') } : null) || (team.example || []).find((r) => r.id === id) || null;
@@ -205,6 +205,10 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     if (kind === 'remove') return btn('site.act.remove', '', (e) => { const b = e.currentTarget; twice(b, 'site.act.remove.confirm', () => act(b, () => siteCall(s.id, { what: 'remove' }), 'site.removed')); });
     return btn('needs.sites.void', '', (e) => { const b = e.currentTarget; twice(b, 'needs.sites.void.confirm', () => act(b, () => siteCall(s.id, { what: 'void' }), 'needs.sites.voided')); });
   }
+  /** A live site's daily report: open it, or once sent today, when, opening it to read or edit. */
+  function reportButton(s, zone) {
+    return h('button', { class: `mini-btn rpt-act${s.report ? ' sent' : ''}`, type: 'button', 'data-act': 'report', text: s.report ? t('report.sent', { time: clock(s.report, zone) }) : t('report.open'), onclick: () => openReport(s.id, zone) });
+  }
   function siteItem(s) {
     const rep = repById(s.rep), zone = tzOf(rep), key = s.practice ? null : siteStateKey(s);
     const facts = [key ? t(`lead.state.${key}`) : null, s.city ? cityName(s.city) : null, s.eligible != null ? t('site.meta.eligible', { n: s.eligible }) : null,
@@ -213,7 +217,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       h('span', {}, h('b', {}, s.lead.name, s.practice ? [' ', h('span', { class: 'chip inst-prac', text: t('install.practice') })] : null), h('small', { text: `${rep ? rep.name : ''} · ${stamp(s.at, zone)}` }),
         facts ? h('small', { text: facts }) : null,
         ['installed', 'first_hour'].filter((k) => s.steps[k]).map((k) => h('small', { text: `${t(`needs.sites.${k}`)}: ${stamp(s.steps[k], zone)}` }))),
-      h('span', { class: 'acts' }, siteActions(s).map((k) => siteButton(k, s))));
+      h('span', { class: 'acts' }, s.reportable ? reportButton(s, zone) : null, siteActions(s).map((k) => siteButton(k, s))));
   }
   /** A new site. The id is made when the form opens: sending the form twice records one site. */
   function siteForm() {

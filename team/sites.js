@@ -3,14 +3,14 @@
 // earned, with the way to add a worker, give or return a phone (the install's own screens, with the same lock). And a
 // teammate's card, opened from their row on Equipo: their active sites by name, workers counted, hours and earnings.
 // Every amount comes as cents from the server and becomes words in sites-steps.js; none is computed here.
-import { $, $$, h, put, t, giant, toast, src, formSheet, reduce, quiet, dayMonth } from './ui.js';
+import { $, $$, h, put, t, giant, toast, src, formSheet, reduce, quiet, dayMonth, clock } from './ui.js';
 import { reveal, stagger } from './fx.js';
 import { money, paySource, mateCard, siteRows, hasSites, goneLine } from './sites-steps.js';
 import { siteHoursBody, recentMondays } from './manager-steps.js';
 import { actingMode, readOnlyIn } from './practice-steps.js';
 import { hm } from './leader-steps.js';
 
-export function createSites({ api, S, errText, adopt, renderAll, setTab, openInstall }) {
+export function createSites({ api, S, errText, adopt, renderAll, setTab, openInstall, openReport }) {
   let back = 'today';
   const mode = () => actingMode(S.as, S.me);
   const readOnly = () => readOnlyIn(mode());
@@ -52,10 +52,17 @@ export function createSites({ api, S, errText, adopt, renderAll, setTab, openIns
       h('p', { class: 'sa-facts', text: r.facts }),
       h('div', { class: 'sa-figs' }, cell(t('sites.h.week'), r.week), cell(t('sites.h.last'), r.last), h('div', { class: 'sa-fig earn' }, h('span', { class: 'label', text: t('sites.h.earned') }), h('b', {}, earned))),
       h('div', { class: 'sa-acts' },
+        // the daily report: once sent today, the button says when, and opens it to read or edit
+        readOnly() ? null : reportBtn(r.id),
         readOnly() ? null : h('button', { class: 'mini-btn primary', type: 'button', 'data-act': 'add', text: t('sites.add'), onclick: () => openInstall(r.id, 'sites', 'add') }),
         h('button', { class: 'mini-btn', type: 'button', 'data-act': 'open', text: t('sites.open'), onclick: () => openInstall(r.id, 'sites') }),
         // a practice site's hours are recorded here, by the manager acting as its practice rep
         practice && r.practice ? h('button', { class: 'mini-btn', type: 'button', 'data-act': 'hours', text: t('sites.hours'), onclick: () => hoursForm(r) }) : null));
+  }
+
+  function reportBtn(id) {
+    const sent = (S.me.active.find((a) => a.id === id) || {}).report;
+    return h('button', { class: `mini-btn rpt-act${sent ? ' sent' : ''}`, type: 'button', 'data-act': 'report', text: sent ? t('report.sent', { time: clock(sent, S.me.me.tz) }) : t('report.open'), onclick: () => openReport(id) });
   }
 
   function hoursForm(r) {

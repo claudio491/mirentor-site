@@ -1357,3 +1357,34 @@ html.greeting{overflow:hidden}
 .ld-earn .src{white-space:normal;text-align:left}
 #stGiant{text-transform:none;font-size:clamp(52px,17vw,128px)}
 #stGiant.word{font-size:clamp(40px,11vw,96px)}
+
+/* ---- the daily site report: steppers a thumb can hit, the yes or no as two buttons, phone first ---- */
+.rpt-who{margin-top:4px}
+.rpt-g{border:0;margin:16px 0 0;padding:14px 0 0;min-width:0;border-top:1px solid var(--line)}
+.rpt-g legend{padding:0;float:left;width:100%;margin-bottom:10px}
+.rpt-g legend+*{clear:both}
+.rpt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 10px}
+.rpt-n{min-width:0;display:grid;gap:6px;align-content:end}
+.rpt-l{font-size:13px;line-height:1.3;color:var(--mist)}
+.rpt-top .rpt-l{font-size:15px;color:var(--porcelain);font-weight:500}
+.rpt-ctl{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;border:1px solid var(--hair);border-radius:var(--r-input);background:var(--graphite);overflow:hidden}
+.rpt-top .rpt-ctl{max-width:220px}
+.rpt-b{all:unset;box-sizing:border-box;cursor:pointer;height:44px;display:grid;place-items:center;font:500 22px/1 var(--sans);color:var(--porcelain);touch-action:manipulation;transition:background-color 120ms ease}
+.rpt-b:active{background:rgba(233,235,236,.1)}
+.rpt-b:focus-visible{outline:2px solid var(--signal);outline-offset:-2px}
+.rpt-v{all:unset;box-sizing:border-box;width:100%;height:44px;text-align:center;font:600 18px/1 var(--sans);font-variant-numeric:tabular-nums;color:var(--porcelain);border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.rpt-v:focus-visible{outline:2px solid var(--signal);outline-offset:-2px}
+.rpt-h{margin-top:0}
+.rpt-hint{color:var(--mist);font-size:13px;margin-top:8px}
+.rpt-ask{font-size:15px;font-weight:500;line-height:1.35;margin:0 0 10px}
+.rpt-yn{display:grid;grid-template-columns:1fr 1fr;width:100%}
+.rpt-yn button{justify-content:center;min-height:48px;font-size:15px}
+.rpt-sum{margin-top:8px;font-size:15px;line-height:1.4}
+.rpt-sum.ok::before,.rpt-sum.warn::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;transform:translateY(-1px);background:var(--porcelain)}
+.rpt-sum.warn::before{background:var(--signal)}
+.rpt-entry{margin-top:16px;border-color:var(--signal);height:auto;padding-top:10px;padding-bottom:10px}
+.rpt-en{display:grid;gap:2px;text-align:left;min-width:0}
+.rpt-en small{font-weight:400;font-size:13px;color:var(--mist);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rpt-act{border-color:var(--signal)}
+.rpt-act.sent{border-color:var(--hair);color:inherit;opacity:.8}
+@media (hover:hover) and (pointer:fine){.rpt-b:hover{background:rgba(233,235,236,.06)}}

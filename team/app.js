@@ -16,6 +16,8 @@ import { createLeader } from './leader.js';
 import { createDocs } from './docs.js';
 import { createRoute } from './route.js';
 import { createSites } from './sites.js';
+import { createReport } from './report.js';
+import { nudgeOf } from './report-steps.js';
 import { mateLine } from './sites-steps.js';
 import { shellFor } from './leader-steps.js';
 import { verdict, mine as waitingOf, requestTimeout } from './queue.js';
@@ -287,6 +289,7 @@ function renderToday(animate) {
   install.card($('#installCard'));   // an install that waits: the phones reached the site
   route.card($('#routeCard'));       // the business furthest along on its route, with something to do now
   ladder.card($('#ladderCard'));     // the first days, while a step is open
+  reportNudge($('#reportCard'));   // from 5 pm, a live site with no daily report yet
   sites.entry($('#sitesCard'));   // my active sites and what they made, one tap from Hoy, once a site is live
   $('#docsCard').hidden = false; docs.entry($('#docsCard'));   // the documents, one tap from Hoy
 }
@@ -1166,20 +1169,34 @@ async function viewAs(id = null) {
   S.tab = null; window.scrollTo(0, 0);
   await start(id);
 }
+/** The Hoy reminder of the daily site report: from 5 pm local time, the first live site with no report today. */
+function reportNudge(node) {
+  const site = nudgeOf(S.me, readOnly());
+  node.hidden = !site;
+  node.dataset.site = site ? site.id : '';
+  if (!site) return;
+  node.setAttribute('aria-label', t('report.nudge.aria', { name: site.name }));
+  put(node, h('span', { class: 'sa-dot', 'aria-hidden': 'true' }), h('span', { class: 'rpt-en' }, h('span', { text: t('report.nudge') }), h('small', { text: site.name })));
+}
+/** The daily report of a site, from a rep's screens: the answer brings the screens up to date. */
+const openReport = (id) => report.open(id, { tz: tz(), after: (res) => { if (res.me) adopt(res.me); renderAll(false); } }).catch((e) => toast(errText(e)));
 // ---- wiring ----
-const manager = createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs, openInstall: (id) => install.open(id, 'needs') });
+const report = createReport({ api });
+const manager = createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs, openInstall: (id) => install.open(id, 'needs'),
+  openReport: (id, zone) => report.open(id, { tz: zone, after: () => refresh(false) }).catch((e) => toast(errText(e))) });
 const docs = createDocs({ api, S, errText, setTab });
 const install = createInstall({ api, S, errText, refresh, setTab, hooks: docs.hooks });
 const ladder = createLadder({ api, S, errText, adopt, renderAll, setTab, openLog, hooks: docs.hooks });
 const route = createRoute({ api, S, errText, adopt, renderAll, setTab, openLog, openInstall: (id, from) => install.open(id, from), hooks: docs.hooks });
 const leader = createLeader({ api, S, errText, setTab });
-const sites = createSites({ api, S, errText, adopt, renderAll, setTab, openInstall: (id, from, to) => install.open(id, from, to) });
+const sites = createSites({ api, S, errText, adopt, renderAll, setTab, openInstall: (id, from, to) => install.open(id, from, to), openReport });
 function wire() {
   initPop(); initSheets(); install.wire(); ladder.wire(); route.wire(); leader.wire(); docs.wire(); sites.wire();
   // the top bar's height, for what sticks under it (the practice bar) and for scrolling a heading into view below it
   const topBar = $('.top');
   if (topBar && 'ResizeObserver' in window) new ResizeObserver(() => document.documentElement.style.setProperty('--top-h', `${topBar.offsetHeight}px`)).observe(topBar);
   $('#sitesCard').addEventListener('click', () => sites.open('today'));
+  $('#reportCard').addEventListener('click', (e) => { const id = e.currentTarget.dataset.site; if (id) openReport(id); });
   $('#docsCard').addEventListener('click', () => docs.open('today'));
   $('#docsBtn').addEventListener('click', () => docs.open('team'));
   $('#ldDocs').addEventListener('click', () => docs.open('lead'));
