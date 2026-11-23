@@ -16,7 +16,7 @@ export const mail = (handle) => `${handle}@${DOMAIN}`;
 export const as = (email) => `who=${encodeURIComponent(email)}`;
 const identify = (req) => { const m = /(?:^|;\s*)who=([^;]+)/.exec(String(req.headers.cookie || '')); return m ? { email: decodeURIComponent(m[1]) } : null; };
 
-export async function start({ clock = MON_10, sample = false, dev = false, previewOffsetMs = 0, bootstrapOpen = false, desk = null, dir: given = null } = {}) {
+export async function start({ clock = MON_10, sample = false, dev = false, previewOffsetMs = 0, bootstrapOpen = false, desk = null, dir: given = null, guests = [] } = {}) {
   const dir = given || mkdtempSync(path.join(tmpdir(), 'team-api-'));
   if (sample) { mkdirSync(path.join(dir, 'team'), { recursive: true }); writeFileSync(path.join(dir, 'team', 'SAMPLE'), 'sample data\n'); }
   const staticDir = path.join(dir, 'static'); mkdirSync(staticDir, { recursive: true });
@@ -26,7 +26,7 @@ export async function start({ clock = MON_10, sample = false, dev = false, previ
   mkdirSync(path.join(staticDir, 'art'), { recursive: true }); writeFileSync(path.join(staticDir, 'art', 'visit.webp'), Buffer.from('RIFF\u0004\u0000\u0000\u0000WEBP', 'latin1'));
   const time = { now: clock };
   const said = [];   // what the service wrote to its error log: a test can check that nothing unexpected happened
-  const team = createTeam({ dir, identify, domain: DOMAIN, pushToken: 'push-token', now: () => new Date(time.now), staticDir, origins: [ORIGIN], dev, previewOffsetMs, bootstrapOpen, log: (m) => said.push(String(m)) });
+  const team = createTeam({ dir, identify, domain: DOMAIN, guests, pushToken: 'push-token', now: () => new Date(time.now), staticDir, origins: [ORIGIN], dev, previewOffsetMs, bootstrapOpen, log: (m) => said.push(String(m)) });
   const srv = createServer({ store: openStore(dir), sheets: null, origins: [ORIGIN], team, desk: desk ? desk(dir) : null, log: (m) => said.push(String(m)) });
   await new Promise((r) => srv.listen(0, r));
   const url = `http://127.0.0.1:${srv.address().port}`;

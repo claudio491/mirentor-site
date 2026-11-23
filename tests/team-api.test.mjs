@@ -344,10 +344,10 @@ test('the module stays off until it is switched on by name, and keeps no secret 
   assert.equal(teamConfig({}), null);
   assert.equal(teamConfig(desk), null);                                  // a deploy for any other reason must not publish the board
   assert.equal(teamConfig({ ...desk, TEAM_ENABLED: '0' }), null);
-  assert.deepEqual(teamConfig({ TEAM_ENABLED: '1' }), { pushToken: '', origins: [], bootstrapOpen: false });
+  assert.deepEqual(teamConfig({ TEAM_ENABLED: '1' }), { pushToken: '', origins: [], bootstrapOpen: false, guests: [] });
   assert.deepEqual(teamConfig({ ...desk, TEAM_ENABLED: '1', ALLOWED_ORIGINS: 'https://www.mirentor.com, https://mirentor.onrender.com' }),
-    { pushToken: 'desk-token', origins: ['https://www.mirentor.com', 'https://mirentor.onrender.com'], bootstrapOpen: false });
-  assert.deepEqual(teamConfig({ ...desk, TEAM_ENABLED: 'true', TEAM_PUSH_TOKEN: 'own-token', TEAM_BOOTSTRAP: '1' }), { pushToken: 'own-token', origins: [], bootstrapOpen: true });
+    { pushToken: 'desk-token', origins: ['https://www.mirentor.com', 'https://mirentor.onrender.com'], bootstrapOpen: false, guests: [] });
+  assert.deepEqual(teamConfig({ ...desk, TEAM_ENABLED: 'true', TEAM_PUSH_TOKEN: 'own-token', TEAM_BOOTSTRAP: '1' }), { pushToken: 'own-token', origins: [], bootstrapOpen: true, guests: [] });
 });
 
 /** A data folder that already holds people, written the way a list or an older log would: straight to the file. */

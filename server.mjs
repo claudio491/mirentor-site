@@ -163,7 +163,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   // Sales portal: on with a Google client ID and a session secret. SALES_DEV_LOGIN=1 is for a local run only.
   const sales = createSales({
     clientId: process.env.SALES_GOOGLE_CLIENT_ID, secret: process.env.SALES_SESSION_SECRET, host: process.env.SALES_HOST,
-    pushToken: process.env.DESK_PUSH_TOKEN, allow: process.env.SALES_ALLOW, root: process.env.SALES_ROOT || `${store.dir}/sales`,
+    pushToken: process.env.DESK_PUSH_TOKEN, allow: process.env.SALES_ALLOW, guests: process.env.SALES_GUESTS, root: process.env.SALES_ROOT || `${store.dir}/sales`,
     devLogin: process.env.SALES_DEV_LOGIN === '1' && !process.env.RENDER,
   });
   const adminToken = process.env.VISITS_TOKEN || process.env.DESK_PUSH_TOKEN || '';
