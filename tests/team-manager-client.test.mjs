@@ -55,8 +55,9 @@ test('each site offers the controls its state allows', () => {
   assert.deepEqual(siteActions(site({ state: 'installing', phones: 3, workers: 2 })), ['install', 'phones', 'record', 'void']);
   assert.deepEqual(siteActions(site({ state: 'closed', phones: 3, workers: 2, closed: 't' })), ['install', 'confirm', 'record', 'void']);
   assert.deepEqual(siteActions(site({ state: 'installed', workers: 2, steps: { installed: 't' } })), ['install', 'first_hour', 'hours', 'record', 'void']);   // hours once it is live (Task 15)
-  // a legacy site is not installed here: no install screens, no phones; it keeps the old way of being marked
-  assert.deepEqual(siteActions(site({ state: 'legacy', legacy: true })), ['installed', 'void']);
+  // a legacy site is not installed here: no phones; its screens load past consents, and it keeps the old way of being marked
+  assert.deepEqual(siteActions(site({ state: 'legacy', legacy: true })), ['install', 'installed', 'void']);
+  assert.deepEqual(siteActions(site({ state: 'legacy', legacy: true, workers: 3 })), ['install', 'installed', 'record', 'void']);
   // a practice site opens like a real one and is removed, never voided; it has no record and counts in no total
   assert.deepEqual(siteActions(site({ state: 'practice', practice: true, workers: 2, closed: 't' })), ['install', 'confirm', 'remove']);
   assert.deepEqual(siteActions(site({ state: 'practice', practice: true })), ['install', 'phones', 'remove']);

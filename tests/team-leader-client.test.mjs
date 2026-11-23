@@ -89,8 +89,11 @@ test('each site state has its own words, and only an install made with the app r
   assert.deepEqual([bare.stateKey, bare.tone], ['installed_bare', 'old']);
   assert.notEqual(bare.state, siteCard(site({}), es).state);
   assert.equal(siteStateKey({ state: 'installed', workers: 0 }), 'installed_bare');
-  // the record is offered for a site with people on it in the app, never for a legacy one or an empty one
-  assert.deepEqual([siteCard(site({}), es).record, siteCard(site({ state: 'legacy' }), es).record, siteCard(site({ workers: 0 }), es).record], [true, false, false]);
+  // the record is offered for a site with people on it in the app, a legacy one once its past consents are loaded, never an empty one
+  assert.deepEqual([siteCard(site({}), es).record, siteCard(site({ state: 'legacy', workers: 0 }), es).record, siteCard(site({ workers: 0 }), es).record], [true, false, false]);
+  const loaded = siteCard(site({ state: 'legacy', eligible: 40, workers: 3, consents: 2, phones: 0 }), es);
+  assert.deepEqual([loaded.record, loaded.figures.map((f) => [f.key, f.value]), loaded.line], [true, [['eligible', 40], ['consents', 2]], 'Instalado antes de la app · consentimientos cargados aquí']);
+  assert.equal(siteCard(site({ state: 'legacy', workers: 3, consents: 2 }), en).line, 'Installed before the app · consents loaded here');
 });
 
 test('the hours sentence says the Scorecard reports the hours; buyers accept them', () => {

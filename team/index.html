@@ -233,10 +233,10 @@
   <section class="screen inst" id="s-install" hidden aria-labelledby="instGiant">
     <div class="inst-head">
       <div class="inst-a">
-        <div class="hud-row"><button class="mini-btn inst-back" type="button" id="instBack" data-t="install.back"></button><span class="chip"><i class="dot"></i><span id="instSite"></span></span><span class="chip inst-prac" id="instPractice" hidden data-t="install.practice"></span><span class="chip ghost" id="instCity"></span></div>
-        <p class="lead" data-t="install.lead"></p>
+        <div class="hud-row"><button class="mini-btn inst-back" type="button" id="instBack" data-t="install.back"></button><span class="chip"><i class="dot"></i><span id="instSite"></span></span><span class="chip inst-prac" id="instPractice" hidden data-t="install.practice"></span><span class="chip ghost" id="instLegacy" hidden data-t="install.legacy.chip"></span><span class="chip ghost" id="instCity"></span></div>
+        <p class="lead" id="instLead"></p>
         <h1 class="giant" id="instGiant"></h1>
-        <p class="support" data-t="install.support"></p>
+        <p class="support" id="instSupport"></p>
         <p class="note inst-pnote" id="instPracticeNote" hidden data-t="install.practice.note"></p>
         <p class="note inst-ro" id="instRO" hidden data-t="install.ro"></p>
       </div>
@@ -249,13 +249,13 @@
         <div class="doc-hooks" id="instDocs" hidden></div>
       </section>
       <section class="inst-zone inst-crew" id="instCrewZone" aria-labelledby="instCrewH">
-        <div class="inst-zh"><b class="inst-k" aria-hidden="true">02</b><h2 id="instCrewH" data-t="install.zone.crew"></h2><span class="label num" id="instCrewCount"></span></div>
+        <div class="inst-zh"><b class="inst-k" id="instCrewK" aria-hidden="true">02</b><h2 id="instCrewH"></h2><span class="label num" id="instCrewCount"></span></div>
         <div class="inst-meter" id="instMeter" role="img"></div>
         <p class="label inst-mt" id="instMeterT"></p>
         <p class="inst-adv" id="instAdv" hidden><span class="inst-tick" aria-hidden="true"><i></i><svg viewBox="0 0 24 24" focusable="false"><path class="ck" d="M7.2 12.6l3.2 3.2 6.6-7" pathLength="1"/></svg></span><span data-t="install.adv"></span></p>
         <ul class="inst-rows" id="instList" data-t-aria="install.list.aria"></ul>
-        <p class="note" id="instEmpty" hidden data-t="install.empty"></p>
-        <button class="btn wide inst-add" type="button" id="instAdd"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg><span data-t="install.add"></span></button>
+        <p class="note" id="instEmpty" hidden></p>
+        <button class="btn wide inst-add" type="button" id="instAdd"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg><span id="instAddT"></span></button>
         <button class="btn primary wide inst-toclose" type="button" id="instToClose" hidden></button>
       </section>
     </div>
@@ -302,6 +302,13 @@
         <p class="inst-meta" id="wkClipDone" hidden data-t="install.w.clip.done"></p>
       </section>
     </div>
+    <!-- A worker typed wrong: correct the name or the email, or take them off the list (a held phone comes back first). -->
+    <section class="inst-zone inst-crew wk-fix" id="wkFix" aria-labelledby="wkFixH" hidden>
+      <div class="inst-zh"><h2 id="wkFixH" data-t="install.w.fix"></h2></div>
+      <p class="formerr" id="wkErr4" role="alert" hidden></p>
+      <div class="wk-fixbtns"><button class="btn wide" type="button" id="wkEdit" data-t="install.w.edit"></button><button class="btn wide" type="button" id="wkRemove"></button></div>
+      <p class="note wk-fixnote" id="wkFixNote"></p>
+    </section>
   </section>
 
   <!-- CLOSING AN INSTALL: who is ready, the site's record, and the close itself. Afterwards it waits for a manager. -->

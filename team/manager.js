@@ -196,7 +196,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
   }
   function siteButton(kind, s) {
     const btn = (key, cls, run) => h('button', { class: cls ? `mini-btn ${cls}` : 'mini-btn', type: 'button', 'data-act': kind, text: t(key), onclick: run });
-    if (kind === 'install') return btn('site.act.install', '', () => openInstall(s.id));
+    if (kind === 'install') return btn(s.legacy ? 'site.act.consents' : 'site.act.install', '', () => openInstall(s.id));   // a legacy site loads its past consents there
     if (kind === 'phones') return btn('site.act.phones', '', () => phonesArrived(s));
     if (kind === 'confirm') return btn('site.act.confirm', 'primary', (e) => act(e.currentTarget, () => siteCall(s.id, { what: 'installed' }), s.practice ? 'route.prac.saved' : 'site.confirmed'));   // a practice site counts in no total
     if (kind === 'installed' || kind === 'first_hour') return btn(`needs.sites.mark.${kind}`, '', (e) => act(e.currentTarget, () => siteCall(s.id, { what: kind }), 'needs.sites.done'));
@@ -211,8 +211,10 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
   }
   function siteItem(s) {
     const rep = repById(s.rep), zone = tzOf(rep), key = s.practice ? null : siteStateKey(s);
-    const facts = [key ? t(`lead.state.${key}`) : null, s.city ? cityName(s.city) : null, s.eligible != null ? t('site.meta.eligible', { n: s.eligible }) : null,
-      s.workers ? t('site.meta.workers', { n: s.workers }) : null, s.phones != null ? t('site.meta.phones', { n: s.phones }) : null].filter(Boolean).join(' · ');
+    // a legacy site counts the consents loaded against the workers it has: "3 de 40 consentimientos"
+    const facts = (s.legacy ? [key ? t(`lead.state.${key}`) : null, s.city ? cityName(s.city) : null, s.eligible != null ? t('site.meta.consents', { a: s.consents || 0, b: s.eligible }) : t('site.meta.consents.n', { n: s.consents || 0 })]
+      : [key ? t(`lead.state.${key}`) : null, s.city ? cityName(s.city) : null, s.eligible != null ? t('site.meta.eligible', { n: s.eligible }) : null,
+        s.workers ? t('site.meta.workers', { n: s.workers }) : null, s.phones != null ? t('site.meta.phones', { n: s.phones }) : null]).filter(Boolean).join(' · ');
     return h('li', { class: 'site-li', 'data-site': s.id },
       h('span', {}, h('b', {}, s.lead.name, s.practice ? [' ', h('span', { class: 'chip inst-prac', text: t('install.practice') })] : null), h('small', { text: `${rep ? rep.name : ''} · ${stamp(s.at, zone)}` }),
         facts ? h('small', { text: facts }) : null,
@@ -286,9 +288,14 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     const canTouch = isPlayer || isAdmin(), self = r.id === S.me.viewer.id;
     // How many businesses of the list this rep can pick. None means the city is written another way than in the list.
     const leads = !isPlayer || !team.leadCount || !r.active ? null : r.leadsInCity ? h('small', { text: t('reps.leads', { n: r.leadsInCity }) }) : h('small', { class: 'warn', text: t('reps.leads.none') });
+    // the first days, and the one step a manager ticks: the first approved hour, with its undo
+    const ladder = isPlayer && r.ladderDone != null ? h('small', { class: 'rep-lad', text: t('reps.ladder', { n: r.ladderDone }) }) : null;
+    const hour = isPlayer && r.active && r.ladderDone != null ? h('button', { class: 'mini-btn', type: 'button', 'data-act': r.hourDone ? 'hour-undo' : 'hour', text: t(r.hourDone ? 'reps.ladder.hour.undo' : 'reps.ladder.hour'),
+      'aria-label': t(r.hourDone ? 'reps.ladder.hour.undo.aria' : 'reps.ladder.hour.aria', { name: r.name }),
+      onclick: (e) => act(e.currentTarget, () => api('POST', 'ladder', { step: 'hour', rep: r.id, ...(r.hourDone ? { undo: true } : {}) }), r.hourDone ? 'reps.ladder.hour.undone' : 'reps.ladder.hour.done') }) : null;
     return h('li', {},
-      h('span', { class: 'pers' }, face(r), h('span', { class: 'pt' }, h('b', { text: r.name }), r.email ? h('small', { class: 'mail', text: r.email }) : h('span', { class: 'chip ghost noacc', text: t('reps.noaccess') }), h('small', { text: `${isPlayer ? '' : `${t(`role.${r.role}`)} · `}${cityName(r.city)} · ${t('reps.start', { date: dayMonth(r.startDate) })} · ${days}` }), status, leads)),
-      h('span', { class: 'acts' },
+      h('span', { class: 'pers' }, face(r), h('span', { class: 'pt' }, h('b', { text: r.name }), r.email ? h('small', { class: 'mail', text: r.email }) : h('span', { class: 'chip ghost noacc', text: t('reps.noaccess') }), h('small', { text: `${isPlayer ? '' : `${t(`role.${r.role}`)} · `}${cityName(r.city)} · ${t('reps.start', { date: dayMonth(r.startDate) })} · ${days}` }), status, leads, ladder)),
+      h('span', { class: 'acts' }, hour,
         isPlayer ? h('a', { class: 'mini-btn', href: `?as=${encodeURIComponent(r.id)}`, 'data-as': r.id, onclick: openAs, text: t('mgr.viewas', { name: r.first }) }) : null,
         // A rep is edited by any manager; a manager or an admin, by an admin, and never by themselves.
         canTouch && (r.role === 'rep' || !self) ? h('button', { class: 'mini-btn', type: 'button', text: t('reps.edit'), onclick: () => repForm(r) }) : null,

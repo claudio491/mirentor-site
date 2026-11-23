@@ -146,19 +146,33 @@ test('the controls a screen offers: none at all when a manager looks through vie
   // the site screen
   assert.deepEqual(on(controls({ readOnly: false, site, worker: null })), ['addWorker', 'close', 'prep']);
   assert.deepEqual(on(controls({ readOnly: false, site: closed, worker: null })), ['addWorker', 'prep'], 'a closed install cannot close again; late workers still come in');
-  // a worker: the consent always (a new photo replaces the old), the phone only with a consent, the return only with a phone
-  assert.deepEqual(on(controls({ readOnly: false, site, worker: w() })), ['addWorker', 'close', 'consent', 'prep']);
-  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' } }) })), ['addWorker', 'close', 'consent', 'phone', 'prep']);
-  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' }, imei: IMEI_A }) })), ['addWorker', 'clip', 'close', 'consent', 'prep', 'returnPhone']);
-  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' }, imei: IMEI_A, clip: 'x' }) })), ['addWorker', 'close', 'consent', 'prep', 'returnPhone']);
+  // a worker: the consent always (a new photo replaces the old), the phone only with a consent, the return only with a
+  // phone; the correction and the removal always (the server refuses a removal while a phone is held)
+  assert.deepEqual(on(controls({ readOnly: false, site, worker: w() })), ['addWorker', 'close', 'consent', 'edit', 'prep', 'remove']);
+  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' } }) })), ['addWorker', 'close', 'consent', 'edit', 'phone', 'prep', 'remove']);
+  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' }, imei: IMEI_A }) })), ['addWorker', 'clip', 'close', 'consent', 'edit', 'prep', 'remove', 'returnPhone']);
+  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' }, imei: IMEI_A, clip: 'x' }) })), ['addWorker', 'close', 'consent', 'edit', 'prep', 'remove', 'returnPhone']);
   // after a return the phone step is open again
   assert.equal(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' } }) }).phone, true);
   // a coworker who signs only never gets a phone control
-  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ phone: false, consent: { v: 'v1' } }) })), ['addWorker', 'close', 'consent', 'prep']);
+  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ phone: false, consent: { v: 'v1' } }) })), ['addWorker', 'close', 'consent', 'edit', 'prep', 'remove']);
+  // a legacy site loads past consents only: people, their photo, a correction or a removal; no prep, phone, clip or close
+  const legacy = { legacy: true, closed: null };
+  assert.deepEqual(on(controls({ readOnly: false, site: legacy, worker: null })), ['addWorker']);
+  assert.deepEqual(on(controls({ readOnly: false, site: legacy, worker: w({ phone: false }) })), ['addWorker', 'consent', 'edit', 'remove']);
+  assert.deepEqual(on(controls({ readOnly: true, site: legacy, worker: w({ phone: false }) })), []);
 });
 
 test('a failed consent upload keeps the photo for a retry only when the failure was the signal or the server', async () => {
   const { keepForRetry } = await import('../team/install-steps.js');
   for (const e of [{ code: 'offline', status: 0 }, { code: 'unknown', status: 502 }, { code: 'unknown', status: 500 }]) assert.equal(keepForRetry(e), true, JSON.stringify(e));
   for (const e of [{ code: 'too_big', status: 413 }, { code: 'image', status: 400 }, { code: 'legacy', status: 409 }, { code: 'not_yours', status: 403 }, null]) assert.equal(keepForRetry(e), false, JSON.stringify(e));
+});
+
+test('a correction sends a clean name and email; the email may be empty only on a legacy site', async () => {
+  const { workerEditBody } = await import('../team/install-steps.js');
+  assert.deepEqual(workerEditBody({ name: '  Luz   Marina Paz ', email: ' LUZ@Equipo.test ' }), { name: 'Luz Marina Paz', email: 'luz@equipo.test' });
+  assert.throws(() => workerEditBody({ name: 'L', email: 'l@equipo.test' }), { code: 'fields' });
+  assert.throws(() => workerEditBody({ name: 'Luz Paz', email: '' }), { code: 'email' });
+  assert.deepEqual(workerEditBody({ name: 'Luz Paz', email: '' }, true), { name: 'Luz Paz', email: '' });
 });

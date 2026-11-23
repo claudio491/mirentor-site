@@ -121,12 +121,24 @@ export function closeState(view) {
  *  practice site, and only there, the consent step also offers an example photo while no consent is on file, so the lock
  *  can be opened without a camera. */
 export function controls({ readOnly, site, worker }) {
-  const none = { prep: false, addWorker: false, close: false, consent: false, example: false, phone: false, returnPhone: false, clip: false };
+  const none = { prep: false, addWorker: false, close: false, consent: false, example: false, phone: false, returnPhone: false, clip: false, edit: false, remove: false };
   if (readOnly) return none;
+  // A legacy site (signed before the app) only loads the consents it already has: people and their photos, nothing else.
+  if (site && site.legacy) return worker ? { ...none, addWorker: true, consent: true, edit: true, remove: true } : { ...none, addWorker: true };
   const out = { ...none, prep: true, addWorker: true, close: !(site && site.closed) };
   if (!worker) return out;
   const records = worker.phone !== false;
-  return { ...out, consent: true, example: !!(site && site.practice) && !worker.consent, phone: records && !!worker.consent && !worker.imei, returnPhone: records && !!worker.imei, clip: records && !!worker.imei && !worker.clip };
+  // A name or an email typed wrong is corrected; someone who should not be there is removed (a phone comes back first).
+  return { ...out, consent: true, example: !!(site && site.practice) && !worker.consent, phone: records && !!worker.consent && !worker.imei, returnPhone: records && !!worker.imei, clip: records && !!worker.imei && !worker.clip, edit: true, remove: true };
+}
+
+/** The body of POST worker/<id>/edit, or a refusal in words before the server says it: a name of two letters or more,
+ *  and an email, which a legacy site may leave empty. */
+export function workerEditBody(v, legacy = false) {
+  const name = String(v.name ?? '').replace(/\s+/g, ' ').trim(), email = String(v.email ?? '').trim().toLowerCase();
+  if (name.length < 2) throw Object.assign(new Error('fields'), { code: 'fields' });
+  if (!email && !legacy) throw Object.assign(new Error('email'), { code: 'email' });
+  return { name, email };
 }
 
 /** A consent photo is kept for "Reintentar con la misma foto" only when the signal or the server failed. A refusal of the

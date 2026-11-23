@@ -88,20 +88,20 @@ export function payBody(v) {
 }
 
 /** The controls a site offers a manager, in the order they show.
- *  install: open its install screens (any site but a legacy one, which is not installed here);
+ *  install: open its install screens (on a legacy site, the screens that load the consents it already had);
  *  phones: "Llegaron teléfonos", until the install is closed;
  *  confirm: "Confirmar instalación" once the rep closed it;
  *  installed: the old way of marking, for a legacy site or one with nobody on it;
  *  first_hour, hours (accepted minutes per week, once installed), record (the audit file, once someone is on it), void: real sites only. A practice site is removed instead, and has no record. */
 export function siteActions(site) {
   const out = [], done = !!(site.steps && site.steps.installed), closed = site.state === 'closed' || (site.practice && !!site.closed);
-  if (!site.legacy) out.push('install');
+  out.push('install');   // on a legacy site it loads the consents signed before the app, and nothing else
   if (!site.legacy && !done && !closed) out.push('phones');
   if (closed && !done) out.push('confirm');
   if (!site.practice && !done && (site.legacy || !site.workers)) out.push('installed');
   if (!site.practice && done && !(site.steps && site.steps.first_hour)) out.push('first_hour');
   if (!site.practice && !site.legacy && done) out.push('hours');   // accepted hours, per week, once it is live
-  if (!site.practice && !site.legacy && site.workers) out.push('record');   // a record with nobody in it is an empty file
+  if (!site.practice && site.workers) out.push('record');   // a record with nobody in it is an empty file
   out.push(site.practice ? 'remove' : 'void');
   return out;
 }

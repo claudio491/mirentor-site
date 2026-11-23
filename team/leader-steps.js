@@ -19,10 +19,12 @@ export const siteStateKey = (site) => (site.state === 'installed' && !site.worke
 /** How a state's tag looks: `ok` only for an install made with the app, `old` for what happened before or outside it. */
 const toneOf = (key) => (key === 'installed' ? 'ok' : key === 'legacy' || key === 'installed_bare' ? 'old' : 'miss');
 export function siteCard(site, t) {
-  const legacy = site.state === 'legacy', key = siteStateKey(site);
+  const legacy = site.state === 'legacy', key = siteStateKey(site), loaded = legacy && site.workers > 0;
   const figures = [{ key: 'eligible', value: site.eligible ?? null, label: t('lead.site.eligible'), source: 'site' }];
-  if (!legacy) figures.push({ key: 'consents', value: site.consents, label: t('lead.site.consents'), source: 'site' }, { key: 'phones', value: site.phones, label: t('lead.site.phones'), source: 'site' });
-  return { id: site.id, name: site.name, state: t(`lead.state.${key}`), stateKey: key, tone: toneOf(key), legacy, record: !legacy && site.workers > 0, line: legacy ? t('lead.site.legacy') : null, figures };
+  // A legacy site shows its consents once a manager loaded some (until then a zero would read as "nobody signed"); it has no phones here.
+  if (!legacy || loaded) figures.push({ key: 'consents', value: site.consents, label: t('lead.site.consents'), source: 'site' });
+  if (!legacy) figures.push({ key: 'phones', value: site.phones, label: t('lead.site.phones'), source: 'site' });
+  return { id: site.id, name: site.name, state: t(`lead.state.${key}`), stateKey: key, tone: toneOf(key), legacy, record: site.workers > 0, line: legacy ? t(loaded ? 'lead.site.legacy.loaded' : 'lead.site.legacy') : null, figures };
 }
 
 /** Where each number on the city bands comes from, as the key of the words its source button says. Every number the

@@ -6,7 +6,7 @@
 import { $, $$, h, s, put, t, num, cityName, stamp, dayMonth, giant, countTo, recount, flipList, toast, src, once, formSheet, ringAt, lock, buzz, reduce, isQuiet, quiet, showErr, EASE } from './ui.js';
 import { reveal, stagger } from './fx.js';
 import { lens, setLens, drawIn } from './hand.js';
-import { workerOrder, workerSteps, prepRows, statusKey, newWorkerId, isDone, installCard, imeiFor, imeiFromScan, stepNow, recordRows, closeState, consentFailed, controls, keepForRetry } from './install-steps.js';
+import { workerOrder, workerSteps, prepRows, statusKey, newWorkerId, isDone, installCard, imeiFor, imeiFromScan, stepNow, recordRows, closeState, consentFailed, controls, keepForRetry, workerEditBody } from './install-steps.js';
 import { shrink, examplePage } from './shrink.js';
 import { actingMode, readOnlyIn } from './practice-steps.js';
 
@@ -86,7 +86,11 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
 
   function paint() {
     const { site, workers, progress } = view;
+    if (site.legacy) { paintLegacy(); return; }
     const den = site.phones || progress.total || 0;
+    showParts(true);
+    $('#instLead').textContent = t('install.lead'); $('#instSupport').textContent = t('install.support');
+    $('#instCrewH').textContent = t('install.zone.crew'); $('#instAddT').textContent = t('install.add'); $('#instEmpty').textContent = t('install.empty');
     $('#instSite').textContent = site.name;
     $('#instPractice').hidden = !site.practice;
     $('#instCity').textContent = cityName(site.city); $('#instCity').hidden = !site.city;
@@ -122,6 +126,48 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     go.hidden = cs.kind === 'nobody';
     go.textContent = t(cs.kind === 'closed' || readOnly() ? 'install.c.view' : 'install.c.go');
     go.classList.toggle('primary', cs.kind !== 'closed' && !readOnly());   // only looking is never the call to action
+  }
+
+  /** What an install shows that a legacy site does not: the prep zone, the phone lens, the meter and the close. */
+  function showParts(on) {
+    for (const sel of ['#instPrepZone', '#instLenses', '#instMeter', '#instMeterT']) $(sel).hidden = !on;
+    $('#instLegacy').hidden = on;
+    $('#instCrewK').textContent = on ? '02' : '01';   // the workers are the only zone of a legacy site
+    $('#s-install .inst-zones').classList.toggle('inst-legacy', !on);
+  }
+  /** A legacy site, signed before the app: the consents it already had, loaded one by one. The headline counts them
+   *  against the workers the site said it has; there are no phones, no clips and no close here. */
+  function paintLegacy() {
+    const { site, workers, progress } = view, den = site.eligible || progress.total || 0;
+    showParts(false);
+    $('#instSite').textContent = site.name;
+    $('#instPractice').hidden = true; $('#instPracticeNote').hidden = true; $('#instAdv').hidden = true;
+    $('#instCity').textContent = cityName(site.city); $('#instCity').hidden = !site.city;
+    $('#instLead').textContent = t('install.legacy.lead'); $('#instSupport').textContent = t('install.legacy.support');
+    $('#instCrewH').textContent = t('install.legacy.zone'); $('#instAddT').textContent = t('install.legacy.add'); $('#instEmpty').textContent = t('install.legacy.empty');
+    const g = $('#instGiant'), [pre, post = ''] = t('install.giant', { a: '\u0001', b: num(den) }).split('\u0001');
+    const n = $('.num', g) || h('span', { class: 'num' });
+    const srcBtn = g.firstChild && g.firstChild.classList && g.firstChild.classList.contains('src') ? g.firstChild
+      : src(h('button', { class: 'src', type: 'button' }), () => t('c.source'), () => t('install.src.consents', { a: view.progress.consents, b: view.site.eligible || view.progress.total }));
+    put(srcBtn, pre, n, post.replace(/\.$/, '')); put(g, srcBtn, h('em', { text: '.' }));
+    countTo(n, progress.consents);
+    g.classList.toggle('full', den > 0 && progress.consents >= den);
+    flipList($('#instList'), workers, (w) => w.id,
+      () => h('li', { class: 'inst-row tap' }, tickNode(), h('span', { class: 'inst-n' }, h('b'), h('small')), h('span', { class: 'inst-tag' }),
+        h('button', { class: 'inst-hit', type: 'button', onclick: (e) => openWorker(e.currentTarget.closest('li').dataset.key) })),
+      (li, w) => {
+        const done = !!w.consent;
+        setTick($('.inst-tick', li), done, false);
+        $('b', li).textContent = w.name;
+        $('small', li).textContent = [done ? t('install.legacy.d.ok') : t('install.d.no_consent'), w.email].filter(Boolean).join(' · ');
+        const tag = $('.inst-tag', li); tag.textContent = done ? t('install.legacy.st.ok') : t('install.st.no_consent'); tag.classList.toggle('ok', done); tag.classList.toggle('miss', !done);
+        $('.inst-hit', li).setAttribute('aria-label', t('install.w.open.aria', { name: w.name, state: tag.textContent }));
+      });
+    $('#instEmpty').hidden = workers.length > 0;
+    $('#instCrewCount').textContent = t('install.zone.count', { a: progress.consents, b: workers.length });
+    $('#instRO').hidden = !readOnly();
+    $('#instAdd').hidden = !ctl().addWorker;
+    $('#instToClose').hidden = true;
   }
 
   // ---- zone 1: before recording ----
@@ -195,6 +241,16 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
   function addWorker() {
     if (!ctl().addWorker) return;
     const id = newWorkerId();   // made once per sheet: a second tap after a bad connection sends the same person
+    if (view.site.legacy) {   // a past consent: a name, an email only if there is one, and no phone
+      formSheet({ title: t('install.legacy.add.title'), intro: t('install.legacy.add.p'), submit: t('install.add.submit'),
+        fields: [{ name: 'name', label: t('install.add.name'), max: 80 }, { name: 'email', type: 'email', label: t('install.add.email.opt'), lower: true, max: 120 }],
+        onSubmit: async (v) => {
+          view = await write('POST', `install/${encodeURIComponent(siteId)}/workers`, { id, name: v.name, email: v.email, phone: false });
+          render(true); toast(t('install.legacy.add.done', { name: v.name })); refresh(false);
+          setTimeout(() => openWorker(id), reduce ? 0 : 260);
+        } });
+      return;
+    }
     formSheet({ title: t('install.add.title'), intro: t('install.add.p'), submit: t('install.add.submit'),
       fields: [{ name: 'name', label: t('install.add.name'), max: 80 }, { name: 'email', type: 'email', label: t('install.add.email'), lower: true, max: 120 },
         { name: 'phone', type: 'select', label: t('install.add.phone'), value: 'yes', options: [{ value: 'yes', label: t('install.add.phone.yes') }, { value: 'no', label: t('install.add.phone.no') }] }],
@@ -209,7 +265,8 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
   const worker = () => (view && view.workers.find((w) => w.id === wid)) || null;
   function openWorker(id) {
     wid = id;
-    for (const n of ['#wkErr1', '#wkErr2', '#wkErr3']) $(n).hidden = true;
+    for (const n of ['#wkErr1', '#wkErr2', '#wkErr3', '#wkErr4']) $(n).hidden = true;
+    delete $('#wkRemove').dataset.armed;
     $('#wkImei').value = ''; $('#wkShot').replaceChildren(); delete $('#wkGiant').dataset.k;
     for (const tk of $$('#s-worker .inst-tick')) { tk.classList.toggle('on', false); tk.classList.toggle('now', false); delete tk.dataset.seen; }
     for (const st of $$('#s-worker .inst-step')) delete st.dataset.locked;
@@ -230,7 +287,15 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     const g = $('#wkGiant'), key = all ? 'done' : `${now.at}/${now.of}`;
     if (g.dataset.k !== key) { giant(g, all ? t('install.w.done') : t('install.w.giant', { a: now.at, b: now.of })); if (g.dataset.k && !isQuiet()) reveal(g); g.dataset.k = key; }
     g.classList.toggle('full', all);
-    $('#wkSupport').textContent = t(`install.w.s.${w.status}`);
+    $('#wkSupport').textContent = site.legacy ? t(w.consent ? 'install.legacy.w.s.consent_only' : 'install.legacy.w.s.no_consent') : t(`install.w.s.${w.status}`);
+    $('#wkS2').hidden = !!site.legacy;
+    // correcting or removing this person: the removal asks twice, and a held phone comes back first
+    $('#wkFix').hidden = !c.edit && !c.remove;
+    $('#wkEdit').hidden = !c.edit;
+    const rm = $('#wkRemove');
+    rm.hidden = !c.remove; rm.classList.toggle('armed', !!rm.dataset.armed);
+    rm.textContent = t(rm.dataset.armed ? 'install.w.remove.again' : 'install.w.remove');
+    $('#wkFixNote').textContent = t(site.practice ? 'install.w.remove.s.practice' : 'install.w.remove.s');
 
     // 1 · the consent: the photo itself once it is on file, with the form version and the server's time
     const s1 = $('#wkS1'), retry = failed.has(w.id) && !w.consent;
@@ -276,7 +341,7 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
 
     // 3 · the clip: locked until the phone is handed out
     const s3 = $('#wkS3'), open3 = !only && steps[2] && steps[2].open;
-    s3.hidden = only;
+    s3.hidden = only || !!site.legacy;
     s3.classList.toggle('locked', !open3); s3.classList.toggle('done', !!(steps[2] && steps[2].done));
     setTick($('#wkS3 .inst-tick'), !!(steps[2] && steps[2].done), open3 && !steps[2].done);
     $('#wkLock3').hidden = !!open3;
@@ -304,7 +369,7 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     try {
       view = await write('PUT', `worker/${encodeURIComponent(id)}/consent`, blob);
       failed.delete(id);
-      render(true); buzz(12); toast(t('install.w.consent.saved')); refresh(false);
+      render(true); buzz(12); toast(t(view.site.legacy ? 'install.legacy.consent.saved' : 'install.w.consent.saved')); refresh(false);
     } catch (e) {
       // the signal or the server failed: the photo waits on the phone for the retry. A refused photo (too big, not an
       // image) or a refused person asks for a new photo or explains, and nothing is kept.
@@ -407,6 +472,29 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     $('#wkImei').value = '';
     act(btn, () => write('POST', `worker/${encodeURIComponent(w.id)}/phone/return`, {}), 'install.w.returned', $('#wkErr2'));
   }
+  /** A name or an email typed wrong, written again. On a legacy site the email may stay empty. */
+  function editWorker() {
+    const w = worker();
+    if (!w || !ctl(w).edit) return;
+    const legacy = !!view.site.legacy;
+    formSheet({ title: t('install.w.edit.title'), intro: t('install.w.edit.p'), submit: t('install.w.edit.submit'),
+      fields: [{ name: 'name', label: t('install.add.name'), value: w.name, max: 80 }, { name: 'email', type: 'email', label: t(legacy ? 'install.add.email.opt' : 'install.add.email'), value: w.email || '', lower: true, max: 120 }],
+      onSubmit: async (v) => { view = await write('POST', `worker/${encodeURIComponent(w.id)}/edit`, workerEditBody(v, legacy)); render(true); toast(t('install.w.edited')); refresh(false); } });
+  }
+  /** Taking someone off the list asks twice. Someone holding a phone is told to return it first, before anything is sent. */
+  function removeTap() {
+    const btn = $('#wkRemove'), w = worker();
+    if (!w || !ctl(w).remove) return;
+    if (w.imei) { showErr($('#wkErr4'), t('err.return_phone_first')); return; }
+    if (!btn.dataset.armed) {
+      btn.dataset.armed = '1'; paintWorker(); lock(btn);
+      setTimeout(() => { if (btn.dataset.armed) { delete btn.dataset.armed; if (S.tab === 'worker') quiet(paintWorker); } }, 5000);
+      return;
+    }
+    delete btn.dataset.armed;
+    const name = w.name, key = view.site.practice ? 'install.w.removed.practice' : 'install.w.removed';
+    act(btn, () => write('POST', `worker/${encodeURIComponent(w.id)}/remove`, {}), null, $('#wkErr4')).then((ok) => { if (ok) { toast(t(key, { name })); setTab('install'); } });
+  }
   function seeRecord() {
     const rows = recordRows(view.workers, tz());
     formSheet({ title: t('install.c.record.title'), intro: t('install.c.record.p', { site: view.site.name }), body: h('div', { class: 'inst-rec' }, recordTable(rows)), submit: t('c.close'), onSubmit: async () => false });
@@ -447,6 +535,8 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     $('#wkImeiSave').addEventListener('click', (e) => { const imei = imeiFor(view && view.site, $('#wkImei').value); if (imei) act(e.currentTarget, () => write('POST', `worker/${encodeURIComponent(wid)}/phone`, { imei }), 'install.w.phone.saved', $('#wkErr2')); });
     $('#wkClipBtn').addEventListener('click', (e) => act(e.currentTarget, () => write('POST', `worker/${encodeURIComponent(wid)}/clip`, {}), 'install.w.clip.saved', $('#wkErr3')));
     $('#wkReturn').addEventListener('click', returnTap);
+    $('#wkEdit').addEventListener('click', editWorker);
+    $('#wkRemove').addEventListener('click', removeTap);
     $('#clsGo').addEventListener('click', closeTap);
     $('#clsSee').addEventListener('click', seeRecord);
   }

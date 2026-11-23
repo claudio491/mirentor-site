@@ -1100,6 +1100,11 @@ html.greeting{overflow:hidden}
 .inst-done{margin-top:14px;padding:12px;border:1px solid var(--rule);border-radius:var(--r-input)}
 .inst-done .btn{margin-top:12px}
 #wkReturn.armed{border-color:var(--signal);color:var(--signal)}
+.wk-fix{margin-top:14px}
+.wk-fixbtns{display:grid;gap:10px;margin-top:14px}
+.wk-fixnote{margin-top:10px}
+#wkRemove.armed{border-color:var(--signal);color:var(--signal)}
+@media (min-width:760px){.wk-fixbtns{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .inst-ro{padding:10px 12px;border:1px solid var(--signal);border-radius:var(--r-input);color:var(--porcelain)}
 .inst-card.waiting .btn{background:transparent;color:var(--graphite);border-color:rgba(27,29,32,.32)}
 .inst-imei{font-family:var(--mono);letter-spacing:.04em}
@@ -1122,6 +1127,7 @@ html.greeting{overflow:hidden}
   .inst-zones{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:18px;align-items:start;margin-top:32px}
   .inst-zone{padding:22px 24px 24px}
   .inst-wsteps{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .inst-zones.inst-legacy{grid-template-columns:minmax(0,1fr);max-width:760px}
 }
 @media (prefers-reduced-motion:reduce){
   .inst-tick>i,.inst-tick .ck,.inst-meter i::after{transition:none}
