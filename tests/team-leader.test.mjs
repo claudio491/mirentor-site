@@ -253,7 +253,9 @@ test('hours where accepted is more than delivered are refused, and a manager ret
 
 test('a site event written by hand without a lead still replays: the leadership view and the team view answer 200', async (t) => {
   const { s, a, lia, ana } = await setup(t);
-  s.srv.close();
+  // wait for the first server to be fully closed before writing its log by hand: closing without waiting raced the
+  // hand-written lines against its last writes and failed about one full run in six
+  await new Promise((r) => s.srv.close(() => r()));
   const file = path.join(s.dir, 'team', 'events.jsonl'), at = '2026-11-16T15:00:00.000Z';
   appendFileSync(file, [{ type: 'site', id: 's_nolead001', rep: ana.id, by: a.id, t: at }, { type: 'site', id: 's_nolead002', rep: ana.id, lead: 'texto', by: a.id, t: at },
     { type: 'site', id: 's_nolead003', rep: ana.id, lead: { name: 7 }, by: a.id, t: at }].map((e) => `${JSON.stringify(e)}\n`).join(''));
