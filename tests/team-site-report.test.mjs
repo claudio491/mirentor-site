@@ -193,6 +193,15 @@ test('the export: text a person typed that a sheet would read as a formula start
   assert.match(row[0], /^2026-11-16T/);
 });
 
+test('the export leaves out the reports of a site that was voided since', async (t) => {
+  const { s, a, send, sync } = await setup(t);
+  await send(full());
+  assert.equal((await sync()).json.rows.length, 1);
+  assert.equal((await s.call('POST', `${API}/site/s_report-0001`, { what: 'void' }, { cookie: a.cookie })).status, 200);
+  const after = (await sync()).json;
+  assert.deepEqual([after.rows, after.ids], [[], []]);
+});
+
 test('a report survives a restart: the log replays it', async (t) => {
   const { s, send } = await setup(t);
   await send(full());
