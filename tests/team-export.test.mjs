@@ -30,3 +30,18 @@ test('export: text a person typed that a sheet would read as a formula starts wi
   // the app itself keeps what was typed
   assert.equal(s.lines().find((e) => e.id === 'formula-0001').lead.name, '=1+1');
 });
+
+test('export: a do-not-call log a manager voided is not sent as do not call, nor as a log or a stage', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin(), m = await s.addRep(a.cookie, 'mario');
+  await s.call('PUT', `${API}/leads`, [{ id: 'PA-0001', company: 'Farmacia Uno', city: 'Panama City', zone: 'Centro', stage: 'New' },
+    { id: 'PA-0002', company: 'Farmacia Dos', city: 'Panama City', zone: 'Centro', stage: 'New' }], B);
+  const log = (id, lead) => s.call('POST', `${API}/log`, logBody(id, { kind: 'call', tag: 'do_not_call', lead: { id: lead } }), { cookie: m.cookie });
+  assert.equal((await log('dnc-log-0001', 'PA-0001')).status, 200);
+  assert.equal((await log('dnc-log-0002', 'PA-0002')).status, 200);
+  assert.equal((await s.call('POST', `${API}/void`, { logId: 'dnc-log-0001', reason: 'wrong business' }, { cookie: a.cookie })).status, 200);
+  const ex = await exportSince(s);
+  assert.deepEqual(ex.doNotCall, ['PA-0002']);
+  assert.deepEqual(ex.logs.map((l) => l.id), ['dnc-log-0002']);
+  assert.deepEqual(ex.stages, [{ lead: 'PA-0002', stage: 'Contacted' }]);
+});
