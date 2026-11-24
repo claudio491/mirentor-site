@@ -61,7 +61,10 @@ test('the rate in force for a week is the newest one that starts on or before it
 
 test('site hours: only a manager or an admin, a Monday, a later value replaces the earlier, never on a legacy or an unfinished site', async (t) => {
   const { s, a, ana, mgr, me, manage, installed } = await setup(t);
+  // opened last week, so last week's minutes are its own (none are taken for a week before a site existed)
+  s.time.now -= 7 * 86400000;
   await installed(ana, 's_earn-site-01', 'Taller Uno', { id: 'w_earn-0001', name: 'Persona Uno', email: 'persona1@equipo.test', imei: IMEI_A });
+  s.time.now += 7 * 86400000;
   const lia = await s.addRep(a.cookie, 'lia', { role: 'leader' });
   const before = s.lines().length;
   // a rep (even the site's own) and a leader cannot
@@ -107,7 +110,10 @@ test('site hours on a practice site: refused on the manager route; allowed while
 
 test('earnings: no rate means no amount anywhere; an admin sets the rate; cents are exact; a change applies from its week on', async (t) => {
   const { s, a, ana, beto, mgr, me, manage, installed } = await setup(t);
+  // opened last week, so last week's minutes are its own (none are taken for a week before a site existed)
+  s.time.now -= 7 * 86400000;
   await installed(ana, 's_earn-site-01', 'Taller Uno', { id: 'w_earn-0001', name: 'Persona Uno', email: 'persona1@equipo.test', imei: IMEI_A });
+  s.time.now += 7 * 86400000;
   await manage('s_earn-site-01', { what: 'hours', week: THIS_WEEK, accepted: 3666 });
   await manage('s_earn-site-01', { what: 'hours', week: LAST_WEEK, accepted: 600 });
   const cents = (json) => [...JSON.stringify(json).matchAll(/"cents":([^,}\]]+)/g)].map((m) => m[1]);

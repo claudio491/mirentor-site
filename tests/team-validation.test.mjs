@@ -62,3 +62,19 @@ test('a site is opened for someone active on the team: never for a leader (who r
   const prac = (await s.call('POST', `${API}/practice`, {}, { cookie: a.cookie })).json.id;
   for (const [id, rep] of [['s_reps-site-0001', m.id], ['s_admins-site-01', a.id], ['s_pracs-site-001', prac]]) assert.equal((await site(id, rep)).status, 200, rep);
 });
+
+test('accepted minutes are taken only for the weeks since the site was opened', async (t) => {
+  const s = await start({ clock: Date.parse('2026-11-11T15:00:00Z') }); t.after(() => s.srv.close());   // Wednesday 11 Nov
+  const a = await s.admin(), m = await s.addRep(a.cookie, 'mario');
+  const open = async (id) => { await s.call('POST', `${API}/site`, { id, rep: m.id, lead: { name: id } }, { cookie: a.cookie }); assert.equal((await s.call('POST', `${API}/site/${id}`, { what: 'installed' }, { cookie: a.cookie })).status, 200); };
+  const hours = (id, week) => s.call('POST', `${API}/site/${id}`, { what: 'hours', week, accepted: 600 }, { cookie: a.cookie });
+  await open('s_opened-wed-0001');   // opened in the week of 9 Nov
+  s.time.now = Date.parse('2026-11-16T15:00:00Z');   // Monday 16 Nov
+  await open('s_opened-mon-0001');
+  for (const [id, week] of [['s_opened-mon-0001', '2025-01-06'], ['s_opened-mon-0001', '2026-11-09'], ['s_opened-wed-0001', '2026-11-02']]) {
+    const r = await hours(id, week);
+    assert.deepEqual([r.status, r.json.error], [400, 'week'], `${id} ${week}`);
+  }
+  assert.equal(s.lines().some((e) => e.type === 'site.hours'), false);
+  for (const [id, week] of [['s_opened-wed-0001', '2026-11-09'], ['s_opened-wed-0001', '2026-11-16'], ['s_opened-mon-0001', '2026-11-16']]) assert.equal((await hours(id, week)).status, 200, `${id} ${week}`);
+});
