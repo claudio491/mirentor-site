@@ -30,13 +30,28 @@ test('a teammate\'s line on the table and their card: sites counted, the week\'s
   const crew = { id: 'r_b', sites: [{ name: 'Sitio de ejemplo 3', workers: 3, minutes: 640 }], minutes: 640, cents: 1067 };
   assert.equal(mateLine(crew, es), '1 sitio activo · 10 h 40 min · US$10.67');
   assert.equal(mateLine({ ...crew, cents: null }, en), '1 active site · 10 h 40 min · amount to be defined');
-  assert.equal(mateLine({ id: 'r_d', sites: [], minutes: 0, cents: 0 }, es), '0 sitios activos · 0 min · US$0.00');
   assert.equal(mateLine(null, es), null, 'no entry: no line');
+
   const card = mateCard(crew, 100, es);
   assert.deepEqual(card.sites, [{ name: 'Sitio de ejemplo 3', line: '3 trabajadores · 10 h 40 min' }]);
   assert.deepEqual([card.total, card.source], ['US$10.67', '10 h 40 min aceptadas × US$1.00 por hora']);
   // a card never has a worker's name to show: the entry holds counts and site names only
   assert.deepEqual(Object.keys(card.sites[0]).sort(), ['line', 'name']);
+});
+
+test('a teammate\'s line leaves out what is zero or undefined, and is no line at all when nothing is left', () => {
+  // "0 sitios activos · 0 min · monto por definir" wrapped to three lines on 4 of 5 rows at 375 px and said nothing
+  const site = { name: 'Sitio de ejemplo 3', workers: 3, minutes: 640 };
+  assert.equal(mateLine({ id: 'r_d', sites: [], minutes: 0, cents: 0 }, es), null);
+  assert.equal(mateLine({ id: 'r_d', sites: [], minutes: 0, cents: null }, es), null, '"monto por definir" only when there is something to pay for');
+  assert.equal(mateLine({ id: 'r_d' }, en), null, 'nothing known: no line');
+  // only the parts with a number
+  assert.equal(mateLine({ id: 'r_e', sites: [site], minutes: 0, cents: null }, es), '1 sitio activo');
+  assert.equal(mateLine({ id: 'r_e', sites: [site], minutes: 0, cents: 0 }, en), '1 active site');
+  assert.equal(mateLine({ id: 'r_e', sites: [], minutes: 640, cents: null }, es), '10 h 40 min · monto por definir');
+  assert.equal(mateLine({ id: 'r_e', sites: [], minutes: 640, cents: 1067 }, en), '10 h 40 min · US$10.67');
+  // with every number it means what it always did
+  assert.equal(mateLine({ id: 'r_e', sites: [site, site], minutes: 640, cents: 1067 }, es), '2 sitios activos · 10 h 40 min · US$10.67');
 });
 
 test('my active sites: the rows and their facts; the Hoy entry shows only with at least one site', () => {

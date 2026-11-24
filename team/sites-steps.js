@@ -16,10 +16,15 @@ export const money = (cents, t) => usd(cents) ?? t('pay.tbd');
 /** Where an amount comes from: the accepted hours times the rate per hour. With no rate, why there is no amount. */
 export const paySource = (minutes, rate, t) => (rate == null ? t('pay.src.none') : t('pay.src', { h: hm(minutes || 0), r: usd(rate) }));
 
-/** A teammate's line on the table: active sites, the week's accepted hours, the week's earnings. */
+/** A teammate's line on the table: active sites, the week's accepted hours, the week's earnings. Only the parts with a
+ *  number: no "0 sitios activos", no "0 min", and "monto por definir" only when there are hours to pay for. Null when
+ *  nothing is left, and the table shows no line. */
 export function mateLine(entry, t) {
   if (!entry) return null;
-  return [t('u.active', { n: entry.sites.length }), hm(entry.minutes || 0), money(entry.cents, t)].join(' · ');
+  const sites = Array.isArray(entry.sites) ? entry.sites.length : 0, minutes = Number(entry.minutes) || 0, cents = entry.cents == null ? null : Number(entry.cents) || 0;
+  const parts = [sites > 0 ? t('u.active', { n: sites }) : null, minutes > 0 ? hm(minutes) : null,
+    cents > 0 || (cents == null && minutes > 0) ? money(cents, t) : null].filter(Boolean);
+  return parts.length ? parts.join(' · ') : null;
 }
 
 /** What sites voided this week still bring, as its own line, so the rows and this line add up to the week's total.
