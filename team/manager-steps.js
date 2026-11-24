@@ -44,15 +44,19 @@ const isMonday = (day) => {
   const d = new Date(`${day}T12:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === day && d.getUTCDay() === 1;
 };
-/** Hours and minutes typed as two fields, as minutes. Empty is zero; minutes run 0 to 59. */
+/** Hours and minutes typed as two fields, as minutes, or null when they cannot be read. Each is a whole number written
+ *  with digits only, minutes 0 to 59: "51,5" or "51.5" is refused, never read as 515 or as 51. One of the two may stay
+ *  empty (51 h, or 45 min); both empty is no number at all, never a zero, since the server records a zero as a fact.
+ *  At most 100,000 minutes, as the server takes. */
 const minutesOf = (hh, mm) => {
-  const a = trim(hh) || '0', b = trim(mm) || '0';
-  if (!/^\d+$/.test(a) || !/^\d+$/.test(b) || Number(b) > 59) return null;
-  const total = Number(a) * 60 + Number(b);
+  const a = trim(hh), b = trim(mm);
+  if (!a && !b) return null;
+  if ((a && !/^[0-9]+$/.test(a)) || (b && !/^[0-9]+$/.test(b)) || Number(b || 0) > 59) return null;
+  const total = Number(a || 0) * 60 + Number(b || 0);
   return total <= 100000 ? total : null;
 };
-/** The body of POST hours for one week typed by hand: the week starts on a Monday, both counts are minutes (zero is a
- *  week too), and the buyers cannot accept more than was delivered. */
+/** The body of POST hours for one week typed by hand: the week starts on a Monday, both counts are minutes (a week with
+ *  nothing delivered is typed as 0), and the buyers cannot accept more than was delivered. */
 export function hoursBody(v) {
   const week = trim(v.week);
   if (!isMonday(week)) refuse('week');

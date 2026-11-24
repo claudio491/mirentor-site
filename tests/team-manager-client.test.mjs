@@ -3,7 +3,7 @@
 // team/manager-steps.js, away from the page, so they can be tested here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { siteBody, hoursBody, siteActions, roleOptions, siteReps, siteLeadId, newRepBody } from '../team/manager-steps.js';
+import { siteBody, hoursBody, siteHoursBody, siteActions, roleOptions, siteReps, siteLeadId, newRepBody } from '../team/manager-steps.js';
 import { DICT } from '../team/i18n.js';
 
 const base = { rep: 'r_1', name: '  Negocio de Prueba ', city: 'Panama City', eligible: '', coordName: '', coordPhone: '', kind: 'normal' };
@@ -43,10 +43,30 @@ test('the hours form takes hours and minutes and sends minutes, for a Monday, wi
   assert.equal(refused(() => hoursBody({ ...v, week: '16/11/2026' })), 'week');
   assert.equal(refused(() => hoursBody({ ...v, dm: '60' })), 'hours_minutes');
   assert.equal(refused(() => hoursBody({ ...v, dh: '-1' })), 'hours_minutes');
-  // a week with nothing delivered is a real week: the server takes it, and so does the form
-  assert.deepEqual(hoursBody({ ...v, dh: '', dm: '', ah: '', am: '' }).weeks[0], { week: '2026-11-16', delivered: 0, accepted: 0 });
+  // a week with nothing delivered is a real week, typed as 0: the server takes it, and so does the form
+  assert.deepEqual(hoursBody({ ...v, dh: '0', dm: '', ah: '0', am: '' }).weeks[0], { week: '2026-11-16', delivered: 0, accepted: 0 });
   assert.equal(refused(() => hoursBody({ ...v, dh: 'x' })), 'hours_minutes');
   assert.equal(refused(() => hoursBody({ ...v, ah: '70' })), 'hours_order');
+});
+
+test('hours are whole numbers in two fields: "51,5" or anything unreadable is refused in the form, and nothing typed is never a zero', () => {
+  const v = { week: '2026-11-16', dh: '69', dm: '4', ah: '51', am: '7' };
+  // "51,5" read as 515 hours, or as nothing and then 0: the form says why instead of sending a number
+  for (const bad of ['51,5', '51.5', '5 1', '½', '1e3', '-0', '+5', 'cincuenta', '５１']) {
+    assert.equal(refused(() => hoursBody({ ...v, dh: bad })), 'hours_minutes', `delivered ${bad}`);
+    assert.equal(refused(() => hoursBody({ ...v, am: bad })), 'hours_minutes', `accepted minutes ${bad}`);
+    assert.equal(refused(() => siteHoursBody({ week: '2026-11-16', h: bad, m: '' })), 'hours_minutes', `site hours ${bad}`);
+  }
+  // both fields left empty is no number at all: refused, never sent as zero
+  assert.equal(refused(() => hoursBody({ ...v, dh: '', dm: '' })), 'hours_minutes');
+  assert.equal(refused(() => hoursBody({ ...v, ah: ' ', am: '' })), 'hours_minutes');
+  assert.equal(refused(() => siteHoursBody({ week: '2026-11-16', h: '', m: '' })), 'hours_minutes');
+  // one of the two may stay empty: 51 h, or 45 min
+  assert.deepEqual(hoursBody({ ...v, dh: '', dm: '45', ah: '', am: '30' }).weeks[0], { week: '2026-11-16', delivered: 45, accepted: 30 });
+  assert.deepEqual(siteHoursBody({ week: '2026-11-16', h: ' 51 ', m: '' }), { what: 'hours', week: '2026-11-16', accepted: 51 * 60 });
+  assert.deepEqual(siteHoursBody({ week: '2026-11-16', h: '0', m: '' }), { what: 'hours', week: '2026-11-16', accepted: 0 });   // a real zero, typed
+  assert.equal(refused(() => siteHoursBody({ week: '2026-11-16', h: '1', m: '60' })), 'hours_minutes');
+  assert.equal(refused(() => siteHoursBody({ week: '2026-11-16', h: '1667', m: '' })), 'hours_minutes');   // over what the server takes (100,000 minutes)
 });
 
 test('each site offers the controls its state allows', () => {
