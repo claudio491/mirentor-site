@@ -6,7 +6,7 @@
 import { $, $$, h, s, put, t, lang, giant, flipList, toast, once, formSheet, reduce, quiet, newId } from './ui.js';
 import { reveal, stagger } from './fx.js';
 import { DOC_GROUPS, DOC_STEPS, docGroups, docsFlat, docsAt, docRow, docsState, canManageDocs, moves, docBody, docFields, checkDoc } from './docs-steps.js';
-import { askTwice } from './taps.js';
+import { askTwice, guardList } from './taps.js';
 
 /** A small page: the paper of the consent step, at the size of a row. */
 const page = () => h('span', { class: 'doc-page', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'));
@@ -139,6 +139,8 @@ export function createDocs({ api, S, errText, setTab }) {
   }
 
   function wire() {
+    // moving a document moves its row, and the next one slides under the finger: a double click acts once (taps.js)
+    guardList($('#docList'));
     $('#docBack').addEventListener('click', () => setTab(back));
     $('#docAdd').addEventListener('click', () => form());
   }

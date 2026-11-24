@@ -8,7 +8,7 @@ import { siteBody, siteActions, roleOptions, recordUrl, siteReps, siteLeadId, si
 import { usd } from './sites-steps.js';
 import { siteStateKey } from './leader-steps.js';
 import { practiceActions, exampleActions } from './practice-steps.js';
-import { askTwice } from './taps.js';
+import { askTwice, guardList } from './taps.js';
 
 const MONDAY = '2026-11-16';   // any Monday: only used to name the days of the week
 const dayName = (n) => wdShort(addDays(MONDAY, n - 1));
@@ -28,12 +28,16 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     try { const res = await call(); if (res && res.reps) team = res; renderAll(false); if (okKey) toast(t(okKey)); refresh(false); } catch (e) { toast(errText(e)); }
   });
 
-  /** A step that is hard to take back asks twice (taps.js): the first tap arms the button and says what will happen; the
-   *  second runs it only after a pause, so one double tap never does both. */
-  function twice(e, warnKey, run) {
+  /** A step that is hard to take back asks twice (taps.js): the first tap arms the button and says what will happen (a
+   *  key's words, or `warn()` itself); the second runs it only after a pause, so one double tap never does both. */
+  function twice(e, warn, run) {
     const step = askTwice(e.currentTarget, e);
-    if (step === 'arm') toast(t(warnKey)); else if (step === 'run') run();
+    if (step === 'arm') { if (typeof warn === 'function') warn(); else toast(t(warn)); } else if (step === 'run') run();
   }
+  // Every list a manager acts on is redrawn by the answer of an action, and the next row then lies under the finger:
+  // the second click of a double click never acts there, and no tap does while a list settles (taps.js). A rep's
+  // history counts too: through view-as a manager undoes and voids from it.
+  guardList($('#needsBody')); guardList($('#repsBody')); guardList($('#ledger'));
   /** Take back a confirmation made by mistake: that part goes back to waiting. */
   const undoConfirm = (btn, logId, what) => act(btn, () => api('POST', 'confirm', { logId, what, undo: true }), 'needs.undone');
   /** Open a day that a rep closed too early, so they can log again. */
@@ -301,7 +305,9 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
         isPlayer ? h('a', { class: 'mini-btn', href: `?as=${encodeURIComponent(r.id)}`, 'data-as': r.id, onclick: openAs, text: t('mgr.viewas', { name: r.first }) }) : null,
         // A rep is edited by any manager; a manager or an admin, by an admin, and never by themselves.
         canTouch && (r.role === 'rep' || !self) ? h('button', { class: 'mini-btn', type: 'button', text: t('reps.edit'), onclick: () => repForm(r) }) : null,
-        canTouch && !self ? h('button', { class: 'mini-btn', type: 'button', text: t(r.active ? 'reps.deactivate' : 'reps.activate'), onclick: (e) => act(e.currentTarget, () => api('POST', `reps/${encodeURIComponent(r.id)}`, { patch: { active: !r.active } }), 'reps.saved') }) : null));
+        // switching someone off locks them out and takes them off the table: it asks twice; switching them back on does not
+        canTouch && !self && r.active ? h('button', { class: 'mini-btn', type: 'button', 'data-act': 'deactivate', text: t('reps.deactivate'), onclick: (e) => { const b = e.currentTarget; twice(e, () => toast(r.name, t('reps.deactivate')), () => act(b, () => api('POST', `reps/${encodeURIComponent(r.id)}`, { patch: { active: false } }), 'reps.saved')); } }) : null,
+        canTouch && !self && !r.active ? h('button', { class: 'mini-btn', type: 'button', 'data-act': 'activate', text: t('reps.activate'), onclick: (e) => act(e.currentTarget, () => api('POST', `reps/${encodeURIComponent(r.id)}`, { patch: { active: true } }), 'reps.saved') }) : null));
   }
   /** The practice rep: one control to create it, then a way into its screens (writes allowed) and a remove in two taps. */
   function practiceGroup() {
