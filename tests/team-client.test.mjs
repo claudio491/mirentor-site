@@ -108,7 +108,8 @@ test('a sheet opens with the focus on its title, so the title is what a screen r
   const sheets = [...page.matchAll(/<dialog\b[^>]*class="sheet"[^>]*aria-labelledby="([^"]+)"[^>]*>/g)];
   assert.ok(sheets.length >= 5, 'the sheets are in the page');
   for (const [, title] of sheets) assert.match(page, new RegExp(`<h2 id="${title}"[^>]*\\stabindex="-1"`), `the title #${title} must take the focus`);
-  assert.match(read('team/ui.js'), /export function openSheet[^\n]*\n?[^\n]*focus\(\{ preventScroll: true \}\)/, 'openSheet gives the title the focus');
+  const body = (read('team/ui.js').match(/export function openSheet\(dlg\) \{[\s\S]*?\n\}/) || [''])[0];
+  assert.match(body, /\$\('h2', dlg\)[\s\S]*\.focus\(\{ preventScroll: true \}\)/, 'openSheet gives the title the focus');
 });
 
 test('the page obeys its own policy: no inline script, no inline style, no handler attributes', () => {

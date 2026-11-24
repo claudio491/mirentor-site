@@ -25,7 +25,7 @@ import { sessionMove, HOME, LEAVE } from './door.js';
 import { actingMode, readOnlyIn, repControls, withAs, logLocked, staleAs, practiceBarName } from './practice-steps.js';
 
 const API = 'api';   // every address is relative to the page, so the app works wherever it is mounted
-const KEY = { lang: 'cancha.lang', queue: 'cancha.queue', me: 'cancha.me', greet: 'cancha.greet' };
+const KEY = { lang: 'cancha.lang', queue: 'cancha.queue', me: 'cancha.me', greet: 'cancha.greet', langPending: 'cancha.langPending' };
 const store = {
   get(k, fallback) { try { const v = localStorage.getItem(k); return v == null ? fallback : JSON.parse(v); } catch { return fallback; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage full or blocked: the app still works online */ } },
@@ -55,6 +55,9 @@ const errText = (e) => { try { return t(`err.${(e && e.code) || 'unknown'}`); } 
 setExplain(errText);
 
 // ---- state ----
+/** Bumped by every answer the screen adopts. A read that went out before the last adoption came back with older news
+ *  than the screen already shows (a log saved meanwhile, say), so it is dropped instead of drawn. */
+let epoch = 0;
 const S = { me: null, sig: '', tab: null, docs: [], period: 'week', as: null, mgr: false, lead: false, queue: store.get(KEY.queue, []), seenFeed: null, lastLoad: 0, lastPaint: 0, arrived: new Set(), ledgerAll: false,
   stop: null,     // the stop the person tapped on the route; null follows the day
   hold: null,     // the stop a log landed on, kept on the stage until its answer has played
@@ -118,7 +121,7 @@ function renderTop() {
   const waiting = myQueue().length;
   $('#queueChip').hidden = !waiting;
   $('#queueN').textContent = t('top.queue', { n: waiting });
-  $('#queueChip').setAttribute('aria-label', t('top.queue.aria'));
+  $('#queueChip').setAttribute('aria-label', t('top.queue.aria', { n: waiting }));
   for (const b of $$('#langSeg button')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang()));
   $('#asBar').hidden = !S.as;
   // the practice rep says so on every screen: its chip and one line that nothing here counts
@@ -135,12 +138,14 @@ function renderNav() {
   if (!shell.tabs.length) { put(nav); nav.hidden = true; return; }
   const tabs = shell.tabs;
   const count = S.mgr ? manager.needsCount() : 0;
+  const had = nav.contains(document.activeElement) ? (document.activeElement.dataset.tab || document.activeElement.id) : null;   // redrawn, the bar keeps the focus where it was
   put(nav, h('div', { class: 'tabs' }, tabs.map((id) => h('button', { class: 'tab', type: 'button', 'data-tab': id, 'aria-label': id === 'needs' && count ? `${t('nav.needs')}: ${count}` : t(`nav.${id}`), 'aria-current': S.tab === id ? 'page' : null, onclick: () => setTab(id) },
     icon(id), h('span', { text: t(`nav.${id}`) }), id === 'needs' && count ? h('span', { class: 'count num', text: String(count), 'aria-hidden': 'true' }) : null))),
   canLog ? h('button', { class: 'btn log', type: 'button', id: 'logBtn', onclick: openLog }, icon('plus'), t('nav.log')) : null);
   nav.classList.toggle('three', !canLog);
   markTab();
   nav.hidden = false;
+  if (had) { const again = $$('#nav button').find((b) => (b.dataset.tab || b.id) === had); if (again) again.focus({ preventScroll: true }); }
 }
 /** The marker over the tabs sits on the open one; a screen that has no tab (the profile) leaves none marked. */
 function markTab() {
@@ -245,7 +250,10 @@ function renderAll(animate = false) {
 async function switchLang(next) {
   if (!LANGS.includes(next) || next === lang()) return;
   setLang(next); store.set(KEY.lang, next); applyStatic();
-  if (S.me) { renderAll(false); if (!readOnly()) api('POST', 'lang', { lang: next }).catch(() => { /* the choice is kept on this phone; it follows the person once the signal is back */ }); }
+  if (S.me) {
+    renderAll(false);
+    if (!readOnly()) api('POST', 'lang', { lang: next }).then(() => store.del(KEY.langPending)).catch(() => { store.set(KEY.langPending, next); });   // kept on this phone and sent at the next start
+  }
   else { for (const b of $$('#langSeg button')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang())); if (S.gate) showGate(S.gate.kind, S.gate.detail); }
   toast(t('toast.lang'));
 }
@@ -522,7 +530,7 @@ function renderClimb(animate) {
 function renderTable(animate = false) {
   const { table } = S.me, T = table[S.period], mine = T.me, period = S.period;
   renderClimb(animate);
-  const day = S.me.today ? S.me.today.day : S.me.serverTime.slice(0, 10), ws = S.me.week ? S.me.week.start : addDays(day, -((new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7));
+  const day = S.me.today ? S.me.today.day : dayOf(S.me.serverTime, (S.me.me && S.me.me.tz) || 'America/Panama'), ws = S.me.week ? S.me.week.start : addDays(day, -((new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7));
   $('#weekChip').textContent = `${upper(t('time.week', { n: isoWeek(day) }))} · ${upper(t('time.range', { a: dayMonth(ws), b: dayMonth(addDays(ws, 6)) }))}`;
   $('#tableLead').textContent = period === 'day' ? t('table.lead.day', { date: dayMonth(day) }) : period === 'month' ? t('table.lead.month', { month: cap(monthName(day)) }) : t('table.lead.week', { date: dayMonth(ws) });
   for (const b of $$('#tableSeg button')) b.setAttribute('aria-pressed', String(b.dataset.period === period));
@@ -624,6 +632,7 @@ function paintCloseSheet() {
 }
 async function openClose() {
   if (readOnly()) return;
+  if (S.stale) { toast(t('err.offline.stale', { date: dayMonth(S.stale) })); return; }   // a day kept from before cannot be closed from here
   baseReport = ''; paintCloseSheet(); openSheet($('#closeSheet'));
   try {
     if (myQueue().length) await flush();   // the report counts what the server has, so waiting logs go out first
@@ -636,7 +645,7 @@ function submitClose() {
   const btn = $('#closeSubmit'), err = $('#closeErr');
   return once(btn, async () => {
     err.hidden = true;
-    if (S.me.today.closed) { toast(t((await copyText($('#slackText').textContent)) ? 'close.copied' : 'close.copy.fail')); return; }
+    if (S.me.today.closed) { const text = $('#slackText').textContent.trim(); toast(t(text && (await copyText(text)) ? 'close.copied' : 'close.copy.fail')); return; }
     // A closed day refuses new logs, so the ones still waiting on this phone go out first.
     if (myQueue().length) await flush();
     if (myQueue().length) { showErr(err, t('close.waiting', { n: myQueue().length })); return; }
@@ -652,13 +661,19 @@ function submitClose() {
       const gained = res.me.today.points - was;
       toast(t('close.toast'), gained > 0 ? t('pts.plus', { n: gained }) : '');
       $('#fTomorrow').value = ''; $('#fBlock').value = '';
-    } catch (e) { showErr(err, errText(e)); }
+    } catch (e) {
+      if (e.code !== 'day_closed') { showErr(err, errText(e)); return; }
+      // The first try reached the server and the answer was lost: the day is closed. Show it closed, with its report.
+      await refresh(false); paintCloseSheet();
+      try { const r = await api('POST', 'close', { preview: true, tomorrow: '', blocker: '' }); baseReport = r.report; drawReport(); } catch { /* the report shows when the sheet opens again */ }
+      toast(t('close.toast'));
+    }
   });
 }
 
 // ---- the feed and the plays ----
 function kudosButton(f) {
-  const btn = h('button', { class: 'kudos', type: 'button', 'aria-pressed': String(!!f.clapped), 'aria-label': t('kudos.aria', { name: f.name }), disabled: f.mine || !may().kudos }, icon('clap'), h('span', { class: 'num', text: String(f.kudos), hidden: !f.kudos }));
+  const btn = h('button', { class: 'kudos', type: 'button', 'data-kid': f.id, 'aria-pressed': String(!!f.clapped), 'aria-label': t('kudos.aria.n', { name: f.name, n: f.kudos }), disabled: f.mine || !may().kudos }, icon('clap'), h('span', { class: 'num', text: String(f.kudos), hidden: !f.kudos, 'aria-hidden': 'true' }));
   btn.addEventListener('click', () => clap(f, btn));
   return btn;
 }
@@ -680,12 +695,13 @@ function renderFeed(list, empty, animate) {
   empty.hidden = items.length > 0;
 }
 async function clap(f, btn) {
-  const on = btn.getAttribute('aria-pressed') !== 'true', n = $('.num', btn);
-  const count = (by) => { const v = Math.max(0, Number(n.textContent) + by); n.textContent = String(v); n.hidden = v === 0; };
-  btn.setAttribute('aria-pressed', String(on)); count(on ? 1 : -1);
+  const on = btn.getAttribute('aria-pressed') !== 'true', all = $$('.kudos').filter((b) => b.dataset.kid === f.id);
+  const count = (by) => { for (const b of all) { const n = $('.num', b), v = Math.max(0, Number(n.textContent) + by); n.textContent = String(v); n.hidden = v === 0; b.setAttribute('aria-label', t('kudos.aria.n', { name: f.name, n: v })); } };
+  const press = (v) => { for (const b of all) b.setAttribute('aria-pressed', String(v)); };
+  press(on); count(on ? 1 : -1);
   if (on) { buzz(8); lock($('svg', btn)); ringAt($('svg', btn)); }
   try { const res = await api('POST', 'kudos', { target: f.id, on }); adopt(res.me); }
-  catch (e) { btn.setAttribute('aria-pressed', String(!on)); count(on ? -1 : 1); toast(errText(e)); }
+  catch (e) { press(!on); count(on ? -1 : 1); toast(errText(e)); }
 }
 function renderPlay() {
   const f = S.me.feed.find((x) => x.play && x.code !== 'badge'), card = $('#playCard');
@@ -779,7 +795,7 @@ function renderProfile() {
     put(box, S.me.viewer.email ? h('div', { class: 'line' }, h('span', { text: t('profile.account', { email: S.me.viewer.email }) })) : null,
       ...ladder.profileButtons(), ...route.profileButtons(), docsBtn,
       h('button', { class: 'btn', type: 'button', text: t('profile.rules'), 'data-open': 'rulesSheet' }),
-      h('button', { class: 'btn signout', type: 'button', text: t('profile.signout'), onclick: signOut }));
+      h('button', { class: 'btn signout', type: 'button', text: t('profile.signout'), onclick: (ev) => signOutAsked(ev.currentTarget) }));
   }
 }
 function renderRules() {
@@ -795,7 +811,7 @@ const L = { lead: null, kind: null, channel: null, voicemail: false, tag: null, 
  *  the route once saved; from anywhere else (a click event is passed then) it opens empty. */
 function openLog(preset = null) {
   if (readOnly()) return;   // screens that are not the person's own (view-as, or leaving practice mode) log nothing
-  if (logLocked(S.me.today, mode())) { toast(t('log.closed')); return; }   // the practice rep logs on after closing, for the demonstration
+  if (!S.stale && logLocked(S.me.today, mode())) { toast(t('log.closed')); return; }   // the practice rep logs on after closing, for the demonstration
   const given = preset && preset.lead ? preset : null;
   Object.assign(L, { lead: null, kind: null, channel: null, voicemail: false, tag: null, contact: '', when: '', note: '', more: false, q: '', found: null, from: null });
   if (given) Object.assign(L, { lead: { id: given.lead.id, name: given.lead.name, zone: '', known: true }, kind: given.kind, channel: CHANNELS[given.kind] ? CHANNELS[given.kind][0] : null, from: given.from || null });
@@ -814,7 +830,7 @@ function outArt(kind) {
 function leadOption(l, pressed) {
   const today = S.me.today.day, mine = l.lastDay ? t('log.last', { date: l.lastDay === today ? t('nav.today').toLocaleLowerCase() : dayMonth(l.lastDay) }) : l.known ? t('log.known') : t('log.unknown');
   // The business's name gets the whole width: when it was last logged goes on the small line, under it, after its zone.
-  return h('button', { class: 'leadopt', type: 'button', 'aria-pressed': String(!!pressed), onclick: () => { L.lead = pressed ? null : l; renderLog(); } },
+  return h('button', { class: 'leadopt', type: 'button', 'aria-pressed': String(!!pressed), onclick: () => { keepFields(); L.lead = pressed ? null : l; renderLog(); } },
     h('span', {}, h('b', { text: l.name }), h('small', { text: pressed ? (l.zone || l.id) : `${l.zone || l.id} · ${mine}` })), pressed ? h('span', { class: 'k', text: t('log.pick.change') }) : null);
 }
 function renderLog() {
@@ -825,7 +841,7 @@ function renderLog() {
   const recents = S.me.recentLeads.slice(0, 4).map((l) => ({ ...l, known: true }));
   const list = L.q.length >= 2 ? (L.found || []) : recents;
   const newOpt = h('button', { class: 'leadopt dashed', type: 'button', 'aria-pressed': String(!!isNew), onclick: () => {
-    L.lead = isNew ? null : { isNew: true }; if (!isNew && L.q.length >= 2 && !$('#newName').value) $('#newName').value = L.q; renderLog(); if (!isNew) $('#newName').focus();
+    keepFields(); L.lead = isNew ? null : { isNew: true }; if (!isNew && L.q.length >= 2 && !$('#newName').value) $('#newName').value = L.q; renderLog(); if (!isNew) $('#newName').focus();
   } }, h('span', {}, h('b', { text: t('log.new') }), h('small', { text: t('log.new.s') })), h('span', { class: 'k', text: isNew ? t('log.pick.change') : '' }));
   $('#leadOpts').replaceChildren(...(isNew ? [] : list.map((l) => leadOption(l, false))), newOpt);
   $('.field.search', pick).hidden = !!isNew;
@@ -852,7 +868,7 @@ function renderLog() {
   if (outs.dataset.key !== outKey) {
     outs.dataset.key = outKey;
     outs.replaceChildren(...kinds.map((k) => h('button', { class: 'out', type: 'button', 'data-k': k, onclick: () => {
-      L.kind = L.kind === k ? null : k; L.channel = L.kind && CHANNELS[L.kind] ? CHANNELS[L.kind][0] : null; L.voicemail = false; L.tag = null; renderLog();
+      keepFields(); L.kind = L.kind === k ? null : k; L.channel = L.kind && CHANNELS[L.kind] ? CHANNELS[L.kind][0] : null; L.voicemail = false; L.tag = null; renderLog();
     } }, outArt(k), h('b', { text: t(`kind.${k}`) }), h('span', { class: 'pp' }))));
   }
   for (const b of outs.children) { b.setAttribute('aria-pressed', String(L.kind === b.dataset.k)); $('.pp', b).textContent = hint(b.dataset.k); }
@@ -925,11 +941,11 @@ function saveLog() {
   return once($('#saveLog'), async () => {
     closeSheet($('#logSheet')); setTab(L.from || 'today');
     toast(`${t('c.saving')}…`);   // on a slow signal the tap is answered at once; the result replaces this line
-    try { const res = await api('POST', 'log', body); setTimeout(() => logged(res, body), reduce ? 0 : 260); }
+    try { const res = await api('POST', 'log', { ...body, sentAt: new Date().toISOString() }); setTimeout(() => logged(res, body), reduce ? 0 : 260); }
     catch (e) {
       // No answer, a service that is restarting or a session that ended: the log waits on the phone. Only a plain refusal ends it.
       if (verdict(e) === 'keep') { S.queue.push({ rep: S.me.me.id, body }); store.set(KEY.queue, S.queue); renderTop(); toast(t('toast.queued')); shutOut(e); }
-      else if (!shutOut(e)) toast(errText(e));
+      else if (!shutOut(e)) { toast(errText(e)); renderLog(); openSheet($('#logSheet')); }   // refused: the sheet comes back with what was typed
     }
   });
 }
@@ -1019,7 +1035,7 @@ async function flush() {
   let sent = 0;
   try {
     for (const item of myQueue()) {
-      try { await api('POST', 'log', item.body); sent += 1; }
+      try { await api('POST', 'log', { ...item.body, sentAt: new Date().toISOString() }); sent += 1; }   // clientAt stays the moment of the contact
       catch (e) {
         if (verdict(e) === 'keep') { shutOut(e); break; }   // it stays in the queue for the next try
         toast(t('toast.dropped', { why: errText(e) }));   // refused for good: it leaves the queue with the reason shown
@@ -1035,9 +1051,10 @@ async function flush() {
 /** What a view says, leaving out the clock: two reads that match have nothing new to draw. */
 const signature = (me) => JSON.stringify({ ...me, serverTime: null });
 // Only a person's own screens are kept on the phone for a start without signal: never a view-as, never the practice rep.
-function adopt(me) { S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); if (!S.as && me.me) store.set(KEY.me, me); }
+function adopt(me) { epoch += 1; S.stale = null; S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); if (!S.as && me.me) store.set(KEY.me, me); }
 /** A leader has no board of their own: they land on the leadership view, with no tabs, no log and no entrance. */
 function enterLeader(me) {
+  epoch += 1;
   S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); S.lastPaint = Date.now();
   S.as = null; S.mgr = false; S.lead = true;
   const own = me.viewer.lang;
@@ -1049,14 +1066,21 @@ function enterLeader(me) {
   // The page shows once its numbers are in, so it never draws an empty view first.
   loadDocs();
   leader.load().then(() => { renderAll(false); setTab('lead', { instant: true }); arrive('lead'); })
-    .catch((e) => { if (!shutOut(e)) showGate('error', errText(e)); });
+    .catch((e) => { if (!shutOut(e)) showGate('error', e); });
 }
 function enter(me) {
   if (me.viewer && me.viewer.role === 'leader') { enterLeader(me); return; }
-  S.lead = false;
+  S.lead = false; epoch += 1; S.stale = null;
   S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); S.lastPaint = Date.now();
   if (!S.as || me.viewer.role === 'rep') S.as = me.viewer.as;   // a rep's `as` is ignored by the server
-  const own = S.as ? me.viewer.lang : me.me.lang;
+  let own = S.as ? me.viewer.lang : me.me.lang;
+  // A language picked with no signal is the person's choice: it wins over the server's and is sent again.
+  const pend = S.as ? null : store.get(KEY.langPending, null);
+  if (pend && LANGS.includes(pend)) {
+    own = pend;
+    if (pend === me.me.lang) store.del(KEY.langPending);
+    else api('POST', 'lang', { lang: pend }).then(() => store.del(KEY.langPending)).catch(() => { /* still no signal: kept for the next start */ });
+  }
   if (own && own !== lang()) { setLang(own); store.set(KEY.lang, own); applyStatic(); }
   S.mgr = !S.as && me.viewer.role !== 'rep';
   document.body.classList.remove('bare'); document.body.classList.toggle('mgr', S.mgr);
@@ -1101,8 +1125,10 @@ function welcome(day, ready, arriveAll) {
 /** The quiet check while the app is open. The screen is redrawn only when something moved, or every five minutes so
  * the times stay true; redrawing for nothing would swap a button out from under a finger. */
 async function poll() {
+  const at = epoch;
   try {
     const me = await api('GET', S.as ? `me?as=${encodeURIComponent(S.as)}` : 'me');
+    if (at !== epoch) return;   // something newer was adopted while this read was out
     S.lastLoad = Date.now();
     const had = JSON.stringify(S.docs);
     await docs.load().catch(() => { /* kept as it was */ });
@@ -1116,8 +1142,10 @@ async function poll() {
   } catch (e) { if (staleAs(e, S.as)) viewAs(null); else shutOut(e); }
 }
 async function refresh(animate = false) {
+  const at = epoch;
   try {
     const me = await api('GET', S.as ? `me?as=${encodeURIComponent(S.as)}` : 'me');
+    if (at !== epoch) return;   // something newer was adopted while this read was out
     adopt(me);
     if (S.mgr) await manager.load();
     if (S.lead || S.tab === 'lead') await leader.load();
@@ -1128,12 +1156,13 @@ async function refresh(animate = false) {
  * itself. kind is 'team' (the account is not on the team; detail is the account), 'session' (the session ended and
  * coming back did not help) or 'error' (it did not load; detail is why). */
 function showGate(kind, detail = '') {
+  for (const dlg of document.querySelectorAll('dialog[open]')) dlg.close();   // a sheet of the screens being left goes with them
   S.me = null; S.gate = { kind, detail };
   document.body.classList.add('bare'); document.body.classList.remove('mgr');
   $('#nav').hidden = true; renderTop(); show('gate');
   $('#gateLead').textContent = kind === 'team' && detail ? t('gate.team.lead', { email: detail }) : t('gate.lead');
   giant($('#gateGiant'), t(`gate.${kind}.title`));
-  $('#gateSupport').textContent = kind === 'error' ? detail : t(`gate.${kind}.support`);
+  $('#gateSupport').textContent = kind === 'error' ? errText(detail) : t(`gate.${kind}.support`);
   const go = $('#gateGo'), alt = $('#gateAlt');
   go.textContent = t(kind === 'session' ? 'gate.enter' : 'gate.retry'); go.href = HOME;
   alt.hidden = kind !== 'team'; alt.textContent = t('gate.switch'); alt.href = LEAVE;
@@ -1153,6 +1182,14 @@ function shutOut(e) {
 }
 /** Signing out ends the portal's session, which is the board's too. The next entrance plays in full. */
 function signOut() { store.del(KEY.me); store.del(KEY.greet); location.href = LEAVE; }
+/** With logs still waiting on this phone, signing out says so and asks for a second tap (they stay on the phone and go
+ *  out at the next sign-in, but the person should know). */
+function signOutAsked(btn) {
+  const n = myQueue().length, now = Date.now();
+  if (!n || (btn.dataset.armed && now - Number(btn.dataset.armed) > 300 && now - Number(btn.dataset.armed) < 5000)) { signOut(); return; }
+  btn.dataset.armed = String(now); btn.classList.add('armed'); btn.textContent = t('profile.signout.waiting', { n });
+  setTimeout(() => { if (btn.isConnected && btn.dataset.armed === String(now)) { delete btn.dataset.armed; btn.classList.remove('armed'); btn.textContent = t('profile.signout'); } }, 5000);
+}
 /** `as` is whose screens to open as their manager. Left out, the page's own address says it. */
 async function start(as = undefined) {
   const url = new URL(location.href);
@@ -1166,8 +1203,15 @@ async function start(as = undefined) {
     const cached = store.get(KEY.me, null);
     // The address names a rep who is gone (the practice rep was removed, then Back or a reload): drop it, start as the person.
     if (staleAs(e, S.as)) { url.searchParams.delete('as'); try { history.replaceState(null, '', url); } catch { /* the view changes all the same */ } S.tab = null; await start(null); return; }
-    if (e.code === 'offline' && cached && !S.as) { enter(cached); toast(t('err.offline')); }
-    else if (!shutOut(e)) showGate('error', errText(e));
+    if (e.code === 'offline' && cached && !S.as) {
+      enter(cached);
+      // What the phone kept is from an earlier day: it is shown, said to be old, and it locks nothing (a log waits for
+      // the signal and the server dates it), so the queue works exactly when it is needed.
+      const kept = cached.today && cached.today.day, now = cached.me && cached.me.tz ? dayOf(new Date().toISOString(), cached.me.tz) : kept;
+      if (kept && now && kept !== now) { S.stale = kept; renderAll(false); toast(t('err.offline.stale', { date: dayMonth(kept) })); }
+      else toast(t('err.offline'));
+    }
+    else if (!shutOut(e)) showGate('error', e);
   }
 }
 /** Open a rep's screens as their manager, or come back to the team, without loading the page again. */

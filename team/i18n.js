@@ -19,6 +19,8 @@ const es = {
   // ---- errors: one line per refusal the server can answer ----
   'err.offline': 'Sin señal. Revisa tu conexión y vuelve a intentar.',
   'err.unknown': 'Algo falló de nuestro lado. Vuelve a intentar en un momento.',
+  'err.server': 'Algo falló de nuestro lado. Vuelve a intentar en un momento.',
+  'err.offline.stale': 'Sin señal: lo que ves es lo que tenías el {date}. Lo que registres se envía cuando vuelva.',
 
   'err.session': 'Tu sesión terminó. Entra de nuevo.',
   'err.not_on_team': 'Tu cuenta ya no está en el equipo de ventas.',
@@ -151,7 +153,7 @@ const es = {
 
   // ---- top bar and navigation ----
   'top.home.aria': 'Ir al inicio', 'top.streak': 'racha', 'top.streak.aria': 'Tu racha: {n}', 'top.lang.aria': 'Idioma',
-  'top.queue': ['{n} por enviar', '{n} por enviar'], 'top.queue.aria': 'Registros guardados en tu teléfono que faltan por enviar',
+  'top.queue': ['{n} por enviar', '{n} por enviar'], 'top.queue.aria': ['{n} registro guardado en tu teléfono, por enviar. Toca para enviarlo ahora.', '{n} registros guardados en tu teléfono, por enviar. Toca para enviarlos ahora.'],
   'top.viewAs': 'Viendo como {name}', 'top.viewAs.exit': 'Volver al equipo',
   'top.practice': 'Actúas como el vendedor de práctica. Nada de lo que hagas aquí cuenta en ningún total.',
   'top.practice.short': 'Actúas como {name}. No cuenta en ningún total.',
@@ -249,7 +251,7 @@ const es = {
   'feed.meeting': 'agendó una reunión', 'feed.contract': 'envió un contrato', 'feed.meeting_held': 'tuvo su reunión', 'feed.contract_sent': 'tiene un contrato confirmado',
   'feed.contract_signed': 'firmó un contrato', 'feed.site_signed': 'firmó un sitio', 'feed.site_installed': 'tiene un sitio instalado', 'feed.site_first_hour': 'tiene su primera hora aprobada',
   'feed.day_closed': 'cerró su día', 'feed.badge': 'recibió un reconocimiento',
-  'kudos.aria': 'Aplaudir a {name}',
+  'kudos.aria': 'Aplaudir a {name}', 'kudos.aria.n': ['Aplaudir a {name}. {n} aplauso', 'Aplaudir a {name}. {n} aplausos'],
   // ---- logging ----
   'log.title': '¿qué pasó?', 'log.step1': '1 · Con quién', 'log.step2': '2 · Resultado', 'log.step3': '3 · Detalles',
   'log.search': 'Buscar un negocio', 'log.search.ph': 'Busca un negocio de tu ciudad',
@@ -308,7 +310,7 @@ const es = {
   'badge.info.first_site_live': 'Tu primer sitio con su primera hora aprobada.',
   'profile.ledger': 'historial de puntos', 'profile.ledger.empty': 'Aquí queda cada punto que ganes, con su fuente.',
   'profile.held': 'Ya ocurrió', 'profile.held.done': 'Avisaste que ocurrió', 'profile.held.toast': 'Listo. Tu líder la confirma y suman los puntos.',
-  'profile.settings': 'ajustes', 'profile.rules': 'Cómo se gana', 'profile.signout': 'Salir',
+  'profile.settings': 'ajustes', 'profile.rules': 'Cómo se gana', 'profile.signout': 'Salir', 'profile.signout.waiting': ['{n} registro sin enviar en este teléfono. Toca otra vez para salir.', '{n} registros sin enviar en este teléfono. Toca otra vez para salir.'],
   'led.visit': 'Visita en persona', 'led.conversation': 'Conversación con quien decide', 'led.followup': 'Seguimiento', 'led.message': 'Mensaje o correo',
   'led.reply': 'Respuesta de un negocio', 'led.meeting_booked': 'Reunión agendada', 'led.meeting_held': 'Reunión realizada', 'led.contract_sent': 'Contrato enviado',
   'led.contract_signed': 'Contrato firmado', 'led.site_signed': 'Sitio firmado', 'led.site_installed': 'Sitio instalado', 'led.site_first_hour': 'Primera hora aprobada', 'led.day_closed': 'Día cerrado a tiempo',
@@ -676,6 +678,8 @@ const en = {
   // ---- errors ----
   'err.offline': 'No signal. Check your connection and try again.',
   'err.unknown': 'Something failed on our side. Try again in a moment.',
+  'err.server': 'Something failed on our side. Try again in a moment.',
+  'err.offline.stale': 'No signal: this is what you had on {date}. What you log goes out when it is back.',
 
   'err.session': 'Your session ended. Sign in again.',
   'err.not_on_team': 'Your account is no longer on the sales team.',
@@ -808,7 +812,7 @@ const en = {
 
   // ---- top bar and navigation ----
   'top.home.aria': 'Go to the start', 'top.streak': 'streak', 'top.streak.aria': 'Your streak: {n}', 'top.lang.aria': 'Language',
-  'top.queue': ['{n} to send', '{n} to send'], 'top.queue.aria': 'Logs saved on your phone that still have to be sent',
+  'top.queue': ['{n} to send', '{n} to send'], 'top.queue.aria': ['{n} log saved on your phone, still to send. Tap to send it now.', '{n} logs saved on your phone, still to send. Tap to send them now.'],
   'top.viewAs': 'Viewing as {name}', 'top.viewAs.exit': 'Back to the team',
   'top.practice': 'You are acting as the practice rep. Nothing you do here counts in any total.',
   'top.practice.short': 'Acting as {name}. Counts in no total.',
@@ -906,7 +910,7 @@ const en = {
   'feed.meeting': 'booked a meeting', 'feed.contract': 'sent a contract', 'feed.meeting_held': 'held their meeting', 'feed.contract_sent': 'has a confirmed contract',
   'feed.contract_signed': 'signed a contract', 'feed.site_signed': 'signed a site', 'feed.site_installed': 'has a site installed', 'feed.site_first_hour': 'has their first approved hour',
   'feed.day_closed': 'closed their day', 'feed.badge': 'received a recognition',
-  'kudos.aria': 'Applaud {name}',
+  'kudos.aria': 'Applaud {name}', 'kudos.aria.n': ['Applaud {name}. {n} clap', 'Applaud {name}. {n} claps'],
   // ---- logging ----
   'log.title': 'what happened?', 'log.step1': '1 · With whom', 'log.step2': '2 · Result', 'log.step3': '3 · Details',
   'log.search': 'Search a business', 'log.search.ph': 'Search a business in your city',
@@ -965,7 +969,7 @@ const en = {
   'badge.info.first_site_live': 'Your first site with its first approved hour.',
   'profile.ledger': 'points history', 'profile.ledger.empty': 'Every point you earn shows here, with its source.',
   'profile.held': 'It happened', 'profile.held.done': 'You reported it happened', 'profile.held.toast': 'Done. Your manager confirms it and the points count.',
-  'profile.settings': 'settings', 'profile.rules': 'How you earn', 'profile.signout': 'Sign out',
+  'profile.settings': 'settings', 'profile.rules': 'How you earn', 'profile.signout': 'Sign out', 'profile.signout.waiting': ['{n} log not sent yet on this phone. Tap again to sign out.', '{n} logs not sent yet on this phone. Tap again to sign out.'],
   'led.visit': 'In-person visit', 'led.conversation': 'Conversation with whoever decides', 'led.followup': 'Follow-up', 'led.message': 'Message or email',
   'led.reply': 'Reply from a business', 'led.meeting_booked': 'Meeting booked', 'led.meeting_held': 'Meeting held', 'led.contract_sent': 'Contract sent',
   'led.contract_signed': 'Contract signed', 'led.site_signed': 'Site signed', 'led.site_installed': 'Site installed', 'led.site_first_hour': 'First approved hour', 'led.day_closed': 'Day closed on time',

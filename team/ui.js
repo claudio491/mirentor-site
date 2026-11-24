@@ -246,7 +246,13 @@ export function src(node, label, text) {
 // ---- sheets ----
 /** Whatever a drag left on a sheet: where it stood and how much of the page it let through. */
 function settle(dlg) { dlg.classList.remove('dragging'); dlg.style.removeProperty('transform'); dlg.style.removeProperty('--fade'); }
-export function openSheet(dlg) { hidePop(); settle(dlg); dlg.classList.remove('closing'); if (!dlg.open) dlg.showModal(); dlg.scrollTop = 0; const title = $('h2', dlg); if (title) title.focus({ preventScroll: true }); }
+const leaving = new WeakMap();   // the timer that closes a sheet once it has left the screen
+export function openSheet(dlg) {
+  hidePop(); settle(dlg);
+  clearTimeout(leaving.get(dlg)); leaving.delete(dlg);   // opened again while it was leaving: it stays
+  dlg.classList.remove('closing'); if (!dlg.open) dlg.showModal(); dlg.scrollTop = 0;
+  const title = $('h2', dlg); if (title) title.focus({ preventScroll: true });
+}
 export function closeSheet(dlg) {
   if (!dlg.open) return;
   settle(dlg);   // a sheet let go mid-drag leaves from where it stands
@@ -254,7 +260,8 @@ export function closeSheet(dlg) {
   dlg.classList.add('closing');
   // The class stays on after closing: a closed sheet is still drawn while it leaves, and without the class it would
   // slide back up for that moment. Opening it again takes the class off.
-  setTimeout(() => dlg.close(), 240);
+  clearTimeout(leaving.get(dlg));
+  leaving.set(dlg, setTimeout(() => { leaving.delete(dlg); dlg.close(); }, 240));
 }
 /** A sheet is dragged by its top, the grab bar and the title: down it follows the finger, and let go it closes or goes
  *  back (sheet-drag.js decides). The rest of the sheet scrolls as it always did, and the close button and Escape still
@@ -303,7 +310,9 @@ function dragToClose(dlg) {
 export function initSheets() {
   for (const dlg of $$('dialog.sheet')) {
     dragToClose(dlg);
-    dlg.addEventListener('click', (e) => { if (e.target === dlg || e.target.closest('[data-close]')) closeSheet(dlg); });
+    let fromBackdrop = false;
+    dlg.addEventListener('pointerdown', (e) => { fromBackdrop = e.target === dlg; });
+    dlg.addEventListener('click', (e) => { if ((e.target === dlg && (fromBackdrop || e.detail === 0)) || e.target.closest('[data-close]')) closeSheet(dlg); });
     dlg.addEventListener('cancel', (e) => { e.preventDefault(); closeSheet(dlg); });
   }
 }
@@ -388,8 +397,11 @@ export function showErr(node, text) {
   node.textContent = text; node.hidden = false;
   node.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
 }
+let formTurn = 0;   // the form sheet is shared: an answer that comes back after another form opened belongs to no one
 export function formSheet({ title, intro = '', fields = [], body = null, submit, skip = null, note = '', onSubmit }) {
   const dlg = $('#formSheet'), form = $('#fsForm'), err = $('#fsErr'), btn = $('#fsBtn'), skipBtn = $('#fsSkip');
+  const turn = ++formTurn, mine = () => turn === formTurn;
+  btn.disabled = false; btn.removeAttribute('aria-busy');   // a slow answer to the form before never holds this one's button
   $('#fsH').textContent = title;
   $('#fsIntro').textContent = intro; $('#fsIntro').hidden = !intro;
   $('#fsFields').replaceChildren(...[body, ...fields.map(fieldNode)].filter(Boolean));
@@ -405,10 +417,13 @@ export function formSheet({ title, intro = '', fields = [], body = null, submit,
       else if (node.dataset.type === 'pick') values[node.dataset.name] = ($('select', node).value === OTHER ? $('input', node).value : $('select', node).value).trim();
       else values[node.dataset.name] = $('input,select,textarea', node).value.trim();
     }
-    once(btn, async () => {
-      err.hidden = true;
-      try { if ((await onSubmit(values)) !== true) closeSheet(dlg); } catch (e2) { showErr(err, explain(e2)); }
-    });
+    if (btn.disabled) return;
+    btn.disabled = true; btn.setAttribute('aria-busy', 'true'); err.hidden = true;
+    (async () => {
+      try { const keep = await onSubmit(values); if (mine() && keep !== true) closeSheet(dlg); }
+      catch (e2) { if (mine()) showErr(err, explain(e2)); }
+      finally { if (mine()) { btn.disabled = false; btn.removeAttribute('aria-busy'); } }
+    })();
   };
   openSheet(dlg);
   return dlg;
