@@ -127,7 +127,7 @@ export function createLeader({ api, S, errText, setTab }) {
         h('div', { class: 'ld-wn' }, h('b', { text: rep.first }), step ? h('small', {}, sentence('lead.rep.new', { n: srcNum('', step.value, from(step.source)) })) : null)),
       h('div', { class: 'ld-nums' }, facts.filter((f) => f.key !== 'ladder').map((f) => h('div', { class: 'ld-n' }, srcNum('ld-nv', f.value, from(f.source)), h('span', { class: 'label', text: t(LABELS[f.key]) })))),
       // the week's accepted hours and earnings, to the cent or "monto por definir", opening into hours times rate
-      rep.minutes != null ? h('p', { class: 'ld-earn' }, src(h('button', { class: 'src', type: 'button', text: t('lead.rep.earn', { h: hm(rep.minutes), m: money(rep.cents, t) }) }), () => t('c.source'), () => paySource(rep.minutes, rep.rate ?? null, t))) : null);
+      rep.minutes != null ? h('p', { class: 'ld-earn' }, src(h('button', { class: 'src', type: 'button', text: t('lead.rep.earn', { h: H(rep.minutes), m: money(rep.cents, t) }) }), () => t('c.source'), () => paySource(rep.minutes, rep.rate ?? null, t, num))) : null);
   }
   function cityNode(c) {
     const name = c.city ? cityName(c.city) : t('lead.city.none');

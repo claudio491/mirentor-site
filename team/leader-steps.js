@@ -2,9 +2,12 @@
 // How minutes read as hours, what a site's card says, how the practice site is mentioned, what the shell offers each
 // role, and the shape of the hours graphic. The server stays the judge: these only shape the screen.
 
+/** Thousands grouped the way both languages of the app write a whole number (es-PA and en-US): 3,750. */
+const grouped = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 /** Minutes as a person reads them: 4144 is "69 h 4 min". Whole hours drop the minutes, under an hour drops the hours.
- *  `show` writes the hours the way the reader's language writes a number. Nothing on file is an empty string. */
-export function hm(minutes, show = String) {
+ *  `show` writes the hours the way the reader's language writes a number: every caller passes it (ui.js num); left
+ *  out, the thousands are still grouped. Nothing on file is an empty string. */
+export function hm(minutes, show = grouped) {
   if (minutes == null || !Number.isFinite(Number(minutes))) return '';
   const total = Math.max(0, Math.round(Number(minutes))), h = Math.floor(total / 60), m = total % 60;
   if (!h) return `${m} min`;

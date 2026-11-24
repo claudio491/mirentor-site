@@ -17,7 +17,19 @@ test('minutes format as "69 h 4 min" and "51 h 7 min"', () => {
   assert.deepEqual([hm(120), hm(45), hm(0)], ['2 h', '45 min', '0 min']);
   // the hours are written the way the reader's language writes a number
   assert.equal(hm(3750 * 60, (n) => n.toLocaleString('en-US')), '3,750 h');
+  assert.equal(hm(1666 * 60 + 40, (n) => n.toLocaleString('de-DE')), '1.666 h 40 min');
+  // a caller that forgets still groups the thousands, as both languages of the app write them
+  assert.equal(hm(3750 * 60), '3,750 h');
+  assert.equal(hm(1234567 * 60 + 5), '1,234,567 h 5 min');
   assert.equal(hm(null), '');
+});
+
+test('every script that writes hours passes the reader\'s number format', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  for (const f of readdirSync(new URL('../team/', import.meta.url)).filter((x) => x.endsWith('.js'))) {
+    const src = readFileSync(new URL(`../team/${f}`, import.meta.url), 'utf8');
+    for (const m of src.matchAll(/\bhm\(((?:[^()]|\([^()]*\))*)\)/g)) if (!/^minutes, show/.test(m[1])) assert.ok(m[1].includes(','), `${f}: hm(${m[1]}) writes hours without the reader's number format`);
+  }
 });
 
 test('a legacy site\'s card text', () => {
