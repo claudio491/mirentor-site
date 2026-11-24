@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { emptyState, applyEvent } from '../lib/team/state.mjs';
-import { repView, teamView, feedOf } from '../lib/team/view.mjs';
+import { repView, teamView, feedOf, weekPlace } from '../lib/team/view.mjs';
 
 const TZ = 'America/Panama';
 const at = (day, hhmm) => new Date(`${day}T${hhmm}:00-05:00`).toISOString();
@@ -209,4 +209,14 @@ test('repView carries the person\'s own two zones, and nobody else\'s', () => {
   // a copy: the screen can never change the state
   const v = repView(s, 'ana', ctx()); v.zones.push('X');
   assert.deepEqual(repView(s, 'ana', ctx()).zones, ['Bella Vista', 'Obarrio']);
+});
+
+test('weekPlace answers the place the week table gives, alone: ranked, unranked, new, the practice world and a manager', () => {
+  const st = build([...five(), rep('nuevo', { startDate: MON }), log('nuevo', MON, '12:00', 'talk'), rep('jefa', { role: 'manager' }), rep('cero'),
+    { type: 'rep.practice', t: at('2026-11-02', '08:00'), id: 'prac', handle: 'prac', name: 'Vendedor de práctica', city: 'Panama City', tz: TZ, workdays: [1, 2, 3, 4, 5], startDate: '2026-11-02' },
+    log('prac', MON, '12:30', 'talk')]);
+  for (const id of ['ana', 'beto', 'caro', 'dani', 'eli', 'nuevo', 'jefa', 'cero', 'prac']) {
+    assert.equal(weekPlace(st, id, ctx()), repView(st, id, ctx()).table.week.me?.place ?? null, id);
+  }
+  assert.deepEqual(['ana', 'dani', 'nuevo', 'cero', 'prac'].map((id) => weekPlace(st, id, ctx())), [1, 4, null, null, 1]);
 });
