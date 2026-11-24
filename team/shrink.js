@@ -37,14 +37,18 @@ async function decode(file, maxSide) {
     if (fit) { try { return await createImageBitmap(file, { imageOrientation: 'from-image', ...fit, resizeQuality: 'high' }); } catch { /* a browser that does not take a size decodes it whole, below */ } }
     try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch { /* some browsers decode only through an image element */ }
   }
-  const url = URL.createObjectURL(file);
-  try {
-    const img = new Image();
-    img.decoding = 'async'; img.src = url;
-    await img.decode();
-    return img;
-  } finally { URL.revokeObjectURL(url); }
+  // An older browser (an iPhone before iOS 15) decodes only through an image element, and the page's policy allows a
+  // data: address for it, not a blob: one: the file is read as one. It weighs a third more, on a path few phones take.
+  const img = new Image();
+  img.decoding = 'async'; img.src = await asDataUrl(file);
+  await img.decode();
+  return img;
 }
+const asDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result); reader.onerror = () => reject(reader.error || new Error('read'));
+  reader.readAsDataURL(file);
+});
 const toJpeg = (canvas, quality) => new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('encode'))), 'image/jpeg', quality));
 
 /** The photo as a JPEG whose longer side is at most `maxSide` and whose size is at most `maxBytes`. Throws when the
