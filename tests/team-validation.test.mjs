@@ -110,3 +110,19 @@ test('a rep with no city has no businesses to pick: the search finds none, an id
   const reps = (await s.call('GET', `${API}/team`, undefined, { cookie: a.cookie })).json.reps;
   assert.deepEqual(reps.map((r) => [r.handle, r.leadsInCity]), [['mario', 1], ['sinciudad', 0]]);
 });
+
+test('confirming the same part twice, or voiding the same log twice, writes one event and answers the same', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin(), m = await s.addRep(a.cookie, 'mario'), mgr = await s.addRep(a.cookie, 'mara', { role: 'manager' });
+  await s.call('POST', `${API}/log`, logBody('contract-dup-01', { kind: 'contract', lead: { name: 'Hotel Uno', zone: 'Centro' } }), { cookie: m.cookie });
+  await s.call('POST', `${API}/log`, logBody('talk-to-void-01', { lead: { name: 'Bar Uno', zone: 'Centro' } }), { cookie: m.cookie });
+  const post = (route, body, who = a) => s.call('POST', `${API}/${route}`, body, { cookie: who.cookie });
+  const sent1 = await post('confirm', { logId: 'contract-dup-01', what: 'contract_sent' });
+  const sent2 = await post('confirm', { logId: 'contract-dup-01', what: 'contract_sent' }, mgr);
+  assert.deepEqual([sent1.status, sent2.status], [200, 200]);
+  assert.deepEqual(sent2.json.needs.confirm.map((c) => c.what), sent1.json.needs.confirm.map((c) => c.what));
+  const confirms = s.lines().filter((e) => e.type === 'confirm');
+  assert.deepEqual(confirms.map((e) => [e.logId, e.what, e.by]), [['contract-dup-01', 'contract_sent', a.id]]);
+  assert.deepEqual([(await post('void', { logId: 'talk-to-void-01', reason: 'negocio equivocado' })).status, (await post('void', { logId: 'talk-to-void-01', reason: 'otra razón' }, mgr)).status], [200, 200]);
+  assert.deepEqual(s.lines().filter((e) => e.type === 'log.void').map((e) => [e.logId, e.by, e.reason]), [['talk-to-void-01', a.id, 'negocio equivocado']]);
+});
