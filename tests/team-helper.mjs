@@ -28,7 +28,9 @@ export async function start({ clock = MON_10, sample = false, dev = false, previ
   const said = [];   // what the service wrote to its error log: a test can check that nothing unexpected happened
   const team = createTeam({ dir, identify, domain: DOMAIN, guests, pushToken: 'push-token', now: () => new Date(time.now), staticDir, origins: [ORIGIN], dev, previewOffsetMs, bootstrapOpen, log: (m) => said.push(String(m)) });
   const srv = createServer({ store: openStore(dir), sheets: null, origins: [ORIGIN], team, desk: desk ? desk(dir) : null, log: (m) => said.push(String(m)) });
-  await new Promise((r) => srv.listen(0, r));
+  // On the address the tests call: a server on every address (::) can share its port with another program's
+  // 127.0.0.1 socket, and the test's request then reaches that program instead.
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
   const url = `http://127.0.0.1:${srv.address().port}`;
   const call = async (method, p, body, { cookie, bearer, origin, raw } = {}) => {
     const headers = {};
