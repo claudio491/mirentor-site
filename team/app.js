@@ -2,7 +2,7 @@
 // The server answers codes and numbers; every sentence comes from i18n.js through t().
 import { APP_NAME, LANGS } from './i18n.js';
 import { $, $$, h, put, icon, t, setLang, lang, applyStatic, giant, num, ord, wdShort, wdLong, dayMonth, monthName, upper, cap, isoWeek, addDays, clock, hourName, stamp, ago, cityName, joinList,
-  lock, buzz, quiet, EASE, countTo, recount, ringAt, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, once, copyText, grain, reduce, formSheet, setExplain, newId, putFace, face, dayOf, showErr } from './ui.js';
+  lock, buzz, quiet, EASE, countTo, recount, ringAt, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, enterMoves, once, copyText, grain, reduce, formSheet, setExplain, newId, putFace, face, dayOf, showErr } from './ui.js';
 import { buildHand, paintHand, miniHand, rowWrist, levelBone, badgeGlyph, portrait, setPortrait, replayHand, drawIn, handGlyph, stepsGlyph, teachHand, daysBone } from './hand.js';
 import { swap, roll, floatUp, flyDot, reveal, stagger, lockIn, greet, isGreeting, celebrate, dayDone } from './fx.js';
 import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, tableNote, firstDays, untouched, anyLog, shortNames, closeCard, crewOf, historyRows } from './moments.js';
@@ -813,8 +813,9 @@ function outArt(kind) {
 }
 function leadOption(l, pressed) {
   const today = S.me.today.day, mine = l.lastDay ? t('log.last', { date: l.lastDay === today ? t('nav.today').toLocaleLowerCase() : dayMonth(l.lastDay) }) : l.known ? t('log.known') : t('log.unknown');
+  // The business's name gets the whole width: when it was last logged goes on the small line, under it, after its zone.
   return h('button', { class: 'leadopt', type: 'button', 'aria-pressed': String(!!pressed), onclick: () => { L.lead = pressed ? null : l; renderLog(); } },
-    h('span', {}, h('b', { text: l.name }), h('small', { text: l.zone || l.id })), h('span', { class: 'k', text: pressed ? t('log.pick.change') : mine }));
+    h('span', {}, h('b', { text: l.name }), h('small', { text: pressed ? (l.zone || l.id) : `${l.zone || l.id} · ${mine}` })), pressed ? h('span', { class: 'k', text: t('log.pick.change') }) : null);
 }
 function renderLog() {
   const picked = $('#leadPicked'), pick = $('#leadPick'), isNew = L.lead && L.lead.isNew;
@@ -845,9 +846,16 @@ function renderLog() {
     if (k === 'contract') return t('pts.contract', { a: P.contractSent, b: P.contractSigned });
     return t('pts.none');
   };
-  $('#outOpts').replaceChildren(...kinds.map((k) => h('button', { class: 'out', type: 'button', 'aria-pressed': String(L.kind === k), onclick: () => {
-    L.kind = L.kind === k ? null : k; L.channel = L.kind && CHANNELS[L.kind] ? CHANNELS[L.kind][0] : null; L.voicemail = false; L.tag = null; renderLog();
-  } }, outArt(k), h('b', { text: t(`kind.${k}`) }), h('span', { class: 'pp', text: hint(k) }))));
+  // The result buttons are built once for a set of kinds and a language, then only their state changes: a tap answers
+  // with a transition on the same button instead of a new one, and the picked one's picture locks on.
+  const outs = $('#outOpts'), outKey = `${lang()}|${kinds.join(',')}`;
+  if (outs.dataset.key !== outKey) {
+    outs.dataset.key = outKey;
+    outs.replaceChildren(...kinds.map((k) => h('button', { class: 'out', type: 'button', 'data-k': k, onclick: () => {
+      L.kind = L.kind === k ? null : k; L.channel = L.kind && CHANNELS[L.kind] ? CHANNELS[L.kind][0] : null; L.voicemail = false; L.tag = null; renderLog();
+    } }, outArt(k), h('b', { text: t(`kind.${k}`) }), h('span', { class: 'pp' }))));
+  }
+  for (const b of outs.children) { b.setAttribute('aria-pressed', String(L.kind === b.dataset.k)); $('.pp', b).textContent = hint(b.dataset.k); }
   const more = $('#moreOuts'); more.textContent = t(L.more ? 'log.less' : 'log.more'); more.setAttribute('aria-expanded', String(L.more));
 
   // 3. the details this result asks for
@@ -869,6 +877,7 @@ function renderLog() {
     const noteIn = h('input', { id: 'lNote', type: 'text', maxlength: 500, autocomplete: 'off', placeholder: t('log.note.ph') }); noteIn.value = L.note;
     nodes.push(h('label', { class: 'field' }, h('span', { class: 'label', text: t('log.note') }), noteIn));
     fields.replaceChildren(...nodes);
+    enterMoves([$('#lContact'), $('#lNote')]);
   }
   paintLogFoot();
 }
@@ -1191,7 +1200,7 @@ const route = createRoute({ api, S, errText, adopt, renderAll, setTab, openLog, 
 const leader = createLeader({ api, S, errText, setTab });
 const sites = createSites({ api, S, errText, adopt, renderAll, setTab, openInstall: (id, from, to) => install.open(id, from, to), openReport });
 function wire() {
-  initPop(); initSheets(); install.wire(); ladder.wire(); route.wire(); leader.wire(); docs.wire(); sites.wire();
+  initPop(); initSheets(); enterMoves([$('#newName'), $('#newZone')]); enterMoves([$('#fTomorrow'), $('#fBlock')]); install.wire(); ladder.wire(); route.wire(); leader.wire(); docs.wire(); sites.wire();
   // the top bar's height, for what sticks under it (the practice bar) and for scrolling a heading into view below it
   const topBar = $('.top');
   if (topBar && 'ResizeObserver' in window) new ResizeObserver(() => document.documentElement.style.setProperty('--top-h', `${topBar.offsetHeight}px`)).observe(topBar);

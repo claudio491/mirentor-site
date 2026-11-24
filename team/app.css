@@ -575,7 +575,7 @@ html.greeting{overflow:hidden}
 /* ---------- small rewards ---------- */
 .ptsfloat{position:fixed;z-index:32;pointer-events:none;padding:7px 10px;border-radius:var(--r-hud);background:var(--signal);color:var(--graphite);font:600 16px/1 var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 .ringfx{position:fixed;z-index:32;pointer-events:none;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;border:2px solid var(--signal)}
-.out[aria-pressed=true] svg.ic{animation:lockin 220ms var(--ease-lock)}
+.out[aria-pressed=true] svg.ic,.out[aria-pressed=true] .sl{animation:lockin 220ms var(--ease-lock)}
 @keyframes lockin{from{transform:scale(.6)}}
 .nav .log svg.ic{transition:transform 260ms var(--ease-out)}
 .lens .tip,.portrait .tip{transform-box:fill-box;transform-origin:center;transition:transform 180ms var(--ease-lock)}

@@ -3,6 +3,7 @@
 import { DICT, LANGS, LOCALE, makeT } from './i18n.js';
 import { countFrame, dayOnly } from './moments.js';
 import { follow, speed, release } from './sheet-drag.js';
+import { enterPlan, numberAttrs } from './keys.js';
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -350,8 +351,35 @@ function fieldNode(f) {
   let input;
   if (f.type === 'select') input = h('select', { id, name: f.name, 'aria-label': f.label }, f.options.map((o) => h('option', { value: o.value, selected: String(o.value) === String(f.value ?? ''), text: o.label })));
   else if (f.type === 'textarea') { input = h('textarea', { id, name: f.name, 'aria-label': f.label, rows: 3, maxlength: f.max || 280, placeholder: f.placeholder }); input.value = f.value || ''; }
-  else { input = h('input', { id, name: f.name, 'aria-label': f.label, type: f.type || 'text', maxlength: f.max || 120, placeholder: f.placeholder, autocomplete: 'off', autocapitalize: f.lower ? 'none' : null, spellcheck: f.lower ? 'false' : null }); input.value = f.value || ''; }
+  else {
+    const num = f.type === 'number' ? numberAttrs() : { type: f.type || 'text' };   // a whole number takes the digit pad, never type=number
+    input = h('input', { id, name: f.name, 'aria-label': f.label, ...num, maxlength: f.max || (num.inputmode ? 7 : 120), placeholder: f.placeholder, autocomplete: 'off', autocapitalize: f.lower ? 'none' : null, spellcheck: f.lower ? 'false' : null }); input.value = f.value || '';
+  }
   return h('label', { class: 'field', 'data-name': f.name, 'data-type': f.type || 'text' }, h('span', { class: 'label', text: f.label }), input, f.hint ? h('span', { class: 'hint', text: f.hint }) : null);
+}
+/** On a phone the return key says what it does (keys.js): "next" moves to the next field shown, "done" on the last one
+ *  sends the form it belongs to, or puts the keyboard away when there is no form. The labels are set again on focus,
+ *  because a field can appear or hide while the form is open. */
+/** The control after a field, in the same sheet: where "done" goes when the field is not in a form, so the keyboard goes
+ *  away and whoever uses a keyboard does not lose their place. */
+function nextControl(el) {
+  const scope = el.closest('dialog') || document;
+  const all = $$('button:not([disabled]),a[href],input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled])', scope).filter((x) => x.getClientRects().length > 0);
+  return all[all.indexOf(el) + 1] || null;
+}
+export function enterMoves(inputs) {
+  const list = inputs.filter(Boolean);
+  const shown = () => list.map((x) => !x.hidden && !x.disabled && x.getClientRects().length > 0);
+  const label = () => enterPlan(shown()).forEach((p, i) => list[i].setAttribute('enterkeyhint', p.hint));
+  label();
+  list.forEach((input, i) => {
+    input.addEventListener('focus', label);
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || e.isComposing || e.shiftKey) return;
+      const to = enterPlan(shown())[i].to;
+      if (to != null) { e.preventDefault(); list[to].focus(); } else if (!input.form) { e.preventDefault(); const next = nextControl(input); if (next) next.focus(); else input.blur(); }
+    });
+  });
 }
 /** Open the form sheet. onSubmit(values) may return true to keep it open; a thrown error is shown in the form. */
 /** Say why a form was refused, where the person is looking: in a tall sheet the message sits under the fold, behind
@@ -365,6 +393,7 @@ export function formSheet({ title, intro = '', fields = [], body = null, submit,
   $('#fsH').textContent = title;
   $('#fsIntro').textContent = intro; $('#fsIntro').hidden = !intro;
   $('#fsFields').replaceChildren(...[body, ...fields.map(fieldNode)].filter(Boolean));
+  enterMoves($$('input:not([type=checkbox]):not([type=date]):not([type=hidden])', $('#fsFields')));
   btn.textContent = submit; skipBtn.textContent = skip || ''; skipBtn.hidden = !skip;
   $('#fsNote').textContent = note; $('#fsNote').hidden = !note;
   err.hidden = true;
