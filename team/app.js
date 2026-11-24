@@ -6,7 +6,7 @@ import { $, $$, h, put, icon, t, setLang, lang, applyStatic, giant, num, ord, wd
 import { buildHand, paintHand, miniHand, rowWrist, levelBone, badgeGlyph, portrait, setPortrait, replayHand, drawIn, handGlyph, stepsGlyph, teachHand, daysBone } from './hand.js';
 import { swap, roll, floatUp, flyDot, reveal, stagger, lockIn, greet, isGreeting, celebrate, dayDone } from './fx.js';
 import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, tableNote, firstDays, untouched, anyLog, shortNames, closeCard, crewOf, historyRows } from './moments.js';
-import { STOPS, stopsOf, standOn, loopOf, rewardOf, landed, stepOf } from './stops.js';
+import { STOPS, stopsOf, standOn, loopOf, rewardOf, landed, stepOf, climbFrames } from './stops.js';
 import { createStage } from './stage.js';
 import { ART, STEPS } from './art.js';
 import { createManager } from './manager.js';
@@ -219,6 +219,14 @@ function arrive(name, { fast = false, landed: lensLanded = false } = {}) {
     }
   } else if (name === 'table') {
     reveal($('#goalGiant'));
+    // The team climbs to its step, a hop per step (at most 1.2 s): what each meeting does, said by the staircase itself.
+    const box = $('#climb'), crew = $('#crew'), at = S.me.team ? stepOf(S.me.team.meetings, S.me.team.target) : 0;
+    if (at > 0 && box && !box.hidden && crew && crew.animate) {
+      const r = box.getBoundingClientRect(), timing = { duration: Math.min(1200, 150 * at), delay: 280, easing: 'linear', fill: 'backwards' };
+      crew.animate(climbFrames(at, STEPS, r.width, r.height), timing);
+      const shadow = $('.crewshadow', box);
+      if (shadow) shadow.animate(climbFrames(at, STEPS, r.width, r.height, 0), timing);
+    }
     lockIn($$('#squad .fl .pt'), { delay: 60 }); drawIn($('#squad'), 220, 60);
     stagger(there([$('#climb'), ...$$('#tableRows .trow, #restRows .trow')]), { delay: 160, step: 45 });
     zero($$('#tableRows .trow'), (n) => n.style.getPropertyValue('--share'), (n, empty, v) => n.style.setProperty('--share', empty ? '0' : v));

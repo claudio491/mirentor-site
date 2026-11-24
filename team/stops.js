@@ -56,3 +56,17 @@ export function stepOf(meetings, target) {
   if (meetings >= target) return LAST_STEP;
   return Math.min(LAST_STEP - 1, Math.ceil((meetings / target) * LAST_STEP));
 }
+
+/** The team's climb to its step, for Equipo's arrival: keyframes relative to where the team stands (that is where the
+ *  crew is placed), starting on the ground and hopping `hop` px up between each pair of steps. `w` and `h` are the
+ *  staircase's size in px, and `steps` its positions as shares of it (art.js). */
+export function climbFrames(at, steps, w, h, hop = 14) {
+  if (!(at > 0)) return [];
+  const end = steps[at], path = steps.slice(0, at + 1), frames = [];
+  const tr = ([x, y], up = 0) => `${((x - end[0]) * w).toFixed(1)}px ${((y - end[1]) * h - up).toFixed(1)}px`;
+  path.forEach((p, i) => {
+    frames.push({ translate: tr(p), offset: i / at });
+    if (i < at) { const q = path[i + 1]; frames.push({ translate: tr([(p[0] + q[0]) / 2, (p[1] + q[1]) / 2], hop), offset: (i + 0.5) / at }); }
+  });
+  return frames;
+}

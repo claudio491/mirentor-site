@@ -77,3 +77,17 @@ test('the team climbs the staircase with every meeting and stands by the flag on
   assert.deepEqual([1, 2, 3, 4].map((m) => stepOf(m, 4)), [2, 4, 6, 8]);                  // two reps: two steps each
   assert.equal(stepOf(3, 0), 0);                                                          // no goal, no climb
 });
+
+// 24 Nov: on arriving at Equipo the team climbs to its step, one hop per step, so the staircase says what a meeting
+// does. The path is keyframes relative to where the team ends (the crew is placed there), in px of the staircase.
+test('the climb starts on the ground, hops between steps and ends where the team stands', async () => {
+  const { climbFrames } = await import('../team/stops.js');
+  const steps = [[0.4, 0.8], [0.2, 0.7], [0.3, 0.6]];
+  assert.deepEqual(climbFrames(0, steps, 400, 400), [], 'on the ground there is nothing to climb');
+  const f = climbFrames(2, steps, 400, 400, 14);
+  assert.deepEqual(f.map((k) => k.offset), [0, 0.25, 0.5, 0.75, 1]);
+  assert.equal(f[0].translate, '40.0px 80.0px', 'it starts on the ground, relative to its step');
+  assert.equal(f.at(-1).translate, '0.0px 0.0px', 'and ends where it stands');
+  const y = (k) => Number(k.translate.split(' ')[1].replace('px', ''));
+  assert.ok(y(f[1]) < (y(f[0]) + y(f[2])) / 2, 'between two steps it hops up');
+});
