@@ -302,6 +302,8 @@ dialog.sheet::backdrop{background:rgba(12,13,14,.64);opacity:var(--fade,1);trans
 @starting-style{dialog.sheet[open]{transform:translateY(100%)}dialog.sheet[open]::backdrop{opacity:0}}
 dialog.sheet.closing{transform:translateY(100%);transition-duration:240ms}
 dialog.sheet.closing::backdrop{opacity:0}
+/* a sheet opens with the focus on its title (ui.js): a title is not a control, so it draws no ring */
+.sheet h2:focus{outline:none}
 /* dragged by its top (ui.js), the sheet follows the finger with no lag */
 dialog.sheet.dragging,dialog.sheet.dragging::backdrop{transition:none}
 .sheet .in{padding:10px 16px calc(20px + env(safe-area-inset-bottom))}

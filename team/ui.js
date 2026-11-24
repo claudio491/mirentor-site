@@ -245,7 +245,7 @@ export function src(node, label, text) {
 // ---- sheets ----
 /** Whatever a drag left on a sheet: where it stood and how much of the page it let through. */
 function settle(dlg) { dlg.classList.remove('dragging'); dlg.style.removeProperty('transform'); dlg.style.removeProperty('--fade'); }
-export function openSheet(dlg) { hidePop(); settle(dlg); dlg.classList.remove('closing'); if (!dlg.open) dlg.showModal(); dlg.scrollTop = 0; }
+export function openSheet(dlg) { hidePop(); settle(dlg); dlg.classList.remove('closing'); if (!dlg.open) dlg.showModal(); dlg.scrollTop = 0; const title = $('h2', dlg); if (title) title.focus({ preventScroll: true }); }
 export function closeSheet(dlg) {
   if (!dlg.open) return;
   settle(dlg);   // a sheet let go mid-drag leaves from where it stands

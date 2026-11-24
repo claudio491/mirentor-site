@@ -100,6 +100,17 @@ test('t fills the blanks, picks the plural and never returns a bare key', () => 
   assert.throws(() => es('no.such.key'), /no\.such\.key/);
 });
 
+test('a sheet opens with the focus on its title, so the title is what a screen reader says first', () => {
+  // Left alone the browser hands the focus to the first control inside, the close button: a screen reader then opens
+  // every sheet with "Cerrar, botón", and a sheet opened from the keyboard rings its close button. (Chrome ignores
+  // autofocus on the dialog itself.) The title can take the focus, and opening a sheet gives it the focus.
+  const page = read('team/index.html');
+  const sheets = [...page.matchAll(/<dialog\b[^>]*class="sheet"[^>]*aria-labelledby="([^"]+)"[^>]*>/g)];
+  assert.ok(sheets.length >= 5, 'the sheets are in the page');
+  for (const [, title] of sheets) assert.match(page, new RegExp(`<h2 id="${title}"[^>]*\\stabindex="-1"`), `the title #${title} must take the focus`);
+  assert.match(read('team/ui.js'), /export function openSheet[^\n]*\n?[^\n]*focus\(\{ preventScroll: true \}\)/, 'openSheet gives the title the focus');
+});
+
 test('the page obeys its own policy: no inline script, no inline style, no handler attributes', () => {
   const page = read('team/index.html');
   assert.equal(/<script(?![^>]*\ssrc=)[^>]*>/i.test(page), false, 'inline script');
