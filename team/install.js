@@ -370,12 +370,22 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
       : ok ? t('install.w.imei.ok') : digits.length === 15 && /^\d+$/.test(digits) ? t('install.w.imei.check') : /[^\d\s-]/.test(v) ? t('install.w.imei.chars') : t('install.w.imei.count', { n: digits.length });
     $('#wkImeiHint').classList.toggle('ok', ok);
   }
-  /** A consent photo: shrunk to JPEG on the phone, then sent for this worker's id. A failed upload keeps the photo and
-   *  the id, so the retry is the same worker and the same photo; until it arrives the worker stays "Falta firma". */
-  async function sendConsent(blob) {
-    const id = wid, err = $('#wkErr1'), btn = $('#wkRetry');
+  /** One consent upload at a time. While a photo is being shrunk or sent, the photo button is off, and a second pick, a
+   *  retry or an example starts nothing: a second upload for the same person could arrive after the first. */
+  let uploading = false;
+  async function oneUpload(fn) {
+    if (uploading) return;
+    uploading = true; $('#wkFile').disabled = true; $('#wkFileBtn').classList.add('busy');
+    try { await fn(); } finally { uploading = false; $('#wkFile').disabled = false; $('#wkFileBtn').classList.remove('busy'); }
+  }
+  const photoWord = () => t(worker() && worker().consent ? 'install.w.photo.again' : 'install.w.photo');
+  /** A consent photo: shrunk to JPEG on the phone, then sent for the id of the worker it was taken for. A failed upload
+   *  keeps the photo and the id, so the retry is the same worker and the same photo; until it arrives the worker stays
+   *  "Falta firma". */
+  async function sendConsent(blob, id = wid) {
+    const err = $('#wkErr1'), btn = $('#wkRetry');
     if (readOnly()) return;
-    err.hidden = true; $('#wkFileBtn').classList.add('busy'); $('#wkFileT').textContent = t('install.w.sending');
+    err.hidden = true; $('#wkFileT').textContent = t('install.w.sending');
     try {
       view = await write('PUT', `worker/${encodeURIComponent(id)}/consent`, blob);
       failed.delete(id);
@@ -389,14 +399,17 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
       if (w) Object.assign(w, consentFailed(w));
       render(true); showErr(err, e && e.code === 'offline' ? t('install.w.failed') : keep ? t('install.w.failed.server') : why(e));
       if (keep && btn) btn.focus();
-    } finally { $('#wkFileBtn').classList.remove('busy'); if (worker()) $('#wkFileT').textContent = t(worker().consent ? 'install.w.photo.again' : 'install.w.photo'); }
+    } finally { if (worker()) $('#wkFileT').textContent = photoWord(); }
   }
-  async function pickConsent(file) {
+  function pickConsent(file) {
     if (!file) return;
-    let blob;
-    $('#wkFileT').textContent = t('install.w.shrinking');
-    try { blob = await shrink(file); } catch (e) { showErr($('#wkErr1'), e && e.code === 'too_big' ? errText(e) : t('install.err.read')); $('#wkFileT').textContent = t('install.w.photo'); return; }
-    await sendConsent(blob);
+    const id = wid;   // the person on screen when the photo was picked, whoever is open once it is shrunk
+    oneUpload(async () => {
+      let blob;
+      $('#wkFileT').textContent = t('install.w.shrinking');
+      try { blob = await shrink(file); } catch (e) { showErr($('#wkErr1'), e && e.code === 'too_big' ? errText(e) : t('install.err.read')); $('#wkFileT').textContent = photoWord(); return; }
+      await sendConsent(blob, id);
+    });
   }
   /** A photo of the box or the sticker: the browser's barcode reader looks for an IMEI in it. */
   async function scanImei(file) {
@@ -533,9 +546,9 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     $('#wkBack').addEventListener('click', () => setTab('install'));
     $('#clsBack').addEventListener('click', () => setTab('install'));
     $('#wkFile').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; pickConsent(f); });
-    $('#wkRetry').addEventListener('click', (e) => { const blob = failed.get(wid); if (blob) once(e.currentTarget, () => sendConsent(blob)); });
+    $('#wkRetry').addEventListener('click', (e) => { const blob = failed.get(wid); if (blob) once(e.currentTarget, () => oneUpload(() => sendConsent(blob))); });
     // On a practice site: a page drawn here, with only the word EJEMPLO on it, is filed as the consent so the lock can be shown opening.
-    $('#wkExample').addEventListener('click', (e) => { const w = worker(); if (w && ctl(w).example) once(e.currentTarget, async () => sendConsent(await examplePage(t('install.w.example.word')))); });
+    $('#wkExample').addEventListener('click', (e) => { const w = worker(); if (w && ctl(w).example) once(e.currentTarget, () => oneUpload(async () => sendConsent(await examplePage(t('install.w.example.word')), w.id))); });
     $('#wkScan').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; scanImei(f); });
     $('#wkImei').addEventListener('input', () => { $('#wkErr2').hidden = true; imeiHint(); });
     $('#wkImeiSave').addEventListener('click', (e) => { const imei = imeiFor(view && view.site, $('#wkImei').value); if (imei) act(e.currentTarget, () => write('POST', `worker/${encodeURIComponent(wid)}/phone`, { imei }), 'install.w.phone.saved', $('#wkErr2')); });
