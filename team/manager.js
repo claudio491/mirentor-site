@@ -4,7 +4,7 @@ import { $, h, put, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, day
 import { miniHand, lens, setLens, portrait, setPortrait } from './hand.js';
 import { STOPS } from './stops.js';
 import { shortNames } from './moments.js';
-import { siteBody, siteActions, roleOptions, recordUrl, siteReps, siteLeadId, siteHoursBody, recentMondays, payBody, newRepBody, readAgainIn } from './manager-steps.js';
+import { siteBody, siteActions, roleOptions, recordUrl, siteReps, siteLeadId, siteHoursBody, recentMondays, payBody, newRepBody, readAgainIn, readNow, freshRead, REFRESH_MS } from './manager-steps.js';
 import { usd } from './sites-steps.js';
 import { siteStateKey } from './leader-steps.js';
 import { practiceActions, exampleActions } from './practice-steps.js';
@@ -22,28 +22,47 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
   const openAs = (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); viewAs(e.currentTarget.dataset.as); };
 
   // ---- reading the team view ----
-  // A read that fails while nothing is on screen would leave every manager screen blank until the app's next full
-  // redraw: it is tried again by itself, waiting longer each time (manager-steps.js), and the screens say what happened
-  // with a button that tries again at once.
-  let failures = 0, failed = null, again = 0;
+  // The screens read the team by themselves (manager-steps.js says when): every minute while one of them is in front,
+  // since much of what a manager acts on adds no line to the feed; and, when a read failed with nothing on screen, soon
+  // and then less often, with the screens saying what happened and a button that tries again at once.
+  // Reads and writes take numbers from one counter, so an answer that went out before a write the screen adopted is
+  // dropped instead of undoing it.
+  let failures = 0, failed = null, again = 0, seq = 0, shown = 0, writing = 0, readAt = 0;
   async function load() {
-    try { team = await api('GET', 'team'); failures = 0; failed = null; }
-    catch (e) { failures += 1; failed = e; if (!team) renderAll(false); throw e; }
-    finally { plan(); }
+    const start = ++seq;
+    try {
+      const res = await api('GET', 'team');
+      failures = 0; failed = null; readAt = Date.now();
+      if (freshRead({ start, shown, writing: writing > 0 })) { shown = start; team = res; }
+    } catch (e) { failures += 1; failed = e; if (!team) renderAll(false); throw e; } finally { plan(); }
   }
-  /** Schedule the next read by itself, if one is due: while the screens have nothing to show and a manager is on them. */
+  /** A write: its answer is the new team view, adopted at once, and a read that went out before it is stale from now on. */
+  async function wrote(call) {
+    writing += 1;
+    try { const res = await call(); if (res && res.reps) { team = res; shown = ++seq; } return res; } finally { writing -= 1; }
+  }
+  /** Schedule the next read by itself, while a manager is on these screens. */
   function plan() {
     clearTimeout(again); again = 0;
-    const wait = S.mgr && S.me ? readAgainIn({ hasTeam: !!team, failures }) : null;
-    if (wait != null) again = setTimeout(retry, wait);
+    if (S.mgr && S.me) again = setTimeout(tick, readAgainIn({ hasTeam: !!team, failures }));
   }
-  /** Read again: by itself (backing off) or from the button. The answer, or the reason it failed, is drawn at once. */
-  async function retry() {
+  const sig = (v) => JSON.stringify({ ...v, serverTime: null });
+  /** The read by itself. A view that came back the same is not drawn again, so nothing moves under a finger for nothing. */
+  async function tick() {
     clearTimeout(again); again = 0;
     if (!S.mgr || !S.me) return;
-    try { await load(); } catch (e) { if (!team) return; }
+    if (!readNow({ hidden: document.hidden, writing: writing > 0, sheet: !!$('dialog[open]'), hasTeam: !!team, tab: S.tab })) { plan(); return; }
+    const before = team && sig(team);
+    try { await load(); } catch { return; }   // nothing on screen: load drew why; with a view, the next minute tries again
+    if (S.mgr && team && sig(team) !== before) renderAll(false);
+  }
+  /** "Volver a intentar": read now, whatever is open. The answer, or the reason it failed, is drawn at once. */
+  async function retry() {
+    try { await load(); } catch { return; }
     if (S.mgr) renderAll(false);
   }
+  // Back on the page after a while (or with nothing on screen): read now instead of waiting for the next minute.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && S.mgr && S.me && (!team || Date.now() - readAt >= REFRESH_MS)) tick(); });
   /** Nothing to show yet. While the first read is on its way the screens stay as they are; once it failed, each one says
    *  so in the words of the app's own error screen, with the reason and a way to try again now. */
   function renderMissing() {
@@ -64,7 +83,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
   const needsCount = () => (team ? team.needs.confirm.length + team.needs.silent.length + team.needs.late.length + team.needs.pace.length : 0);
   /** Run a manager action: the answer is the new team view. The feed and the tables follow from a fresh read. */
   const act = (btn, call, okKey) => once(btn, async () => {
-    try { const res = await call(); if (res && res.reps) team = res; renderAll(false); if (okKey) toast(t(okKey)); refresh(false); } catch (e) { toast(errText(e)); }
+    try { await wrote(call); renderAll(false); if (okKey) toast(t(okKey)); refresh(false); } catch (e) { toast(errText(e)); }
   });
 
   /** A step that is hard to take back asks twice (taps.js): the first tap arms the button and says what will happen (a
@@ -181,12 +200,12 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
   function voidLog(logId) {
     formSheet({ title: t('needs.void.title'), intro: t('needs.void.p'), submit: t('needs.void.submit'),
       fields: [{ name: 'reason', label: t('needs.void.reason'), placeholder: t('needs.void.reason.ph'), max: 200 }],
-      onSubmit: async (v) => { const res = await api('POST', 'void', { logId, reason: v.reason }); team = res; toast(t('needs.voided')); await refresh(false); } });
+      onSubmit: async (v) => { await wrote(() => api('POST', 'void', { logId, reason: v.reason })); toast(t('needs.voided')); await refresh(false); } });
   }
   function giveBadge(rep) {
     formSheet({ title: t('reps.badge.title'), intro: t('reps.badge.p'), submit: t('reps.badge.submit'),
       fields: [{ name: 'text', type: 'textarea', label: t('reps.badge.text'), placeholder: t('reps.badge.ph'), max: 140 }],
-      onSubmit: async (v) => { const res = await api('POST', 'badge', { rep: rep.id, text: v.text }); team = res; toast(t('reps.badge.done')); await refresh(false); } });
+      onSubmit: async (v) => { await wrote(() => api('POST', 'badge', { rep: rep.id, text: v.text })); toast(t('reps.badge.done')); await refresh(false); } });
   }
   function renderNeeds() {
     const n = team.needs, total = needsCount(), head = $('#needsGiant');
@@ -228,7 +247,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       onSubmit: async (v) => {
         const count = Number(v.count);
         if (!/^\d+$/.test(v.count) || count < 1 || count > 500) throw { code: 'fields' };
-        team = await siteCall(s.id, { what: 'phones', count }); toast(t('site.phones.done')); await refresh(false);
+        await wrote(() => siteCall(s.id, { what: 'phones', count })); toast(t('site.phones.done')); await refresh(false);
       } });
   }
   /** A live site's accepted hours for one week, as the buyers' report gives them. A later value replaces the earlier. */
@@ -237,7 +256,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     formSheet({ title: t('sites.hours.title'), intro: t('sites.hours.p', { name: s.lead.name }), submit: t('site.phones.submit'),
       fields: [{ name: 'week', type: 'select', label: t('site.hours.week'), value: weeks[0], options: weeks.map((w) => ({ value: w, label: t('week.of', { date: dayMonth(w) }) })) },
         { name: 'h', type: 'number', label: t('site.hours.h') }, { name: 'm', type: 'number', label: t('site.hours.m') }],
-      onSubmit: async (v) => { team = await siteCall(s.id, siteHoursBody(v)); toast(t('site.hours.done')); await refresh(false); } });
+      onSubmit: async (v) => { const body = siteHoursBody(v); await wrote(() => siteCall(s.id, body)); toast(t('site.hours.done')); await refresh(false); } });
   }
   function siteButton(kind, s) {
     const btn = (key, cls, run) => h('button', { class: cls ? `mini-btn ${cls}` : 'mini-btn', type: 'button', 'data-act': kind, text: t(key), onclick: run });
@@ -277,7 +296,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
         { name: 'eligible', type: 'number', label: t('site.form.eligible'), hint: t('site.form.eligible.hint') },
         { name: 'coordName', label: t('site.form.coord.name'), max: 80 }, { name: 'coordPhone', type: 'tel', label: t('site.form.coord.phone'), max: 30 },
         { name: 'kind', type: 'select', label: t('site.form.kind'), value: 'normal', options: ['normal', 'practice', 'legacy'].map((k) => ({ value: k, label: t(`site.kind.${k}`) })) }],
-      onSubmit: async (v) => { team = await api('POST', 'site', siteBody(v, siteId, siteLeadId(team, v.rep, v.name))); toast(t('needs.sites.added')); await refresh(false); } });
+      onSubmit: async (v) => { const body = siteBody(v, siteId, siteLeadId(team, v.rep, v.name)); await wrote(() => api('POST', 'site', body)); toast(t('needs.sites.added')); await refresh(false); } });
   }
 
   // ---- reps ----
@@ -306,9 +325,9 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       onSubmit: async (v) => {
         if (!v.city) throw { code: 'fields' };
         v.city = listed(v.city) || v.city;   // the list's own spelling when it is the same city
-        if (rep) { team = await api('POST', `reps/${encodeURIComponent(rep.id)}`, { patch: { name: v.name, city: v.city, country: v.country, startDate: v.startDate, workdays: v.workdays, ...(own || v.email.toLowerCase() === (rep.email || '') ? {} : { email: v.email }) } }); toast(t('reps.saved')); renderAll(false); return false; }
+        if (rep) { await wrote(() => api('POST', `reps/${encodeURIComponent(rep.id)}`, { patch: { name: v.name, city: v.city, country: v.country, startDate: v.startDate, workdays: v.workdays, ...(own || v.email.toLowerCase() === (rep.email || '') ? {} : { email: v.email }) } })); toast(t('reps.saved')); renderAll(false); return false; }
         // Nothing to hand over: from now on that Google account opens the board.
-        team = await api('POST', 'reps', newRepBody(v));
+        await wrote(() => api('POST', 'reps', newRepBody(v)));
         toast(t(v.access === 'none' ? 'reps.added.noaccess' : 'reps.added', { name: v.name.trim().split(/\s+/)[0] })); renderAll(false);
         return false;
       } });
@@ -324,7 +343,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     formSheet({ title: t('reps.dayoff.title'), intro: t('reps.dayoff.p'), submit: t('reps.dayoff.submit'),
       fields: [{ name: 'date', type: 'date', label: t('reps.dayoff.date'), value: today },
         { name: 'scope', type: 'select', label: t('reps.dayoff.scope'), value: 'all', options: [{ value: 'all', label: t('reps.dayoff.all') }, ...countries.map((c) => ({ value: c, label: t('reps.dayoff.country', { country: t(`country.${c}`) }) })), ...team.reps.map((r) => ({ value: r.id, label: r.name }))] }],
-      onSubmit: async (v) => { team = await api('POST', 'dayoff', { scope: v.scope, date: v.date }); toast(t('reps.dayoff.done')); await refresh(false); } });
+      onSubmit: async (v) => { await wrote(() => api('POST', 'dayoff', { scope: v.scope, date: v.date })); toast(t('reps.dayoff.done')); await refresh(false); } });
   }
   function repItem(r, isPlayer) {
     // Without an address nobody can come in as this person: the list says so until a manager adds it.
@@ -392,7 +411,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     formSheet({ title: t('pay.form.title'), intro: t('pay.form.p'), submit: t('site.phones.submit'),
       fields: [{ name: 'usd', label: t('pay.form.usd'), hint: t('pay.form.usd.hint'), value: team.pay ? (team.pay.cents / 100).toFixed(2) : '', max: 8 },
         { name: 'from', type: 'select', label: t('pay.form.from'), value: weeks[0], options: weeks.map((w) => ({ value: w, label: t('week.of', { date: dayMonth(w) }) })) }],
-      onSubmit: async (v) => { team = await api('POST', 'pay', payBody(v)); renderAll(false); toast(t('pay.saved')); refresh(false); } });
+      onSubmit: async (v) => { const body = payBody(v); await wrote(() => api('POST', 'pay', body)); renderAll(false); toast(t('pay.saved')); refresh(false); } });
   }
   function renderReps() {
     $('#repsGiant').replaceChildren(num(team.reps.length), h('em', { text: '.' }));

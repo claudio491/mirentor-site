@@ -133,13 +133,29 @@ export function newRepBody(v) {
   return v.access === 'none' ? { access: 'none', ...base } : { email: v.email, ...base, role: v.role };
 }
 
-/** How long until the manager's team view is read again by itself, in milliseconds, or null for not by itself. With no
- *  view on screen (a read failed, so the screens would stay blank) it tries again soon and waits longer each time: 2, 4,
- *  8 and 16 seconds, then every 30. */
+/** How often a manager's screens read the team view by themselves while one of them is in front: what adds no line to
+ *  the feed (a held meeting, phones, a closed install, a site's report, a worker) shows within a minute. */
+export const REFRESH_MS = 60000;
+const MANAGER_TABS = ['team', 'needs', 'reps'];
+/** How long until the manager's team view is read again by itself, in milliseconds. With a view on screen, every
+ *  REFRESH_MS. With none (a read failed, so the screens would stay blank) it tries again soon and waits longer each time:
+ *  2, 4, 8 and 16 seconds, then every 30. */
 export function readAgainIn({ hasTeam = false, failures = 0 } = {}) {
-  if (hasTeam) return null;
+  if (hasTeam) return REFRESH_MS;
   return Math.min(30000, 2000 * 2 ** Math.max(0, failures - 1));
 }
+/** Whether that read goes out now. Never while the page is hidden, nor while a write is on its way (its answer is the
+ *  view). With a view on screen, only while a manager screen is in front and no form is open over it; with none, whatever
+ *  is open: the screens are blank. */
+export function readNow({ hidden = false, writing = false, sheet = false, hasTeam = false, tab = null } = {}) {
+  if (hidden || writing) return false;
+  if (!hasTeam) return true;
+  return !sheet && MANAGER_TABS.includes(tab);
+}
+/** Whether a read's answer may be shown. Reads and writes take numbers from one counter, in the order they happen:
+ *  `start` is the read's, `shown` the one of what is on screen. An answer that went out before the last write the screen
+ *  adopted (or before a newer read already shown) is dropped, and so is one that lands while a write is on its way. */
+export const freshRead = ({ start, shown, writing = false }) => !writing && start > shown;
 
 /** The address of a site's record, relative to the page. */
 export const recordUrl = (siteId) => `api/site/${encodeURIComponent(siteId)}/record.csv`;

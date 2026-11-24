@@ -3,7 +3,7 @@
 // team/manager-steps.js, away from the page, so they can be tested here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { siteBody, hoursBody, siteHoursBody, siteActions, roleOptions, siteReps, siteLeadId, newRepBody, readAgainIn } from '../team/manager-steps.js';
+import { siteBody, hoursBody, siteHoursBody, siteActions, roleOptions, siteReps, siteLeadId, newRepBody, readAgainIn, readNow, freshRead, REFRESH_MS } from '../team/manager-steps.js';
 import { DICT } from '../team/i18n.js';
 
 const base = { rep: 'r_1', name: '  Negocio de Prueba ', city: 'Panama City', eligible: '', coordName: '', coordPhone: '', kind: 'normal' };
@@ -131,4 +131,28 @@ test('a team view that did not load is read again by itself, sooner first, then 
   assert.deepEqual([1, 2, 3, 4, 5, 6, 20].map((failures) => readAgainIn({ hasTeam: false, failures })), [2000, 4000, 8000, 16000, 30000, 30000, 30000]);
   // nothing failed and nothing on screen yet (the first read is still on its way): soon
   assert.equal(readAgainIn({ hasTeam: false, failures: 0 }), 2000);
+});
+
+test('a team view on screen is read again every minute, only while a manager screen is in front and nothing is written', () => {
+  // held meetings, phones, closed installs, site reports and workers add no feed line: they waited for the five-minute redraw
+  assert.ok(REFRESH_MS >= 30000 && REFRESH_MS <= 90000, `refresh ${REFRESH_MS}`);
+  assert.equal(readAgainIn({ hasTeam: true, failures: 0 }), REFRESH_MS);
+  assert.equal(readAgainIn({ hasTeam: true, failures: 3 }), REFRESH_MS);   // a view stays on screen: no hurry
+  const base = { hidden: false, writing: false, sheet: false, hasTeam: true, tab: 'needs' };
+  for (const tab of ['team', 'needs', 'reps']) assert.equal(readNow({ ...base, tab }), true, tab);
+  for (const tab of ['lead', 'install', 'docs', 'today', null]) assert.equal(readNow({ ...base, tab }), false, String(tab));
+  assert.equal(readNow({ ...base, hidden: true }), false, 'paused while the page is hidden');
+  assert.equal(readNow({ ...base, writing: true }), false, 'a write on its way answers with the view itself');
+  assert.equal(readNow({ ...base, sheet: true }), false, 'a form open over the screen');
+  // nothing on screen yet: it tries whatever is open, except while the page is hidden
+  assert.equal(readNow({ ...base, hasTeam: false, tab: 'docs', sheet: true }), true);
+  assert.equal(readNow({ ...base, hasTeam: false, hidden: true }), false);
+});
+
+test('a read answer never undoes a write: one that went out before the last write the screen adopted is dropped', () => {
+  // reads and writes take numbers from one counter, in the order they happen
+  assert.equal(freshRead({ start: 5, shown: 4 }), true);
+  assert.equal(freshRead({ start: 4, shown: 5 }), false, 'a write was adopted after this read went out');
+  assert.equal(freshRead({ start: 4, shown: 6 }), false, 'a newer read is already on screen');
+  assert.equal(freshRead({ start: 7, shown: 6, writing: true }), false, 'a write on its way will answer with a newer view');
 });
