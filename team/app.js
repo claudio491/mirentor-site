@@ -23,6 +23,7 @@ import { shellFor } from './leader-steps.js';
 import { verdict, mine as waitingOf, requestTimeout } from './queue.js';
 import { sessionMove, HOME, LEAVE } from './door.js';
 import { actingMode, readOnlyIn, repControls, withAs, logLocked, staleAs, practiceBarName } from './practice-steps.js';
+import { shortfall } from './paid.js';
 
 const API = 'api';   // every address is relative to the page, so the app works wherever it is mounted
 const KEY = { lang: 'cancha.lang', queue: 'cancha.queue', me: 'cancha.me', greet: 'cancha.greet', langPending: 'cancha.langPending' };
@@ -960,11 +961,15 @@ function logged(res, body) {
   if (res.repeat) toast(t(res.updated ? 'toast.repeat.updated' : 'toast.repeat'));
   else {
     const follow = res.me.ledger.some((e) => e.logId === res.logId && e.code === 'followup');
+    // A log can pay less than its result promised: the toast says which part did not pay, and why (paid.js).
+    const short = shortfall(body.kind, body.channel, res.me.ledger.filter((e) => e.logId === res.logId).map((e) => e.code));
+    const why = short.length ? t(`toast.why.${short[0]}`, { n: res.me.rules.caps.messagesPerDay }) : '';
     const bits = [label + (follow ? ` · ${t('toast.followup')}` : '')];
+    if (why) bits.push(why);
     if (res.pending > 0) bits.push(t('toast.pending', { n: res.pending }));
     let text = bits.join(' · ');
     if (res.streakUp) text += `. ${t('toast.streak', { n: res.me.streak.current })}`;
-    if (res.gained > 0 || res.pending > 0) toast(text, res.gained > 0 ? t('pts.plus', { n: res.gained }) : ''); else toast(t('toast.zero'));
+    if (res.gained > 0 || res.pending > 0) toast(text, res.gained > 0 ? t('pts.plus', { n: res.gained }) : ''); else toast(why ? t('toast.zero.why', { why }) : t('toast.zero'));
   }
   // The stop answers first: its frames play with the tracking ring around it. Then the points travel from the stop
   // (or from the button, when no habit moved) to where they are counted, in the top bar.
