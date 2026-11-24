@@ -96,3 +96,18 @@ test('a new photo or a removal whose event cannot be written leaves the photo in
   assert.equal((await s.call('DELETE', at, undefined, B)).status, 200);
   assert.deepEqual(photos(), []);
 });
+
+test('HEAD on a photo answers as GET does, without the bytes, to whoever may GET it', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin(); const m = await s.addRep(a.cookie, 'mario'), lia = await s.addRep(a.cookie, 'lia', { role: 'leader' });
+  const at = `${s.url}/equipo/api/photo/${m.id}`;
+  assert.equal((await s.call('PUT', `/equipo/api/photo/${m.id}`, photo(PNG, 'image/png'), B)).status, 200);
+  for (const cookie of [m.cookie, lia.cookie, a.cookie]) {
+    const get = await fetch(at, { headers: { cookie } }), head = await fetch(at, { method: 'HEAD', headers: { cookie } });
+    assert.deepEqual([head.status, head.headers.get('content-type'), head.headers.get('cache-control'), head.headers.get('content-length')], [get.status, get.headers.get('content-type'), get.headers.get('cache-control'), String(PNG.length)]);
+    assert.equal((await head.arrayBuffer()).byteLength, 0);
+    assert.deepEqual(Buffer.from(await get.arrayBuffer()), PNG);
+  }
+  assert.equal((await fetch(at, { method: 'HEAD' })).status, 401);
+  assert.equal((await fetch(`${s.url}/equipo/api/photo/${a.id}`, { method: 'HEAD', headers: { cookie: m.cookie } })).status, 404);   // nobody's photo there
+});
