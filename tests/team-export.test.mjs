@@ -68,3 +68,19 @@ test('export: a log completed after it was exported goes out again, once, with w
   const back = await start({ dir: s.dir, clock: s.time.now }); t.after(() => back.srv.close());
   assert.deepEqual((await exportSince(back, first.until)).logs.map((l) => l.id), ['call-0900-0001']);
 });
+
+test('export: a business added in the app gets its stage, under its temporary id and again under its CRM id once mapped', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin(), m = await s.addRep(a.cookie, 'mario');
+  const meet = await s.call('POST', `${API}/log`, logBody('meet-new-0001', { kind: 'meeting', channel: 'visit', when: '2026-11-18', contact: 'Sra. Ruiz', lead: { name: 'Clinica Nueva', zone: 'Centro' } }), { cookie: m.cookie });
+  assert.equal(meet.status, 200, meet.text);
+  const temp = s.lines().find((e) => e.type === 'lead.added').lead.id;
+  const first = await exportSince(s);
+  // the bridge creates the business from newLeads and reads the stage through the id it just made, in the same run
+  assert.deepEqual([first.newLeads.map((l) => l.id), first.stages], [[temp], [{ lead: temp, stage: 'Intro call booked' }]]);
+  s.time.now += 60000;
+  assert.equal((await s.call('POST', `${API}/leadmap`, { pairs: [[temp, 'PA-0777']] }, B)).json.mapped, 1);
+  s.time.now += 60000;
+  const next = await exportSince(s, first.until);
+  assert.deepEqual([next.logs.map((l) => [l.id, l.lead.id]), next.stages, next.newLeads], [[['meet-new-0001', 'PA-0777']], [{ lead: 'PA-0777', stage: 'Intro call booked' }], []]);
+});
