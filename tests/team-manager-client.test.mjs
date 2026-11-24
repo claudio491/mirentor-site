@@ -3,7 +3,7 @@
 // team/manager-steps.js, away from the page, so they can be tested here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { siteBody, hoursBody, siteHoursBody, siteActions, roleOptions, siteReps, siteLeadId, newRepBody } from '../team/manager-steps.js';
+import { siteBody, hoursBody, siteHoursBody, siteActions, roleOptions, siteReps, siteLeadId, newRepBody, readAgainIn } from '../team/manager-steps.js';
 import { DICT } from '../team/i18n.js';
 
 const base = { rep: 'r_1', name: '  Negocio de Prueba ', city: 'Panama City', eligible: '', coordName: '', coordPhone: '', kind: 'normal' };
@@ -124,4 +124,11 @@ test('the person form sends a rep with no access as access none, with no email a
   assert.equal(newRepBody(v).email, 'rosa@equipo.test');
   for (const k of ['reps.form.access', 'reps.form.access.mail', 'reps.form.access.none', 'reps.form.access.hint', 'reps.noaccess', 'reps.form.email.give', 'reps.added.noaccess']) for (const l of ['es', 'en']) assert.ok(DICT[l][k], `${l} ${k}`);
   assert.deepEqual([DICT.es['reps.form.access.none'], DICT.en['reps.form.access.none'], DICT.es['reps.noaccess'], DICT.en['reps.noaccess']], ['Sin acceso por ahora', 'No access for now', 'Sin acceso', 'No access']);
+});
+
+test('a team view that did not load is read again by itself, sooner first, then less often', () => {
+  // one failed GET team left the manager's screens blank until the five-minute redraw
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 20].map((failures) => readAgainIn({ hasTeam: false, failures })), [2000, 4000, 8000, 16000, 30000, 30000, 30000]);
+  // nothing failed and nothing on screen yet (the first read is still on its way): soon
+  assert.equal(readAgainIn({ hasTeam: false, failures: 0 }), 2000);
 });

@@ -133,5 +133,13 @@ export function newRepBody(v) {
   return v.access === 'none' ? { access: 'none', ...base } : { email: v.email, ...base, role: v.role };
 }
 
+/** How long until the manager's team view is read again by itself, in milliseconds, or null for not by itself. With no
+ *  view on screen (a read failed, so the screens would stay blank) it tries again soon and waits longer each time: 2, 4,
+ *  8 and 16 seconds, then every 30. */
+export function readAgainIn({ hasTeam = false, failures = 0 } = {}) {
+  if (hasTeam) return null;
+  return Math.min(30000, 2000 * 2 ** Math.max(0, failures - 1));
+}
+
 /** The address of a site's record, relative to the page. */
 export const recordUrl = (siteId) => `api/site/${encodeURIComponent(siteId)}/record.csv`;

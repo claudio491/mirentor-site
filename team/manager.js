@@ -1,10 +1,10 @@
 // manager.js: what a manager sees. Every rep in one view, the things that wait for a decision, and the people who have access.
 // The headline of the team view is a live number (days closed today), and the rows that need attention are framed.
-import { $, h, put, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, dayOf, clock, stamp, ago, cityName, countTo, flipList, toast, src, once, copyText, formSheet, quiet, newId, sameText, face, putFace } from './ui.js';
+import { $, h, put, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, dayOf, clock, stamp, ago, cityName, countTo, flipList, toast, src, once, copyText, formSheet, quiet, newId, sameText, face, putFace, giant } from './ui.js';
 import { miniHand, lens, setLens, portrait, setPortrait } from './hand.js';
 import { STOPS } from './stops.js';
 import { shortNames } from './moments.js';
-import { siteBody, siteActions, roleOptions, recordUrl, siteReps, siteLeadId, siteHoursBody, recentMondays, payBody, newRepBody } from './manager-steps.js';
+import { siteBody, siteActions, roleOptions, recordUrl, siteReps, siteLeadId, siteHoursBody, recentMondays, payBody, newRepBody, readAgainIn } from './manager-steps.js';
 import { usd } from './sites-steps.js';
 import { siteStateKey } from './leader-steps.js';
 import { practiceActions, exampleActions } from './practice-steps.js';
@@ -21,7 +21,46 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
   /** A link to a rep's screens opens them in place. With a modifier key it stays a plain link, for a new tab. */
   const openAs = (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); viewAs(e.currentTarget.dataset.as); };
 
-  async function load() { team = await api('GET', 'team'); }
+  // ---- reading the team view ----
+  // A read that fails while nothing is on screen would leave every manager screen blank until the app's next full
+  // redraw: it is tried again by itself, waiting longer each time (manager-steps.js), and the screens say what happened
+  // with a button that tries again at once.
+  let failures = 0, failed = null, again = 0;
+  async function load() {
+    try { team = await api('GET', 'team'); failures = 0; failed = null; }
+    catch (e) { failures += 1; failed = e; if (!team) renderAll(false); throw e; }
+    finally { plan(); }
+  }
+  /** Schedule the next read by itself, if one is due: while the screens have nothing to show and a manager is on them. */
+  function plan() {
+    clearTimeout(again); again = 0;
+    const wait = S.mgr && S.me ? readAgainIn({ hasTeam: !!team, failures }) : null;
+    if (wait != null) again = setTimeout(retry, wait);
+  }
+  /** Read again: by itself (backing off) or from the button. The answer, or the reason it failed, is drawn at once. */
+  async function retry() {
+    clearTimeout(again); again = 0;
+    if (!S.mgr || !S.me) return;
+    try { await load(); } catch (e) { if (!team) return; }
+    if (S.mgr) renderAll(false);
+  }
+  /** Nothing to show yet. While the first read is on its way the screens stay as they are; once it failed, each one says
+   *  so in the words of the app's own error screen, with the reason and a way to try again now. */
+  function renderMissing() {
+    for (const id of ['#dayoffBtn', '#addRepBtn']) $(id).disabled = true;   // both need the team: who, which cities, which day
+    if (!failed) return;
+    const why = errText(failed), day = dayOf(S.me.serverTime, S.me.me.tz);
+    $('#teamDateChip').textContent = `${upper(wdShort(day))} ${upper(dayMonth(day))} · ${upper(t('time.week', { n: isoWeek(day) }))}`;
+    const tryNow = () => h('p', { class: 'gate-acts' }, h('button', { class: 'btn primary wide', type: 'button', 'data-act': 'retry', text: t('gate.retry'),
+      onclick: (e) => once(e.currentTarget, async () => { await retry(); if (!team) toast(errText(failed)); }) }));
+    for (const id of ['#teamGiant', '#needsGiant', '#repsGiant']) { giant($(id), t('gate.error.title')); $(id).classList.remove('word'); }
+    $('#teamSupport').textContent = why;
+    let box = $('#teamRetry');
+    if (!box) { box = h('div', { id: 'teamRetry' }); $('#teamSupport').after(box); }
+    put(box, tryNow()); box.hidden = false;
+    put($('#needsBody'), h('div', {}, h('p', { class: 'support', text: why }), tryNow()));
+    put($('#repsBody'), h('p', { class: 'support', text: why }), tryNow());
+  }
   const needsCount = () => (team ? team.needs.confirm.length + team.needs.silent.length + team.needs.late.length + team.needs.pace.length : 0);
   /** Run a manager action: the answer is the new team view. The feed and the tables follow from a fresh read. */
   const act = (btn, call, okKey) => once(btn, async () => {
@@ -366,9 +405,12 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
   }
 
   function render(animate = false) {
-    if (!team) return;
+    if (!team) { renderMissing(); return; }
+    const box = $('#teamRetry');
+    if (box) box.hidden = true;
     renderTeam(animate); renderNeeds(); renderReps();
     $('#dayoffBtn').onclick = dayOff; $('#addRepBtn').onclick = () => repForm();
+    for (const id of ['#dayoffBtn', '#addRepBtn']) $(id).disabled = false;
   }
   return { load, render, needsCount, voidLog, giveBadge, undoConfirm, reopenDay };
 }
