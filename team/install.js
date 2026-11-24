@@ -3,7 +3,7 @@
 // on graphite; one worker, whose consent photo opens the phone step and whose phone opens the clip step; and the close,
 // with the site's record. Every screen labels a practice site "Práctica".
 // The server answers every action with the whole install; the screen draws the difference and moves only what changed.
-import { $, $$, h, s, put, t, num, cityName, stamp, dayMonth, giant, countTo, recount, flipList, toast, src, once, formSheet, ringAt, lock, buzz, reduce, isQuiet, quiet, showErr, EASE } from './ui.js';
+import { $, $$, h, s, put, t, lang, num, cityName, stamp, dayMonth, giant, countTo, recount, flipList, toast, src, once, formSheet, ringAt, lock, buzz, reduce, isQuiet, quiet, showErr, EASE } from './ui.js';
 import { reveal, stagger } from './fx.js';
 import { lens, setLens, drawIn } from './hand.js';
 import { workerOrder, workerSteps, prepRows, statusKey, newWorkerId, isDone, installCard, imeiFor, imeiFromScan, stepNow, recordRows, closeState, consentFailed, controls, keepForRetry, workerEditBody } from './install-steps.js';
@@ -268,7 +268,7 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     wid = id;
     for (const n of ['#wkErr1', '#wkErr2', '#wkErr3', '#wkErr4']) $(n).hidden = true;
     disarm($('#wkRemove'));
-    $('#wkImei').value = ''; $('#wkShot').replaceChildren(); delete $('#wkGiant').dataset.k;
+    $('#wkImei').value = ''; $('#wkShot').replaceChildren(); delete $('#wkGiant').dataset.k; delete $('#wkGiant').dataset.words;
     for (const tk of $$('#s-worker .inst-tick')) { tk.classList.toggle('on', false); tk.classList.toggle('now', false); delete tk.dataset.seen; }
     for (const st of $$('#s-worker .inst-step')) delete st.dataset.locked;
     disarm($('#wkReturn'));
@@ -285,8 +285,13 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     $('#wkRO').hidden = !readOnly();
     $('#wkSite').textContent = site.name; $('#wkPractice').hidden = !site.practice;
     $('#wkName').textContent = all ? w.name : t('install.w.lead', { name: w.name });
-    const g = $('#wkGiant'), key = all ? 'done' : `${now.at}/${now.of}`;
-    if (g.dataset.k !== key) { giant(g, all ? t('install.w.done') : t('install.w.giant', { a: now.at, b: now.of })); if (g.dataset.k && !isQuiet()) reveal(g); g.dataset.k = key; }
+    // the headline is written again when the step or the language changed, and rises only when the step did
+    const g = $('#wkGiant'), key = all ? 'done' : `${now.at}/${now.of}`, words = `${lang()}|${key}`;
+    if (g.dataset.words !== words) {
+      giant(g, all ? t('install.w.done') : t('install.w.giant', { a: now.at, b: now.of }));
+      if (g.dataset.k && g.dataset.k !== key && !isQuiet()) reveal(g);
+      g.dataset.k = key; g.dataset.words = words;
+    }
     g.classList.toggle('full', all);
     $('#wkSupport').textContent = site.legacy ? t(w.consent ? 'install.legacy.w.s.consent_only' : 'install.legacy.w.s.no_consent') : t(`install.w.s.${w.status}`);
     $('#wkS2').hidden = !!site.legacy;
@@ -307,9 +312,13 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     const key1 = w.consent ? `${w.id}:${w.consent.v}` : `${w.id}:none`;
     if (shot.dataset.k !== key1) {
       shot.dataset.k = key1;
-      put(shot, w.consent ? h('img', { src: `api/consent/${encodeURIComponent(w.id)}?v=${encodeURIComponent(w.consent.v)}`, alt: t('install.w.photo.alt', { name: w.name }), decoding: 'async' })
-        : [h('span', { class: 'inst-doc', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'), h('i'), h('i')), h('span', { class: 'inst-shot-t', text: t('install.w.photo.hint') })]);
+      put(shot, w.consent ? h('img', { src: `api/consent/${encodeURIComponent(w.id)}?v=${encodeURIComponent(w.consent.v)}`, alt: '', decoding: 'async' })
+        : [h('span', { class: 'inst-doc', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'), h('i'), h('i')), h('span', { class: 'inst-shot-t' })]);
     }
+    // the photo is kept while it is the same; its words follow the language and the name on every paint
+    const photo = $('img', shot), hint = $('.inst-shot-t', shot);
+    if (photo) photo.alt = t('install.w.photo.alt', { name: w.name });
+    if (hint) hint.textContent = t('install.w.photo.hint');
     hooks($('#wkDocs'), 'consent');   // the consent form and what to say, next to the photo
     $('#wkMeta').hidden = !w.consent;
     if (w.consent) $('#wkMeta').textContent = t('install.w.saved', { form: w.consent.form, when: stamp(w.consent.t, tz()) });
