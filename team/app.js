@@ -1284,6 +1284,11 @@ function wire() {
     const owed = S.owed; S.owed = null;
     (owed && S.me && S.me.today ? answer(owed.hit, owed.before, owed.after).catch(() => {}) : Promise.resolve()).then(() => playMoments());
   }, 260));
+  // Loops run only where the eye is: a screen out of view (a band scrolled away, a tab not shown) pauses its own.
+  if ('IntersectionObserver' in window) {
+    const seen = new IntersectionObserver((list) => { for (const e of list) e.target.classList.toggle('idle', !e.isIntersecting); });
+    for (const screen of $$('section.screen')) seen.observe(screen);
+  }
   // Crossing between a narrow and a wide screen changes how many zones show at once.
   WIDE.addEventListener('change', () => { if (S.me && S.tab) { show(S.tab); markTab(); } });
   $('#tableSeg').addEventListener('click', (e) => { const b = e.target.closest('button[data-period]'); if (!b) return; S.period = b.dataset.period; quiet(renderTable); });

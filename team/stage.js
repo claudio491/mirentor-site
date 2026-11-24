@@ -104,6 +104,6 @@ export function createStage({ onPick = () => {} } = {}) {
     });
     host.addEventListener('pointerleave', () => { dio.style.setProperty('--ry', '0deg'); dio.style.setProperty('--rx', '0deg'); });
   }
-  motes();
+  motes(matchMedia('(pointer: coarse)').matches ? 6 : 12);   // half as many on a phone: the same feel for less work
   return { show, play, hold, burst, paintRoute, lean, node: dio, shown: () => shown };
 }

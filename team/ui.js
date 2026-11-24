@@ -7,7 +7,10 @@ import { enterPlan, numberAttrs } from './keys.js';
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-export const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduceQuery = matchMedia('(prefers-reduced-motion: reduce)');
+/** Read where it is used, so a change of the setting while the app is open is followed (the stylesheet follows it too). */
+export let reduce = reduceQuery.matches;
+reduceQuery.addEventListener('change', (e) => { reduce = e.matches; });
 export const EASE = { lock: 'cubic-bezier(.34,1.56,.64,1)', track: 'cubic-bezier(.2,.8,.2,1)', move: 'cubic-bezier(.77,0,.175,1)', out: 'cubic-bezier(.23,1,.32,1)' };
 const SVG = 'http://www.w3.org/2000/svg';
 
