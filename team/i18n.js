@@ -337,7 +337,7 @@ const es = {
   'rules.hand.b': 'La mano.', 'rules.hand': 'Cada día de trabajo es un dedo con cuatro luces: una visita, dos conversaciones con quien decide, un seguimiento y el cierre del día. La muñeca se enciende con tu primer registro de la semana.',
   'rules.streak.b': 'La racha.', 'rules.streak': 'Se mantiene con una conversación con quien decide cada día de trabajo. Tienes {n} comodines para un día malo y recuperas uno con cada semana en la que conversas todos tus días de trabajo.',
   'rules.table.b': 'La tabla.', 'rules.table': 'Muestra la punta y tu lugar. Los puntos vuelven a cero cada lunes y nadie más aparece con número.',
-  'rules.money': 'Es una propuesta para revisar con el equipo. Los puntos no son dinero y no se convierten en dinero.',
+  'rules.money': 'Los puntos no son dinero y no se convierten en dinero.',
   // ---- manager: the team ----
   'mgr.lead': 'Días cerrados hoy', 'mgr.support': 'Hoy trabajan {w} de {p} vendedores. Reuniones del equipo esta semana: {m} de {t}.',
   'mgr.none': 'Todavía no hay vendedores. Crea el primero en Vendedores.', 'mgr.filter.aria': 'Ciudad', 'mgr.filter.all': 'Todas',
@@ -994,7 +994,7 @@ const en = {
   'rules.hand.b': 'The hand.', 'rules.hand': 'Each working day is a finger with four lights: one visit, two conversations with whoever decides, one follow-up and closing the day. The wrist lights up with your first log of the week.',
   'rules.streak.b': 'The streak.', 'rules.streak': 'You keep it with one conversation with whoever decides each working day. You have {n} spare days for a bad day and you get one back with each week in which you have a conversation every working day.',
   'rules.table.b': 'The table.', 'rules.table': 'It shows the lead and your own place. Points go back to zero every Monday and nobody else appears with a number.',
-  'rules.money': 'This is a proposal to review with the team. Points are not money and do not convert to money.',
+  'rules.money': 'Points are not money and do not convert to money.',
   // ---- manager: the team ----
   'mgr.lead': 'Days closed today', 'mgr.support': '{w} of {p} reps work today. Team meetings this week: {m} of {t}.',
   'mgr.none': 'No reps yet. Create the first one under Reps.', 'mgr.filter.aria': 'City', 'mgr.filter.all': 'All',
