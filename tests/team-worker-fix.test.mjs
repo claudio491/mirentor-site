@@ -187,3 +187,35 @@ test('a legacy site: a manager loads past consents with no phone and an optional
   assert.equal(me.ledger.length, 0);
   assert.equal(count('worker.added'), 2);
 });
+
+test('a past consent on a legacy site keeps the day it was signed and its form version; without them it is the upload day and v1, as before', async (t) => {
+  const { s, a, mgr, ana, siteId, call, addWorker, install, count } = await setup(t, { legacy: true, eligible: 40, city: 'Colón' });
+  for (const w of [W1, W2]) assert.equal((await addWorker(w, { email: '' }, mgr.cookie)).status, 200);
+  const load = (id, query = '', cookie = mgr.cookie) => fetch(`${s.url}${API}/worker/${id}/consent${query}`, { method: 'PUT', headers: { 'content-type': 'image/jpeg', cookie }, body: JPG });
+  // a date that is not a real one, one before 2026, one in the future, a form nobody knows: refused, nothing written
+  for (const q of ['?signedOn=2026-02-31', '?signedOn=2025-12-31', '?signedOn=2026-11-17', '?signedOn=15/09/2026', '?signedOn=', '?form=v9', '?signedOn=2026-09-15&form=']) {
+    const r = await load(W1, q);
+    assert.deepEqual([r.status, (await r.json()).error], [400, 'fields'], q);
+  }
+  assert.equal(count('worker.consent'), 0);
+  assert.equal((await load(W1, '?signedOn=2026-09-15&form=v1')).status, 200);
+  assert.equal((await load(W2)).status, 200);   // nothing said: the upload day and form v1, as before
+  assert.deepEqual(s.lines().filter((e) => e.type === 'worker.consent').map((e) => [e.workerId, e.form, e.signedOn]), [[W1, 'v1', '2026-09-15'], [W2, 'v1', undefined]]);
+  const check = async (srv) => {
+    const rows = (await srv.call('GET', `${API}/site/${siteId}/record.csv`, undefined, { cookie: a.cookie })).text.trim().split('\n');
+    assert.match(rows[1], /^"Persona 1","","2026-09-15","v1",/);
+    assert.match(rows[2], /^"Persona 2","","2026-11-16","v1",/);
+  };
+  await check(s);
+  assert.deepEqual((await install(mgr.cookie)).json.workers.map((w) => [w.id, w.consent.signedOn]), [[W1, '2026-09-15'], [W2, '2026-11-16']]);
+  // a real install signs on the day: no date or form is taken there
+  s.time.now += 1000;
+  await call('POST', 'site', { id: 's_real-site-0001', rep: ana.id, lead: { name: 'Taller Real' } }, a.cookie);
+  assert.equal((await call('POST', 'install/s_real-site-0001/workers', { id: W3, name: 'Persona Tres', email: 'p3@equipo.test' }, ana.cookie)).status, 200);
+  const real = await load(W3, '?signedOn=2026-09-15', ana.cookie);
+  assert.deepEqual([real.status, (await real.json()).error], [400, 'fields']);
+  assert.equal(count('worker.consent'), 2);
+  s.srv.close();
+  const back = await start({ dir: s.dir, clock: s.time.now }); t.after(() => back.srv.close());
+  await check(back);
+});
