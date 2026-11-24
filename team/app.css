@@ -611,11 +611,17 @@ html.greeting{overflow:hidden}
 
 /* ---------- moving between screens ---------- */
 .top{view-transition-name:top}
-::view-transition-old(root){animation:vt-out 110ms linear both}
-::view-transition-new(root){animation:vt-in 260ms var(--ease-out) both}
+/* Changing screens wipes the new one in from the side it lies on, over the old one: the grounds never blend into gray
+   (the old cross-fade mixed graphite and porcelain for a moment), and the three zones read as one strip. */
+::view-transition-old(root){animation:none}
+::view-transition-new(root){animation:vt-wipe 260ms var(--ease-drawer) both}
+html[data-vt=back]::view-transition-new(root){animation-name:vt-wipe-back}
+@keyframes vt-wipe{from{clip-path:inset(0 0 0 100%)}to{clip-path:inset(0)}}
+@keyframes vt-wipe-back{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0)}}
+@media (prefers-reduced-motion:reduce){::view-transition-old(root){animation:vt-out 160ms linear both}::view-transition-new(root),html[data-vt=back]::view-transition-new(root){animation:vt-fade 160ms linear both}}
+@keyframes vt-fade{from{opacity:0}}
 ::view-transition-group(nav),::view-transition-group(top){animation:none}
 @keyframes vt-out{to{opacity:0}}
-@keyframes vt-in{from{opacity:0;transform:translateY(8px)}}
 
 /* ---------- what answers a pointer ---------- */
 @media (hover:hover) and (pointer:fine){

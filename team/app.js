@@ -161,10 +161,15 @@ function setTab(name, { instant = false } = {}) {
   // coming back to "Mis sitios activos" from a site's screens: it shows what those screens just changed
   if (name === 'sites' && S.me && !S.mgr && !S.lead) quiet(() => sites.render());
   S.tab = name;
+  // A screen puts itself together the first time it is opened in a visit; after that it is simply there. It does so
+  // inside the change, so the screen that wipes in is already assembling (started after it, the screen showed whole,
+  // went blank and assembled again).
+  const fresh = (inBands(name) ? BANDS : [name]).filter((n) => !S.arrived.has(n));
   // The screen shown is always the last one asked for: two quick taps may run this twice, in either order.
-  const go = () => {
+  const go = (arriving = []) => {
     const open = S.tab;
     show(open); hidePop();
+    for (const n of arriving) if (!S.arrived.has(n)) { S.arrived.add(n); arrive(n); }
     for (const b of $$('#nav .tab')) { if (b.dataset.tab === open) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
     markTab();
     if ($('#meBtn')) { if (open === 'profile') $('#meBtn').setAttribute('aria-current', 'page'); else $('#meBtn').removeAttribute('aria-current'); }
@@ -174,11 +179,12 @@ function setTab(name, { instant = false } = {}) {
   };
   const sameSheet = inBands(name) && BANDS.includes(from);
   if (instant || !changed || sameSheet) { go(); return; }
-  swap(go);
+  // Which side the new screen comes from: the tabs' order, or back from a screen that is not a tab.
+  const order = $$('#nav .tab').map((b) => b.dataset.tab), a = order.indexOf(from), b = order.indexOf(name);
+  document.documentElement.dataset.vt = a >= 0 && b >= 0 ? (b > a ? 'fwd' : 'back') : b >= 0 ? 'back' : 'fwd';
+  swap(() => go(fresh));
   const mark = $(`#nav [data-tab="${name}"] svg`);
   if (mark) lock(mark);
-  // A screen puts itself together the first time it is opened in a visit; after that it is simply there.
-  for (const n of inBands(name) ? BANDS : [name]) if (!S.arrived.has(n)) { S.arrived.add(n); setTimeout(() => arrive(n), reduce ? 0 : 90); }
 }
 /** Run `fn` once, when `el` is at least a third on screen (at once where the browser cannot tell). */
 function whenSeen(el, fn) {
