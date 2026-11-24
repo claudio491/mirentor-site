@@ -96,3 +96,17 @@ test('a business a rep cannot pick by its id cannot be logged by typing its name
   assert.equal((await log('known-by-nm-01', { name: 'farmacia uno', zone: 'centro' })).status, 200);
   assert.equal(s.lines().find((e) => e.id === 'known-by-nm-01').lead.id, 'CRM-1');
 });
+
+test('a rep with no city has no businesses to pick: the search finds none, an id reaches none, and the manager sees the count at zero', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin(), m = await s.addRep(a.cookie, 'mario'), nocity = await s.addRep(a.cookie, 'sinciudad', { city: '' });
+  await s.call('PUT', `${API}/leads`, [{ id: 'CRM-1', company: 'Tienda Centro', city: 'Panama City', zone: 'Centro', stage: 'New' },
+    { id: 'CRM-2', company: 'Tienda Colon', city: 'Colón', zone: 'Puerto', stage: 'New' }], { bearer: 'push-token' });
+  const search = async (who) => (await s.call('GET', `${API}/leads?q=tienda`, undefined, { cookie: who.cookie })).json.leads.map((l) => l.id);
+  assert.deepEqual(await search(nocity), []);
+  assert.deepEqual(await search(m), ['CRM-1'], 'a rep with a city sees that city, as before');
+  for (const id of ['CRM-1', 'CRM-2']) assert.deepEqual([(await s.call('POST', `${API}/log`, logBody(`nocity-${id}`, { lead: { id } }), { cookie: nocity.cookie })).json.error], ['lead']);
+  assert.deepEqual((await s.call('GET', `${API}/zones`, undefined, { cookie: nocity.cookie })).json.zones, []);
+  const reps = (await s.call('GET', `${API}/team`, undefined, { cookie: a.cookie })).json.reps;
+  assert.deepEqual(reps.map((r) => [r.handle, r.leadsInCity]), [['mario', 1], ['sinciudad', 0]]);
+});

@@ -87,10 +87,12 @@ test('picking two zones ticks the zones step and orders the lead search', async 
 
 test('searchLeads without zones behaves as before and with zones keeps order inside each group', () => {
   const leads = new Map([['1', { id: '1', company: 'Casa A', zone: 'Uno' }], ['2', { id: '2', company: 'Casa B', zone: 'Dos' }], ['3', { id: '3', company: 'Casa C', zone: 'dos' }], ['4', { id: '4', company: 'Casa D', zone: 'Uno' }]]);
-  assert.deepEqual(searchLeads(leads, 'casa', '').map((l) => l.id), ['1', '2', '3', '4']);
-  assert.deepEqual(searchLeads(leads, 'casa', '', 20, []).map((l) => l.id), ['1', '2', '3', '4']);
-  assert.deepEqual(searchLeads(leads, 'casa', '', 20, ['DÓS']).map((l) => l.id), ['2', '3', '1', '4']);
-  assert.deepEqual(searchLeads(leads, 'casa', '', 2, ['Dos']).map((l) => l.id), ['2', '3']);
+  // the businesses carry no city, so a rep in any city picks them; a rep with no city picks none
+  assert.deepEqual(searchLeads(leads, 'casa', 'Panama City').map((l) => l.id), ['1', '2', '3', '4']);
+  assert.deepEqual(searchLeads(leads, 'casa', 'Panama City', 20, []).map((l) => l.id), ['1', '2', '3', '4']);
+  assert.deepEqual(searchLeads(leads, 'casa', 'Panama City', 20, ['DÓS']).map((l) => l.id), ['2', '3', '1', '4']);
+  assert.deepEqual(searchLeads(leads, 'casa', 'Panama City', 2, ['Dos']).map((l) => l.id), ['2', '3']);
+  assert.deepEqual(searchLeads(leads, 'casa', '').map((l) => l.id), []);
 });
 
 test('three zones or a zone outside the city is refused', async (t) => {
