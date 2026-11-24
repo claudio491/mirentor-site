@@ -22,7 +22,7 @@ function light(j) {
 export function buildHand(el, { mini = false } = {}) {
   el.replaceChildren();
   el.classList.add('ahand'); el.classList.toggle('mini', mini);
-  const nodes = { wrist: light(HAND.wrist), joints: [], bones: [], labels: [], hits: [], ring: null };
+  const nodes = { wrist: light(HAND.wrist), joints: [], bones: [], labels: [], hits: [], ring: null, pending: new Set() };
   if (!mini) {
     // a bone runs between two lights of the same finger, from the edge of one joint to the edge of the next
     const svg = s('svg', { viewBox: '0 0 1000 1000', 'aria-hidden': 'true', focusable: 'false' });
@@ -59,14 +59,30 @@ export function buildHand(el, { mini = false } = {}) {
   return el;
 }
 
+/** The lights a paint still has on their way: each comes on by its own timer. */
+function later(nodes, fn, wait) {
+  if (!nodes.pending) nodes.pending = new Set();
+  const id = setTimeout(() => { nodes.pending.delete(id); fn(); }, wait);
+  nodes.pending.add(id);
+}
+/** Call off the lights still on their way: a new paint, or the end of the demonstration, takes over from there. */
+export function settleHand(el) {
+  const p = el && el.hand && el.hand.pending;
+  if (!p) return;
+  for (const id of p) clearTimeout(id);
+  p.clear();
+}
+
 /** Light the week on the hand. days: five entries { day?, kind: 'work'|'rest'|'future', habits: [4] }. `next` is the
- *  habit today still asks for: its joint carries a ring. Returns how long the lights take to come on, in milliseconds. */
+ *  habit today still asks for: its joint carries a ring. Returns how long the lights take to come on, in milliseconds.
+ *  A light an earlier paint still had on its way never comes on afterwards: this paint decides every light. */
 export function paintHand(el, days, { wrist = false, today = null, animate = false, next = null, labels = true, step = 70 } = {}) {
   const nodes = el.hand, live = animate && !reduce;
+  settleHand(el);
   let k = 0, ringAt = null;
   const set = (node, on) => {
     if (node.classList.contains('on') === on) return;
-    if (on && live) { const wait = k * step; k += 1; setTimeout(() => node.classList.add('on'), wait); } else node.classList.toggle('on', on);
+    if (on && live) { const wait = k * step; k += 1; later(nodes, () => node.classList.add('on'), wait); } else node.classList.toggle('on', on);
   };
   set(nodes.wrist, !!wrist);
   days.slice(0, 5).forEach((d, f) => {
@@ -102,7 +118,8 @@ export function paintHand(el, days, { wrist = false, today = null, animate = fal
 export function replayHand(el, { fast = false } = {}) {
   if (reduce || !el || !el.hand) return 0;
   const step = fast ? 35 : 70, lit = [el.hand.wrist, ...el.hand.joints.flat()].filter((n) => n.classList.contains('on'));
-  lit.forEach((n, i) => { n.classList.remove('on'); setTimeout(() => { if (n.isConnected) n.classList.add('on'); }, 80 + i * step); });
+  // the replay's own timers are on the list too, so a paint that comes after it decides every light again
+  lit.forEach((n, i) => { n.classList.remove('on'); later(el.hand, () => { if (n.isConnected) n.classList.add('on'); }, 80 + i * step); });
   return 80 + lit.length * step + 220;
 }
 
@@ -117,7 +134,8 @@ export function teachHand(el, { finger = 2, say = () => {}, beat = () => {}, hot
   const demo = [0, 1, 2, 3, 4].map(() => [false, false, false, false]);
   const show = (wrist = false, animate = false) => paintHand(el, demo.map((habits) => ({ kind: 'work', habits })), { wrist, animate, labels: false });
   const point = (f) => labels.forEach((l, i) => l.classList.toggle('point', i === f));
-  const end = () => { if (!alive) return; alive = false; timers.forEach(clearTimeout); point(-1); hot(-1); done(); };
+  // stopped or over: its own waits and the lights it still had on their way are called off before the truth is painted
+  const end = () => { if (!alive) return; alive = false; timers.forEach(clearTimeout); settleHand(el); point(-1); hot(-1); done(); };
   (async () => {
     show();
     beat(0, 2300); say(1);
