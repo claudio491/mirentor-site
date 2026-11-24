@@ -454,7 +454,7 @@ html:has(dialog.sheet[open]){overflow:hidden}
 .blenses{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:22px;max-width:420px}
 .btable{margin-top:14px;border-bottom:1px solid var(--rule)}
 .bt-h,.brow{display:grid;grid-template-columns:48px minmax(190px,1.4fr) 50px 56px 108px 76px 80px 70px 62px minmax(104px,.8fr) minmax(100px,.8fr) 124px;gap:12px;align-items:center}
-.brow .act .mini-btn{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;line-height:34px;vertical-align:middle}
+.brow .act .mini-btn{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;line-height:34px;vertical-align:middle;white-space:nowrap;padding:0 12px}
 .bt-h{padding:0 12px 9px;font:500 11px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--mist)}
 .bt-h span.r,.brow .r{text-align:right}
 .brow{position:relative;padding:11px 12px;border-top:1px solid var(--rule);min-height:68px}
