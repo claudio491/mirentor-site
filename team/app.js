@@ -24,6 +24,7 @@ import { verdict, mine as waitingOf, requestTimeout } from './queue.js';
 import { sessionMove, HOME, LEAVE } from './door.js';
 import { actingMode, readOnlyIn, repControls, withAs, logLocked, staleAs, practiceBarName } from './practice-steps.js';
 import { shortfall } from './paid.js';
+import { askTwice } from './taps.js';
 
 const API = 'api';   // every address is relative to the page, so the app works wherever it is mounted
 const KEY = { lang: 'cancha.lang', queue: 'cancha.queue', me: 'cancha.me', greet: 'cancha.greet', langPending: 'cancha.langPending' };
@@ -815,7 +816,7 @@ function renderProfile() {
     put(box, S.me.viewer.email ? h('div', { class: 'line' }, h('span', { text: t('profile.account', { email: S.me.viewer.email }) })) : null,
       ...ladder.profileButtons(), ...route.profileButtons(), docsBtn,
       h('button', { class: 'btn', type: 'button', text: t('profile.rules'), 'data-open': 'rulesSheet' }),
-      h('button', { class: 'btn signout', type: 'button', text: t('profile.signout'), onclick: (ev) => signOutAsked(ev.currentTarget) }));
+      h('button', { class: 'btn signout', type: 'button', text: t('profile.signout'), onclick: (ev) => signOutAsked(ev.currentTarget, ev) }));
   }
 }
 function renderRules() {
@@ -1212,11 +1213,12 @@ function shutOut(e) {
 function signOut() { store.del(KEY.me); store.del(KEY.greet); location.href = LEAVE; }
 /** With logs still waiting on this phone, signing out says so and asks for a second tap (they stay on the phone and go
  *  out at the next sign-in, but the person should know). */
-function signOutAsked(btn) {
-  const n = myQueue().length, now = Date.now();
-  if (!n || (btn.dataset.armed && now - Number(btn.dataset.armed) > 300 && now - Number(btn.dataset.armed) < 5000)) { signOut(); return; }
-  btn.dataset.armed = String(now); btn.classList.add('armed'); btn.textContent = t('profile.signout.waiting', { n });
-  setTimeout(() => { if (btn.isConnected && btn.dataset.armed === String(now)) { delete btn.dataset.armed; btn.classList.remove('armed'); btn.textContent = t('profile.signout'); } }, 5000);
+function signOutAsked(btn, e) {
+  const n = myQueue().length;
+  if (!n) { signOut(); return; }
+  const step = askTwice(btn, e, { onDisarm: () => { if (btn.isConnected) btn.textContent = t('profile.signout'); } });   // taps.js: one double tap never passes both
+  if (step === 'arm') btn.textContent = t('profile.signout.waiting', { n });
+  else if (step === 'run') signOut();
 }
 /** `as` is whose screens to open as their manager. Left out, the page's own address says it. */
 async function start(as = undefined) {
