@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readdirSync, renameSync, rmdirSync } from 'node:fs';
 import path from 'node:path';
 import { start } from './team-helper.mjs';
 
@@ -182,6 +182,29 @@ test('every install write is refused on a voided site and on a legacy site', asy
   assert.deepEqual([prep.status, prep.json.error], [409, 'legacy']);
 });
 
+test('a voided real site keeps its signed consents and its record for managers, admins and leaders; its rep gets what it got before', async (t) => {
+  const { s, a, ana, beto, siteId, addWorker, upload } = await setup(t);
+  const lia = await s.addRep(a.cookie, 'lia', { role: 'leader' });
+  const mara = await s.addRep(a.cookie, 'mara', { role: 'manager' });
+  await addWorker(W1); assert.equal((await upload(W1)).status, 200);
+  assert.equal((await s.call('POST', `${API}/site/${siteId}`, { what: 'void' }, { cookie: a.cookie })).status, 200);
+  const get = (p, who) => s.call('GET', `${API}/${p}`, undefined, { cookie: who.cookie });
+  for (const who of [a, mara, lia]) {
+    const photo = await fetch(`${s.url}${API}/consent/${W1}`, { headers: { cookie: who.cookie } });
+    assert.deepEqual([photo.status, Buffer.from(await photo.arrayBuffer()).equals(JPG)], [200, true]);
+    const rec = await get(`site/${siteId}/record.csv`, who);
+    assert.equal(rec.status, 200);
+    assert.ok(rec.text.includes(`"${W1}","${API}/consent/${W1}"`), rec.text);
+  }
+  // the site's rep and another rep: as before the void
+  assert.deepEqual([(await get(`consent/${W1}`, ana)).status, (await get(`consent/${W1}`, ana)).json.error], [404, 'worker']);
+  assert.equal((await get(`consent/${W1}`, beto)).status, 403);
+  assert.equal((await get(`site/${siteId}/record.csv`, ana)).status, 403);
+  // and nothing else opens again: the install stays closed to everyone, managers included
+  assert.equal((await get(`install/${siteId}`, a)).status, 404);
+  assert.equal((await s.call('POST', `${API}/install/${siteId}/workers`, { id: W2, name: 'Persona Dos', email: 'p2@equipo.test' }, { cookie: a.cookie })).status, 404);
+});
+
 test('the holder of a taken IMEI is named to a manager only, never to a rep', async (t) => {
   const { s, a, addWorker, upload, phone, ana } = await setup(t);
   for (const w of [W1, W2]) { await addWorker(w); await upload(w); }
@@ -227,4 +250,37 @@ test('a manager or admin runs every install write on a site whose rep is someone
     for (const e of written) assert.equal(e.by, who, `${e.type} names who did it`);
   }
   assert.equal(s.lines().find((e) => e.type === 'site').rep, ana.id, 'the site stays the rep\'s');
+});
+
+/** The event log stops taking writes (a full or read-only disk) while `fn` runs: a folder stands where the file was. */
+async function logRefusesWrites(s, fn) {
+  const file = path.join(s.dir, 'team', 'events.jsonl');
+  renameSync(file, `${file}.aside`); mkdirSync(file);
+  try { return await fn(); } finally { rmdirSync(file); renameSync(`${file}.aside`, file); }
+}
+
+test('a new consent whose event cannot be written leaves the consent in force as it was, file and all', async (t) => {
+  const { s, a, addWorker, upload } = await setup(t);
+  const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('png consent bytes')]);
+  const JPG2 = Buffer.concat([JPG, Buffer.from('a second photo of the same kind')]);
+  await addWorker(W1);
+  assert.equal((await upload(W1)).status, 200);
+  const consents = () => readdirSync(path.join(s.dir, 'team', 'consents'));
+  const before = consents();
+  for (const bytes of [PNG, JPG2]) {   // another kind, and the same kind
+    const failed = await logRefusesWrites(s, () => upload(W1, bytes));
+    assert.equal(failed.status, 500);
+    assert.deepEqual(consents(), before, 'the new file went back and the old one stayed');
+    const seen = await fetch(`${s.url}${API}/consent/${W1}`, { headers: { cookie: a.cookie } });
+    assert.deepEqual([seen.status, seen.headers.get('content-type'), Buffer.from(await seen.arrayBuffer()).equals(JPG)], [200, 'image/jpeg', true]);
+  }
+  // once the disk takes writes again, a new consent replaces the old one, which then leaves the disk
+  assert.equal((await upload(W1, PNG)).status, 200);
+  assert.equal(consents().length, 1);
+  const now = await fetch(`${s.url}${API}/consent/${W1}`, { headers: { cookie: a.cookie } });
+  assert.deepEqual([now.headers.get('content-type'), Buffer.from(await now.arrayBuffer()).equals(PNG)], ['image/png', true]);
+  s.srv.close();
+  const back = await start({ dir: s.dir }); t.after(() => back.srv.close());
+  const again = await fetch(`${back.url}${API}/consent/${W1}`, { headers: { cookie: a.cookie } });
+  assert.equal(Buffer.from(await again.arrayBuffer()).equals(PNG), true);
 });

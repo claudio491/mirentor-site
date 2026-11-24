@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { start } from './team-helper.mjs';
 import { openTeamStore } from '../lib/team/store.mjs';
+import { mkdirSync, readdirSync, renameSync, rmdirSync } from 'node:fs';
+import path from 'node:path';
 
 // Small files that start the way each kind of image starts: that is what the server checks.
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
@@ -70,4 +72,42 @@ test('a photo stays after a restart, a new one replaces it and it can be taken d
   assert.equal((await s.call('GET', '/equipo/api/me', undefined, { cookie: m.cookie })).json.me.photo, null);
   assert.equal((await fetch(`${s.url}${at}`, { headers: { cookie: m.cookie } })).status, 404);
   assert.equal(openTeamStore(s.dir).state.reps.get(m.id).photo, null);
+});
+
+test('a new photo or a removal whose event cannot be written leaves the photo in force as it was', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin(); const m = await s.addRep(a.cookie, 'mario');
+  const at = `/equipo/api/photo/${m.id}`, photos = () => readdirSync(path.join(s.dir, 'team', 'photos'));
+  assert.equal((await s.call('PUT', at, photo(PNG, 'image/png'), B)).status, 200);
+  const before = photos();
+  const refusing = async (fn) => {
+    const file = path.join(s.dir, 'team', 'events.jsonl');
+    renameSync(file, `${file}.aside`); mkdirSync(file);
+    try { return await fn(); } finally { rmdirSync(file); renameSync(`${file}.aside`, file); }
+  };
+  assert.equal((await refusing(() => s.call('PUT', at, photo(JPG, 'image/jpeg'), B))).status, 500);
+  assert.equal((await refusing(() => s.call('DELETE', at, undefined, B))).status, 500);
+  assert.deepEqual(photos(), before);
+  const seen = await fetch(`${s.url}${at}`, { headers: { cookie: m.cookie } });
+  assert.deepEqual([seen.status, Buffer.from(await seen.arrayBuffer()).equals(PNG)], [200, true]);
+  // and when the log takes writes: a new photo leaves one file, a removal none
+  assert.equal((await s.call('PUT', at, photo(JPG, 'image/jpeg'), B)).status, 200);
+  assert.equal(photos().length, 1);
+  assert.equal((await s.call('DELETE', at, undefined, B)).status, 200);
+  assert.deepEqual(photos(), []);
+});
+
+test('HEAD on a photo answers as GET does, without the bytes, to whoever may GET it', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin(); const m = await s.addRep(a.cookie, 'mario'), lia = await s.addRep(a.cookie, 'lia', { role: 'leader' });
+  const at = `${s.url}/equipo/api/photo/${m.id}`;
+  assert.equal((await s.call('PUT', `/equipo/api/photo/${m.id}`, photo(PNG, 'image/png'), B)).status, 200);
+  for (const cookie of [m.cookie, lia.cookie, a.cookie]) {
+    const get = await fetch(at, { headers: { cookie } }), head = await fetch(at, { method: 'HEAD', headers: { cookie } });
+    assert.deepEqual([head.status, head.headers.get('content-type'), head.headers.get('cache-control'), head.headers.get('content-length')], [get.status, get.headers.get('content-type'), get.headers.get('cache-control'), String(PNG.length)]);
+    assert.equal((await head.arrayBuffer()).byteLength, 0);
+    assert.deepEqual(Buffer.from(await get.arrayBuffer()), PNG);
+  }
+  assert.equal((await fetch(at, { method: 'HEAD' })).status, 401);
+  assert.equal((await fetch(`${s.url}/equipo/api/photo/${a.id}`, { method: 'HEAD', headers: { cookie: m.cookie } })).status, 404);   // nobody's photo there
 });

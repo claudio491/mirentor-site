@@ -51,7 +51,7 @@ test('the practice seed gives the first rep a practice site with phones marked a
   assert.deepEqual(me.installs, [{ id: 's_sample_practice', name: 'Sitio de práctica', state: 'practice', ready: 1, total: 3, phones: 3, practice: true, closed: false }]);
   const workers = store.state.sites.get('s_sample_practice').workers.map((id) => store.state.workers.get(id));
   assert.deepEqual(workers.map((w) => [w.name, !!w.consent, !!w.imei]), [['Trabajador 1', true, true], ['Trabajador 2', false, false], ['Trabajador 3', true, false]]);
-  assert.equal(existsSync(path.join(dir, 'team', 'consents', `${workers[0].id}.png`)), true);
+  assert.equal(existsSync(path.join(dir, 'team', 'consents', `${workers[0].id}.${workers[0].consent.v}.png`)), true);   // <worker id>.<version>.<ext>
   // without the option the sample stays as it was
   const plain = fresh(); seed(plain, { now: THU_3PM });
   assert.equal(openTeamStore(plain).state.sites.has('s_sample_practice'), false);

@@ -226,9 +226,10 @@ test('the nightly routine pushes leads, reads the day\'s logs and maps new busin
   await s.call('POST', '/equipo/api/log', logBody('cdcd0002', { lead: { name: 'Bodega Nueva', zone: 'Calidonia' }, kind: 'message', channel: 'email' }), { cookie: m.cookie });
   const ex = await s.call('GET', '/equipo/api/export?since=2026-11-16T00:00:00Z', undefined, B);
   assert.deepEqual(ex.json.logs.map((l) => [l.lead.id.slice(0, 3), l.owner, l.crm && l.crm.channel, l.crm && l.crm.outcome]), [['PA-', 'mario Rep', 'In-person visit', 'Visited, spoke with owner'], ['APP', 'mario Rep', 'Email', 'Email sent']]);
-  assert.deepEqual(ex.json.stages, [{ lead: 'PA-0001', stage: 'Contacted' }]);
   assert.equal(ex.json.newLeads.length, 1);
   const temp = ex.json.newLeads[0].id;
+  // the new business has its stage too, under its temporary id: the bridge maps it in the run that creates it
+  assert.deepEqual(ex.json.stages, [{ lead: 'PA-0001', stage: 'Contacted' }, { lead: temp, stage: 'Contacted' }]);
   assert.equal((await s.call('POST', '/equipo/api/leadmap', { pairs: [[temp, 'PA-SB-2901']] }, B)).json.mapped, 1);
   assert.equal((await s.call('GET', '/equipo/api/export?since=2026-11-16T00:00:00Z', undefined, B)).json.logs[1].lead.id, 'PA-SB-2901');
 });

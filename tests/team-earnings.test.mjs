@@ -61,7 +61,10 @@ test('the rate in force for a week is the newest one that starts on or before it
 
 test('site hours: only a manager or an admin, a Monday, a later value replaces the earlier, never on a legacy or an unfinished site', async (t) => {
   const { s, a, ana, mgr, me, manage, installed } = await setup(t);
+  // opened last week, so last week's minutes are its own (none are taken for a week before a site existed)
+  s.time.now -= 7 * 86400000;
   await installed(ana, 's_earn-site-01', 'Taller Uno', { id: 'w_earn-0001', name: 'Persona Uno', email: 'persona1@equipo.test', imei: IMEI_A });
+  s.time.now += 7 * 86400000;
   const lia = await s.addRep(a.cookie, 'lia', { role: 'leader' });
   const before = s.lines().length;
   // a rep (even the site's own) and a leader cannot
@@ -107,7 +110,10 @@ test('site hours on a practice site: refused on the manager route; allowed while
 
 test('earnings: no rate means no amount anywhere; an admin sets the rate; cents are exact; a change applies from its week on', async (t) => {
   const { s, a, ana, beto, mgr, me, manage, installed } = await setup(t);
+  // opened last week, so last week's minutes are its own (none are taken for a week before a site existed)
+  s.time.now -= 7 * 86400000;
   await installed(ana, 's_earn-site-01', 'Taller Uno', { id: 'w_earn-0001', name: 'Persona Uno', email: 'persona1@equipo.test', imei: IMEI_A });
+  s.time.now += 7 * 86400000;
   await manage('s_earn-site-01', { what: 'hours', week: THIS_WEEK, accepted: 3666 });
   await manage('s_earn-site-01', { what: 'hours', week: LAST_WEEK, accepted: 600 });
   const cents = (json) => [...JSON.stringify(json).matchAll(/"cents":([^,}\]]+)/g)].map((m) => m[1]);
@@ -180,4 +186,26 @@ test('seeing the others: a teammate comes with active sites by name, workers cou
   for (const secret of ['Trabajadora Secreta', 'secreta@equipo.test', IMEI_A, 'w_earn-0009']) assert.equal(text.includes(secret), false, secret);
   // ana herself is in the crew with nothing yet
   assert.deepEqual(view.crew.find((c) => c.id === ana.id), { id: ana.id, sites: [], minutes: 0, cents: 0 });
+});
+
+test('a voided site still takes the accepted minutes of a week that ended before the void, and they pay; never a later week', async (t) => {
+  const s = await start({ clock: Date.parse('2026-11-10T15:00:00Z') }); t.after(() => s.srv.close());   // Tuesday 10 Nov
+  const a = await s.admin(), ana = await s.addRep(a.cookie, 'ana');
+  const manage = (body) => s.call('POST', `${API}/site/s_void-hours-01`, body, { cookie: a.cookie });
+  await s.call('POST', `${API}/site`, { id: 's_void-hours-01', rep: ana.id, lead: { name: 'Hotel Pago' } }, { cookie: a.cookie });
+  assert.equal((await manage({ what: 'installed' })).status, 200);
+  s.time.now = Date.parse('2026-11-16T15:00:00Z');   // Monday 16 Nov: the rate, from last week
+  assert.equal((await s.call('POST', `${API}/pay`, { cents: 500, from: LAST_WEEK }, { cookie: a.cookie })).status, 200);
+  s.time.now = Date.parse('2026-11-18T15:00:00Z');   // Wednesday: the site is voided
+  assert.equal((await manage({ what: 'void' })).status, 200);
+  s.time.now = Date.parse('2026-11-20T15:00:00Z');   // Friday: the buyers' report brings last week's accepted minutes
+  const late = await manage({ what: 'hours', week: LAST_WEEK, accepted: 600 });
+  assert.equal(late.status, 200, late.text);
+  const earn = (await s.call('GET', `${API}/me`, undefined, { cookie: ana.cookie })).json.earn;
+  assert.deepEqual([earn.last.minutes, earn.last.cents], [600, 5000]);
+  // the week of the void did not end before it: refused, as anything else on a voided site
+  const same = await manage({ what: 'hours', week: THIS_WEEK, accepted: 60 });
+  assert.deepEqual([same.status, same.json.error], [404, 'site']);
+  assert.deepEqual([(await manage({ what: 'phones', count: 2 })).status], [404]);
+  assert.equal(s.lines().filter((e) => e.type === 'site.hours').length, 1);
 });

