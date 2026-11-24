@@ -152,7 +152,7 @@ const es = {
 
 
   // ---- top bar and navigation ----
-  'top.home.aria': 'Ir al inicio', 'top.streak': 'racha', 'top.streak.aria': 'Tu racha: {n}', 'top.lang.aria': 'Idioma',
+  'top.home.aria': 'Cancha: ir al inicio', 'top.streak': 'racha', 'top.streak.aria': 'Tu racha: {n}', 'top.lang.aria': 'Idioma',
   'top.queue': ['{n} por enviar', '{n} por enviar'], 'top.queue.aria': ['{n} registro guardado en tu teléfono, por enviar. Toca para enviarlo ahora.', '{n} registros guardados en tu teléfono, por enviar. Toca para enviarlos ahora.'],
   'top.viewAs': 'Viendo como {name}', 'top.viewAs.exit': 'Volver al equipo',
   'top.practice': 'Actúas como el vendedor de práctica. Nada de lo que hagas aquí cuenta en ningún total.',
@@ -382,7 +382,7 @@ const es = {
 
 'reps.inactive': 'Inactivo',
   'reps.edit': 'Editar', 'reps.deactivate': 'Desactivar', 'reps.activate': 'Reactivar', 'reps.others': 'líderes y administradores',
-  'reps.practice.h': 'práctica', 'reps.practice.name': 'Vendedor de práctica',
+  'reps.practice.h': 'práctica', 'reps.practice.name': 'Vendedor de práctica', 'reps.practice.first': 'Vendedor',
   'reps.practice.p': 'Un vendedor ficticio para mostrar el recorrido completo: registrar, cerrar el día, instalar. Nadie entra con su cuenta y nada de lo que hace cuenta en ningún total.',
   'reps.practice.create': 'Crear vendedor de práctica', 'reps.practice.created': 'Vendedor de práctica creado.', 'reps.practice.view': 'Ver como vendedor de práctica',
   'reps.practice.remove': 'Quitar', 'reps.practice.remove.confirm': 'Se quita el vendedor de práctica con sus registros, cierres, pasos y sitios de práctica. Toca otra vez para confirmar.', 'reps.practice.removed': 'Vendedor de práctica quitado.',
@@ -814,7 +814,7 @@ const en = {
 
 
   // ---- top bar and navigation ----
-  'top.home.aria': 'Go to the start', 'top.streak': 'streak', 'top.streak.aria': 'Your streak: {n}', 'top.lang.aria': 'Language',
+  'top.home.aria': 'Cancha: go to the start', 'top.streak': 'streak', 'top.streak.aria': 'Your streak: {n}', 'top.lang.aria': 'Language',
   'top.queue': ['{n} to send', '{n} to send'], 'top.queue.aria': ['{n} log saved on your phone, still to send. Tap to send it now.', '{n} logs saved on your phone, still to send. Tap to send them now.'],
   'top.viewAs': 'Viewing as {name}', 'top.viewAs.exit': 'Back to the team',
   'top.practice': 'You are acting as the practice rep. Nothing you do here counts in any total.',
@@ -1044,7 +1044,7 @@ const en = {
 
 'reps.inactive': 'Inactive',
   'reps.edit': 'Edit', 'reps.deactivate': 'Deactivate', 'reps.activate': 'Reactivate', 'reps.others': 'managers and admins',
-  'reps.practice.h': 'practice', 'reps.practice.name': 'Practice rep',
+  'reps.practice.h': 'practice', 'reps.practice.name': 'Practice rep', 'reps.practice.first': 'Practice rep',
   'reps.practice.p': 'A made-up rep to show the whole journey: logging, closing the day, installing. Nobody signs in as it and nothing it does counts in any total.',
   'reps.practice.create': 'Create practice rep', 'reps.practice.created': 'Practice rep created.', 'reps.practice.view': 'View as practice rep',
   'reps.practice.remove': 'Remove', 'reps.practice.remove.confirm': 'The practice rep goes, with its logs, closed days, steps and practice sites. Tap again to confirm.', 'reps.practice.removed': 'Practice rep removed.',

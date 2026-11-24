@@ -52,10 +52,10 @@ body.bare .app{padding-bottom:40px}
 .chip.ghost{color:var(--mist);background:transparent}
 .chip b{font-weight:600}
 button.chip{position:relative;cursor:pointer;min-height:36px;transition:transform 140ms var(--ease-out),border-color 160ms ease}
-button.chip::after,.kudos::after,.mini-btn::after{content:"";position:absolute;inset:-6px -4px}
+button.chip::after,a.chip::after,.kudos::after,.mini-btn::after{content:"";position:absolute;inset:-6px -4px}
 /* Text links and numbers that open their source are short: the tap area reaches 44 px around them. */
 .link::after,.src::after{content:"";position:absolute;inset:-12px -6px}
-.src::after{inset:-12px}
+.src::after{inset:-12px -4px}
 button.chip:active{transform:scale(.97)}
 /* A chip that is a link (the leadership view's way to the sketches of what comes next) looks like the chip buttons. */
 a.chip{position:relative;min-height:36px;text-decoration:none;transition:transform 140ms var(--ease-out),border-color 160ms ease}
@@ -64,6 +64,7 @@ a.chip:active{transform:scale(.97)}
 .lead{font-size:19px;font-weight:500;letter-spacing:-.02em;line-height:1.15}
 .giant{margin-left:-3px;font-weight:700;font-size:clamp(72px,22vw,94px);line-height:.86;letter-spacing:-.065em;text-transform:lowercase;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .giant em{font-style:normal;color:var(--signal)}
+.z-week .giant em,.card.light .giant em{color:var(--signal-ink)}
 .giant.full{color:var(--signal)}
 .giant.word{font-size:clamp(56px,17vw,84px)}
 .giant.word.long{font-size:clamp(48px,16.4vw,74px)}
@@ -98,7 +99,8 @@ svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;st
 
 /* ---------- top bar ---------- */
 .top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 10px;padding:calc(14px + env(safe-area-inset-top)) 0 4px}
-.brand{display:inline-flex;align-items:center;gap:9px;min-height:44px;color:inherit;text-decoration:none;font-weight:600;font-size:18px;letter-spacing:-.035em}
+.brand{position:relative;display:inline-flex;align-items:center;gap:9px;min-height:44px;color:inherit;text-decoration:none;font-weight:600;font-size:18px;letter-spacing:-.035em}
+.brand::after{content:"";position:absolute;inset:0 -9px}   /* only the logo shows on a phone: its tap area reaches 44 px */
 .brand img{width:26px;height:26px;display:block}
 .top-r{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-left:auto}
 .hud-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
@@ -110,6 +112,9 @@ svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;st
 /* acting as someone, the bar stays in view while the screen scrolls: opaque, above the content, under the top bar on a wide screen */
 .asbar{position:sticky;top:calc(6px + env(safe-area-inset-top));z-index:6;background:linear-gradient(rgba(255,90,54,.08),rgba(255,90,54,.08)),var(--graphite);box-shadow:0 6px 14px rgba(27,29,32,.85)}
 html:has(#asBar:not([hidden])){scroll-padding-top:84px}
+/* a control reached with the keyboard is scrolled clear of the bottom bar, and inside a sheet clear of its pinned buttons */
+@media (max-width:979px){html{scroll-padding-bottom:calc(96px + env(safe-area-inset-bottom))}}
+dialog.sheet{scroll-padding-bottom:96px}
 .asbar::before{content:"";position:absolute;left:-1px;right:-1px;bottom:calc(100% + 1px);height:calc(7px + env(safe-area-inset-top));background:var(--graphite)}
 .asbar .as-short{display:none}
 @media (max-width:719px){.asbar .as-long{display:none}.asbar .as-short{display:inline}}
@@ -122,8 +127,11 @@ html:has(#asBar:not([hidden])){scroll-padding-top:84px}
 .seg button{all:unset;box-sizing:border-box;cursor:pointer;min-height:44px;display:inline-flex;align-items:center;padding:0 16px;font-weight:500;font-size:14px;color:var(--mist);white-space:nowrap;transition:background-color 160ms ease,color 160ms ease}
 .seg button[aria-pressed=true]{background:var(--porcelain);color:var(--graphite)}
 .seg button:focus-visible{outline:2px solid var(--signal);outline-offset:-2px}
-.seg.lang button{min-height:44px;min-width:44px;justify-content:center;padding:0 12px;font:500 12px/1 var(--mono);letter-spacing:.07em}
-.seg.lang{position:relative}
+.seg.lang button{position:relative;min-height:44px;min-width:44px;justify-content:center;padding:0 12px;font:500 12px/1 var(--mono);letter-spacing:.07em}
+/* the pill's ends are the buttons' own corners, so a tap area can reach past them where the bar is tight */
+.seg.lang{position:relative;overflow:visible}
+.seg.lang button:first-child{border-radius:999px 0 0 999px}.seg.lang button:last-child{border-radius:0 999px 999px 0}
+.seg.lang button::after{content:"";position:absolute;inset:0 -2px}
 .seg.scroll{overflow-x:auto;scrollbar-width:none}
 
 /* ---------- forms ---------- */
@@ -293,7 +301,7 @@ fieldset.field legend{padding:0;margin-bottom:6px}
 .settings{display:grid;gap:10px;margin-top:12px}
 .settings .line{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:44px;color:var(--mist);font-size:14.5px}
 /* what the profile opens reads as a list of rows (label left, a chevron right), and signing out stands apart, quiet */
-.settings{gap:8px}
+.settings{gap:8px;max-width:560px}
 .settings>.btn{position:relative;justify-content:flex-start;gap:6px;width:100%;min-height:54px;padding:0 46px 0 18px;border-radius:14px;border-color:var(--rule);background:rgba(233,235,236,.025);text-align:left}
 .settings>.btn::after{content:"";position:absolute;right:20px;top:50%;width:7px;height:7px;margin-top:-4px;border-top:1.5px solid var(--mist);border-right:1.5px solid var(--mist);transform:rotate(45deg);transition:transform 160ms var(--ease-out)}
 @media (hover:hover) and (pointer:fine){.settings>.btn:not(.signout):hover::after{transform:translateX(3px) rotate(45deg)}}
@@ -739,13 +747,14 @@ html[data-vt=back]::view-transition-new(root){animation-name:vt-wipe-back}
 [data-f="1"]{--fx:33.333%}[data-f="2"]{--fx:66.667%}[data-f="3"]{--fx:100%}
 
 /* ---------- the top bar: the week in points, and the person's own face ---------- */
-.mebtn{all:unset;box-sizing:border-box;position:relative;flex:none;width:40px;height:40px;border-radius:50%;cursor:pointer;transition:transform 140ms var(--ease-out)}
-.mebtn .portrait{--p:52px;position:absolute;left:-6px;top:-6px}
+.mebtn{all:unset;box-sizing:border-box;position:relative;flex:none;width:44px;height:44px;border-radius:50%;cursor:pointer;transition:transform 140ms var(--ease-out)}
+.mebtn .portrait{--p:52px;position:absolute;left:-4px;top:-4px}
 .mebtn:active{transform:scale(.95)}
 .mebtn:focus-visible{outline:2px solid var(--signal);outline-offset:4px}
 .mebtn[aria-current=page]::after{content:"";position:absolute;left:50%;bottom:-9px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--signal)}
 @media (max-width:479px){body:not(.bare) #brandName{display:none}#streakChip>span{display:none}.top-r{gap:6px}}
-@media (max-width:379px){.top-r{gap:5px}.top-r .chip{padding-left:7px;padding-right:7px}.seg.lang button{min-width:34px;padding:0 6px}.top{gap:8px 6px}}
+@media (max-width:379px){.top-r{gap:5px}.top-r .chip{padding-left:7px;padding-right:7px}.top{gap:8px 6px}}
+@media (max-width:359px){.seg.lang button{min-width:40px;padding:0 6px}}
 
 /* ---------- zones ---------- */
 .zone{position:relative;margin:0 -16px calc(-104px - env(safe-area-inset-bottom));padding:2px 16px calc(124px + env(safe-area-inset-bottom));min-height:calc(100svh - 64px);overflow-x:clip}
@@ -807,7 +816,7 @@ html[data-vt=back]::view-transition-new(root){animation-name:vt-wipe-back}
   background:var(--signal);color:var(--graphite);font-weight:650;font-size:16.5px;letter-spacing:-.01em;cursor:pointer;transition:transform 140ms var(--ease-out),background-color 200ms linear}
 .cta:active{transform:scale(.975)}
 .cta:focus-visible{outline:2px solid var(--porcelain);outline-offset:3px}
-.cta .pay{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px 0 16px;border-radius:999px;background:var(--graphite);color:var(--porcelain);font:600 13px/1 var(--mono)}
+.cta .pay{flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px 0 16px;border-radius:999px;background:var(--graphite);color:var(--porcelain);font:600 13px/1 var(--mono)}
 .cta .pay .ic{width:18px;height:18px;transition:transform 200ms var(--ease-out)}
 .cta.onward{background:transparent;color:var(--porcelain);box-shadow:inset 0 0 0 1px var(--hair)}
 .cta.onward .pay{background:transparent;padding-right:8px}
@@ -906,7 +915,7 @@ html[data-vt=back]::view-transition-new(root){animation-name:vt-wipe-back}
 .chart{margin-top:12px;padding:14px 14px 10px;border-radius:var(--r-media);background:var(--paper);box-shadow:inset 0 0 0 1px rgba(27,29,32,.1)}
 .chart .total{display:flex;align-items:baseline;gap:8px;font-size:14px;color:var(--slate)}
 .chart .total .src{font-size:40px;font-weight:700;letter-spacing:-.05em;line-height:.9;color:var(--graphite)}
-.bars{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;align-items:end;height:96px;margin-top:12px;border-bottom:1.5px solid rgba(27,29,32,.2)}
+.bars{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;align-items:end;height:96px;margin-top:26px;border-bottom:1.5px solid rgba(27,29,32,.2)}
 .bars li{position:relative;display:flex;align-items:flex-end;justify-content:center;height:100%}
 .bars i{display:block;width:100%;max-width:44px;height:100%;border-radius:8px 8px 0 0;background:var(--graphite);transform:scaleY(var(--v,0));transform-origin:center bottom;transition:transform 720ms var(--ease-track)}
 .bars li.today i{background:var(--signal)}
@@ -1047,6 +1056,8 @@ html[data-vt=back]::view-transition-new(root){animation-name:vt-wipe-back}
 .inst-back{margin-right:2px}
 .inst-a>.lead{margin-top:22px}.inst-a>.giant{margin-top:4px}.inst-a>.support{margin-top:12px}
 .inst-prac{border-color:var(--signal);color:var(--signal)}
+/* on porcelain the brand's accent is signal ink, on its own ground (signal on the chip's dark fill read 3.25:1) */
+.card.light .inst-prac,.inst-prep .inst-prac{background:transparent;border-color:var(--signal-ink);color:var(--signal-ink)}
 .inst-pnote{max-width:46ch}
 .inst-lenses{grid-template-columns:repeat(2,minmax(0,1fr));max-width:280px}
 .inst-zones{display:grid;gap:14px;margin-top:26px}
@@ -1103,6 +1114,7 @@ html[data-vt=back]::view-transition-new(root){animation-name:vt-wipe-back}
 .inst-row.tap{position:relative}
 .inst-hit{all:unset;position:absolute;inset:0;cursor:pointer;border-radius:10px}
 .inst-hit:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.inst-prep .inst-hit:focus-visible,.card.light .inst-hit:focus-visible{outline-color:var(--signal-ink)}
 @media (hover:hover) and (pointer:fine){.inst-row.tap:hover{background:rgba(233,235,236,.035)}}
 .inst-toclose{margin-top:10px}
 /* the Hoy card: an install waits */
@@ -1315,7 +1327,8 @@ html[data-vt=back]::view-transition-new(root){animation-name:vt-wipe-back}
 .ld-city{position:relative;padding-top:24px;border-top:1px solid var(--hair);scroll-margin-top:84px}
 .giant.ld-cname{font-size:clamp(44px,13vw,88px)}
 .ld-ch .hud-row{margin-top:12px}
-.ld-zones{display:grid;gap:14px;margin-top:20px}
+.ld-zones{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-top:20px}
+.ld-site .inst-tag{white-space:normal;text-align:left;max-width:100%}
 .ld .inst-zh h3{flex:1;min-width:0;font-size:22px;font-weight:700;letter-spacing:-.04em;text-transform:lowercase;line-height:1}
 .ld .inst-zone>.note{margin-top:10px}
 .ld-sites .note{color:var(--slate)}

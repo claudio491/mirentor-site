@@ -79,7 +79,7 @@ export function createStage({ onPick = () => {} } = {}) {
       btn.classList.toggle('done', st.done); btn.classList.toggle('sel', sel === i); btn.classList.toggle('next', at === i && !st.done);
       $('b', btn).textContent = t(`stop.short.${i}`);
       $('.n', btn).textContent = `${st.have}/${st.need}`;
-      btn.setAttribute('aria-label', t('stop.aria', { name: t(`habit.${i}`), a: st.have, b: st.need }));
+      btn.setAttribute('aria-label', t('stop.aria', { name: t(`stop.short.${i}`), a: st.have, b: st.need }));   // the name says the word on screen
       btn.setAttribute('aria-pressed', String(sel === i));
     });
   }

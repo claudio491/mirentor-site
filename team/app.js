@@ -98,6 +98,8 @@ function withEm(node, key, vars, mark, tail = '') {
   node.replaceChildren(a, h('em', { text: String(vars[mark]) }), b + tail);
 }
 const bold = (strong, rest = '') => [h('b', { text: strong }), rest ? ` ${rest}` : ''];
+/** The practice rep is named by the server in Spanish: the screens show it in the reader's language (and its initials). */
+const shown = (p) => (p && p.practice ? { ...p, name: t('reps.practice.name'), first: t('reps.practice.first') } : p);
 
 // ---- shell: top bar, navigation, language ----
 function renderTop() {
@@ -115,7 +117,7 @@ function renderTop() {
   if (rep) {
     const now = S.me.today;
     countTo($('#ptsN'), S.me.week.points);
-    putFace($('#meLens'), S.me.me, (person) => portrait(person, { share: 0 }));
+    putFace($('#meLens'), shown(S.me.me), (person) => portrait(person, { share: 0 }));
     setPortrait($('#meLens .portrait'), now.isWork ? now.habits.filter(Boolean).length / 4 : 0);
     if (S.tab === 'profile') meBtn.setAttribute('aria-current', 'page'); else meBtn.removeAttribute('aria-current');
   }
@@ -292,15 +294,15 @@ function renderToday(animate) {
   head.classList.toggle('full', today.isWork && done === 4);   // a full finger: the count turns to signal
   sup.hidden = today.isWork;
   if (!today.isWork) {
-    $('#todayLead').textContent = t('today.lead.rest', { name: me.first });
+    $('#todayLead').textContent = t('today.lead.rest', { name: shown(me).first });
     giant(head, t('today.rest.giant'));
     sup.textContent = t('today.rest.support');
   } else if (untouched(today)) {
     // A working day with nothing logged leads with the start, not with a zero.
-    $('#todayLead').textContent = t('today.lead.zero', { name: me.first });
+    $('#todayLead').textContent = t('today.lead.zero', { name: shown(me).first });
     giant(head, t('today.zero.giant'));
   } else {
-    $('#todayLead').textContent = t('today.lead', { name: me.first });
+    $('#todayLead').textContent = t('today.lead', { name: shown(me).first });
     // The count keeps its own node, so only the number that changed moves.
     const first = !$('.gl', head);
     if (first) head.replaceChildren(h('span', { class: 'gl' }), h('em', { text: '.' }));
@@ -352,7 +354,7 @@ function paintStage(animate = false) {
       const worth = [P.visit, P.conversation, P.followup, onTime ? P.dayClosedOnTime : 0][sel], pays = worth > 0 ? t('pts.plus', { n: worth }) : '';
       $('#nextText').textContent = t(`stop.cta.${sel}`); $('#nextPts').textContent = pays;
       cta.dataset.step = sel === 3 ? 'close' : 'log';
-      cta.setAttribute('aria-label', `${sel === 3 ? t('next.aria.close') : t('next.aria', { what: t(`habit.${sel}`) })} ${pays}`.trim());
+      cta.removeAttribute('aria-label');   // its name is what it shows, words and points: a voice command for the words finds it
     }
     $('#nextPts').hidden = !$('#nextPts').textContent;
   }
@@ -757,7 +759,7 @@ function renderProfile() {
   const { me, level, badges, ledger, rules, pending } = S.me;
   if (!level) return;
   $('#whoChip').textContent = me.practice ? t('reps.practice.name') : me.name; $('#whoCity').textContent = cityName(me.city);
-  putFace($('#portrait'), me, (person) => portrait(person, { share: 0 }));
+  putFace($('#portrait'), shown(me), (person) => portrait(person, { share: 0 }));
   setPortrait($('#portrait .portrait'), level.next == null ? 1 : (level.xp - level.floor) / Math.max(1, level.next - level.floor));
   const levelWord = t(`level.${level.name}`);
   giant($('#profileGiant'), `${levelWord}.`);
@@ -1140,7 +1142,7 @@ function welcome(day, ready, arriveAll) {
     : [t(`greet.${st.kind}.a`), t(`greet.${st.kind}.b`)];
   const streak = me.streak && me.streak.current > 0 ? ` · ${upper(t('top.streak'))} ${num(me.streak.current)}` : '';
   greet({
-    person: who, name: `${who.first}.`, line,
+    person: shown(who), name: `${shown(who).first}.`, line,
     share: today ? (today.isWork ? today.habits.filter(Boolean).length / 4 : 0) : (me.team.working ? me.team.closedToday / me.team.working : 0),
     chip: `${upper(wdShort(day))} ${upper(dayMonth(day))} · ${upper(t('time.week', { n: isoWeek(day) }))}${streak}`,
     lead: `${t(`greet.${dayPart(localMinutes(me.serverTime, who.tz))}`)},`,
