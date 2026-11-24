@@ -37,3 +37,29 @@ test('leadmap: the site opened for a business added in the app follows it to its
   const back = await start({ dir: s.dir, clock: s.time.now }); t.after(() => back.srv.close());
   await check(back);   // the log replays to the same
 });
+
+test('leadmap: what a phone sends under the old temporary id after the mapping reaches the business, also after a restart', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin(), m = await s.addRep(a.cookie, 'mario'), R = { cookie: m.cookie };
+  const temp = await signedNewBusiness(s, a, m);
+  assert.equal((await s.call('POST', `${API}/leadmap`, { pairs: [[temp, 'PA-0777']] }, B)).json.mapped, 1);
+  // a log queued on the phone before the mapping, sent after it: kept, on the business's CRM id (a 400 would drop it)
+  const queued = await s.call('POST', `${API}/log`, logBody('queued-log-0001', { kind: 'call', lead: { id: temp } }), R);
+  assert.deepEqual([queued.status, queued.json.repeat], [200, false], queued.text);
+  assert.equal(s.lines().find((e) => e.id === 'queued-log-0001').lead.id, 'PA-0777');
+  // a screen opened before the mapping asks for the route by the old id: it gets that business's route, under the id it asked
+  const route = (await s.call('GET', `${API}/route?lead=${temp}`, undefined, R)).json.route;
+  assert.deepEqual([route.lead.id, !!route.contract.signed, route.stops[route.at].key], [temp, true, 'site']);
+  // ...and opens the site from it: the site is the business's, under its CRM id
+  assert.equal((await s.call('POST', `${API}/route/site`, { lead: temp, id: 's_from-old-id-1' }, R)).status, 200);
+  assert.equal(s.lines().find((e) => e.type === 'site' && e.id === 's_from-old-id-1').lead.id, 'PA-0777');
+  const twice = await s.call('POST', `${API}/route/site`, { lead: 'PA-0777', id: 's_from-new-id-1' }, R);
+  assert.deepEqual([twice.status, twice.json.error], [409, 'site_exists']);
+  s.srv.close();
+  const back = await start({ dir: s.dir, clock: s.time.now }); t.after(() => back.srv.close());
+  const later = await back.call('POST', `${API}/log`, logBody('queued-log-0002', { kind: 'absent', lead: { id: temp } }), R);
+  assert.equal(later.status, 200, later.text);
+  assert.equal(back.lines().find((e) => e.id === 'queued-log-0002').lead.id, 'PA-0777');
+  // an id nobody ever had is still refused
+  assert.deepEqual([(await back.call('POST', `${API}/log`, logBody('queued-log-0003', { lead: { id: 'APP-00000000' } }), R)).json.error], ['lead']);
+});
