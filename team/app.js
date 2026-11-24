@@ -1072,12 +1072,12 @@ async function flush() {
 // ---- session ----
 /** The server's clock, carried to this moment: what is on time is judged now, not when the last answer came. */
 let skew = 0;
-function skewFrom(me) { const at = Date.parse(me && me.serverTime); if (Number.isFinite(at)) skew = at - Date.now(); }
+function skewFrom(me) { const at = Date.parse(me && me.serverTime); if (Number.isFinite(at)) skew = at - ((me && me.keptAt) || Date.now()); }   // a view from the copy: measured when it was kept
 const nowIso = () => new Date(Date.now() + skew).toISOString();
 /** What a view says, leaving out the clock: two reads that match have nothing new to draw. */
 const signature = (me) => JSON.stringify({ ...me, serverTime: null });
 // Only a person's own screens are kept on the phone for a start without signal: never a view-as, never the practice rep.
-function adopt(me) { epoch += 1; S.stale = null; skewFrom(me); S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); if (!S.as && me.me) store.set(KEY.me, me); }
+function adopt(me) { epoch += 1; S.stale = null; skewFrom(me); S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); if (!S.as && me.me) store.set(KEY.me, { ...me, keptAt: Date.now() }); }
 /** A leader has no board of their own: they land on the leadership view, with no tabs, no log and no entrance. */
 function enterLeader(me) {
   epoch += 1;
@@ -1110,7 +1110,7 @@ function enter(me) {
   if (own && own !== lang()) { setLang(own); store.set(KEY.lang, own); applyStatic(); }
   S.mgr = !S.as && me.viewer.role !== 'rep';
   document.body.classList.remove('bare'); document.body.classList.toggle('mgr', S.mgr);
-  if (!S.as) store.set(KEY.me, me);
+  if (!S.as) store.set(KEY.me, me.keptAt ? me : { ...me, keptAt: Date.now() });   // a view opened from the copy keeps the day it was kept
   S.seenFeed = null; waiting.length = 0;
   S.stop = null; S.hold = null; S.owed = null;
   const first = S.mgr ? 'team' : 'today';
@@ -1233,7 +1233,9 @@ async function start(as = undefined) {
       enter(cached);
       // What the phone kept is from an earlier day: it is shown, said to be old, and it locks nothing (a log waits for
       // the signal and the server dates it), so the queue works exactly when it is needed.
-      const kept = cached.today && cached.today.day, now = cached.me && cached.me.tz ? dayOf(new Date().toISOString(), cached.me.tz) : kept;
+      // its day against today on the server's clock, carried from when the view was kept (a phone's own clock can be off)
+      const drift = cached.keptAt && Date.parse(cached.serverTime) ? Date.parse(cached.serverTime) - cached.keptAt : 0;
+      const kept = cached.today && cached.today.day, now = cached.me && cached.me.tz ? dayOf(new Date(Date.now() + drift).toISOString(), cached.me.tz) : kept;
       if (kept && now && kept !== now) { S.stale = kept; renderAll(false); toast(t('err.offline.stale', { date: dayMonth(kept) })); }
       else toast(t('err.offline'));
     }
@@ -1337,3 +1339,13 @@ setLang(store.get(KEY.lang, null) || ((navigator.language || 'es').toLowerCase()
 for (const [k, v] of Object.entries(ART)) document.documentElement.style.setProperty(`--art-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`, `url("${v}")`);
 applyStatic(); grain(); wire(); renderTop();
 start();
+// The worker that opens the board with no signal (sw.js). It is handed the files this page already loaded, so the next
+// start without signal works too. Where it cannot run (a copy shown inside another page, an old browser), nothing changes.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready).then((reg) => {
+    const here = new URL('.', location.href).href;
+    const loaded = performance.getEntriesByType('resource').map((e) => e.name), art = Object.values(ART).map((u) => new URL(u, location.href).href);
+    const api = new URL('api/', location.href).href, files = [...new Set([...loaded, ...art])].filter((u) => u.startsWith(here) && !u.startsWith(api));
+    if (reg.active) reg.active.postMessage({ warm: files });
+  }).catch(() => { /* the board works without it */ });
+}

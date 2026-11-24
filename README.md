@@ -148,6 +148,15 @@ Where the field sales reps log each contact and see their own numbers, and where
   top bar says how many) and goes out again with the same `id`. Only a refusal about the log itself drops it, with the
   reason on screen; a refusal about who is asking (no longer on the team, an origin the service does not allow) keeps
   it waiting, because that can be put right. `team/queue.js` holds that rule. The day cannot be closed while logs wait.
+- The board opens with no signal too (`team/sw.js`, a service worker scoped to the board's folder). Everything is asked
+  of the network first, so a phone with signal always runs what the server has; only when the network fails, or a page
+  load hangs past 4 s, does the copy kept from the last visit answer, and a page from the copy reads its files from the
+  copy (one version, whole). It never touches `api/`, the sign-in (`auth`), the sign-out (`salir`) or the leadership
+  sketches, and the only page it keeps is the board's own (when a session has ended the same address serves the
+  portal's sign-in page). The first visit hands it the files already loaded and every illustration, so the next start
+  without signal works. Opened from the copy on an earlier day, the app says the view is old and still logs (the log
+  waits). `tests/team-sw.test.mjs` pins what it handles and keeps. To retire it, serve a `team/sw.js` that deletes the
+  `cancha-` caches and calls `self.registration.unregister()`; phones pick it up on their next page load.
 - To look at it on this machine: `node tools/team-dev.mjs 8772`, then open `http://localhost:8772/`. Nobody signs in
   there: where production shows the portal's Google sign-in, the preview lists the people and you choose who to be
   (`tools/team-preview.mjs`; `/dev/como?h=<handle>` does it in one step). Each start writes fictional people and
