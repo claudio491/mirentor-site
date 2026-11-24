@@ -182,6 +182,29 @@ test('every install write is refused on a voided site and on a legacy site', asy
   assert.deepEqual([prep.status, prep.json.error], [409, 'legacy']);
 });
 
+test('a voided real site keeps its signed consents and its record for managers, admins and leaders; its rep gets what it got before', async (t) => {
+  const { s, a, ana, beto, siteId, addWorker, upload } = await setup(t);
+  const lia = await s.addRep(a.cookie, 'lia', { role: 'leader' });
+  const mara = await s.addRep(a.cookie, 'mara', { role: 'manager' });
+  await addWorker(W1); assert.equal((await upload(W1)).status, 200);
+  assert.equal((await s.call('POST', `${API}/site/${siteId}`, { what: 'void' }, { cookie: a.cookie })).status, 200);
+  const get = (p, who) => s.call('GET', `${API}/${p}`, undefined, { cookie: who.cookie });
+  for (const who of [a, mara, lia]) {
+    const photo = await fetch(`${s.url}${API}/consent/${W1}`, { headers: { cookie: who.cookie } });
+    assert.deepEqual([photo.status, Buffer.from(await photo.arrayBuffer()).equals(JPG)], [200, true]);
+    const rec = await get(`site/${siteId}/record.csv`, who);
+    assert.equal(rec.status, 200);
+    assert.ok(rec.text.includes(`"${W1}","${API}/consent/${W1}"`), rec.text);
+  }
+  // the site's rep and another rep: as before the void
+  assert.deepEqual([(await get(`consent/${W1}`, ana)).status, (await get(`consent/${W1}`, ana)).json.error], [404, 'worker']);
+  assert.equal((await get(`consent/${W1}`, beto)).status, 403);
+  assert.equal((await get(`site/${siteId}/record.csv`, ana)).status, 403);
+  // and nothing else opens again: the install stays closed to everyone, managers included
+  assert.equal((await get(`install/${siteId}`, a)).status, 404);
+  assert.equal((await s.call('POST', `${API}/install/${siteId}/workers`, { id: W2, name: 'Persona Dos', email: 'p2@equipo.test' }, { cookie: a.cookie })).status, 404);
+});
+
 test('the holder of a taken IMEI is named to a manager only, never to a rep', async (t) => {
   const { s, a, addWorker, upload, phone, ana } = await setup(t);
   for (const w of [W1, W2]) { await addWorker(w); await upload(w); }
