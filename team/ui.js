@@ -222,10 +222,13 @@ export function showPop(anchor, label, text) {
   if (popFor === anchor && pop.classList.contains('on')) { hidePop(); return; }
   pop.replaceChildren(h('span', { class: 'label', text: label }), h('span', { text }));
   pop.classList.remove('on'); void pop.offsetWidth; pop.classList.add('on');
-  const r = anchor.getBoundingClientRect(), w = pop.offsetWidth, height = pop.offsetHeight;
-  pop.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left))}px`;
-  const below = r.bottom + 8;
-  pop.style.top = `${below + height > innerHeight - 8 ? Math.max(8, r.top - height - 8) : below}px`;
+  // The note opens from what it explains: centred on it where the screen allows, its caret and its growth pointing at it.
+  const r = anchor.getBoundingClientRect(), w = pop.offsetWidth, height = pop.offsetHeight, mid = r.left + r.width / 2;
+  const left = Math.max(8, Math.min(innerWidth - w - 8, mid - w / 2)), below = r.bottom + 10, above = below + height > innerHeight - 8;
+  pop.style.left = `${left}px`;
+  pop.style.top = `${above ? Math.max(8, r.top - height - 10) : below}px`;
+  pop.style.setProperty('--ox', `${Math.max(14, Math.min(w - 14, mid - left)).toFixed(1)}px`);
+  pop.dataset.side = above ? 'top' : 'bottom';
   popFor = anchor; anchor.setAttribute('aria-expanded', 'true');
 }
 export function hidePop() {

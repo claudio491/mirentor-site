@@ -389,6 +389,11 @@ html:has(dialog.sheet[open]){overflow:hidden}
 .toast b{font:600 13px var(--mono);font-variant-numeric:tabular-nums;color:var(--signal);white-space:nowrap}
 .pop{position:fixed;z-index:31;width:max-content;max-width:min(300px,calc(100% - 16px));background:var(--paper);color:var(--graphite);border-radius:var(--r-input);padding:12px 14px;font-size:14px;line-height:1.4;display:none;transform-origin:top left}
 .pop.on{display:block;animation:popin 160ms var(--ease-out)}
+/* it grows out of what it explains, and a small caret points at it */
+.pop{transform-origin:var(--ox,24px) top}
+.pop[data-side=top]{transform-origin:var(--ox,24px) bottom}
+.pop::before{content:"";position:absolute;left:var(--ox,24px);top:-5px;width:10px;height:10px;margin-left:-5px;background:inherit;border-radius:2px;transform:rotate(45deg)}
+.pop[data-side=top]::before{top:auto;bottom:-5px}
 @keyframes popin{from{opacity:0;transform:scale(.96)}}
 .pop .label{color:var(--slate);display:block;margin-bottom:4px}
 .lockon{all:unset;box-sizing:border-box;position:fixed;z-index:40;inset:0;display:grid;place-content:center;justify-items:center;gap:6px;text-align:center;padding:max(24px,env(safe-area-inset-top)) 24px max(24px,env(safe-area-inset-bottom));background-color:var(--graphite);background-image:radial-gradient(ellipse 90% 50% at 50% 36%,rgba(233,235,236,.09),rgba(233,235,236,0) 72%),linear-gradient(to right,var(--line) 1px,transparent 1px),linear-gradient(to bottom,var(--line) 1px,transparent 1px);background-size:auto,56px 56px,56px 56px;background-position:0 0,16px 0,0 16px;opacity:0;visibility:hidden;transition:opacity 220ms linear,visibility 0s linear 220ms;cursor:pointer}
