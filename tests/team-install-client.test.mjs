@@ -179,3 +179,30 @@ test('a correction sends a clean name and email; the email may be empty only on 
   assert.throws(() => workerEditBody({ name: 'Luz Paz', email: '' }), { code: 'email' });
   assert.deepEqual(workerEditBody({ name: 'Luz Paz', email: '' }, true), { name: 'Luz Paz', email: '' });
 });
+
+test('a consent photo is decoded at the size it will be sent, never at the camera\'s full size', async () => {
+  // a phone's 12 MP photo was decoded whole (48 MB of pixels) before being drawn at 1600 px
+  const { resizeFor } = await import('../team/shrink.js');
+  // one side only, the longer one: the browser keeps the proportions, however the photo is turned
+  assert.deepEqual(resizeFor({ width: 4032, height: 3024 }, 1600), { resizeWidth: 1600 });
+  assert.deepEqual(resizeFor({ width: 3024, height: 4032 }, 1600), { resizeHeight: 1600 });
+  assert.deepEqual(resizeFor({ width: 2000, height: 2000 }, 1600), { resizeWidth: 1600 });
+  // a photo that already fits is decoded as it is: never made larger
+  assert.equal(resizeFor({ width: 1600, height: 1200 }, 1600), null);
+  assert.equal(resizeFor({ width: 800, height: 600 }, 1600), null);
+  // a size the browser could not tell: decoded as before
+  for (const size of [null, undefined, {}, { width: 0, height: 0 }, { width: Number.NaN, height: 10 }]) assert.equal(resizeFor(size, 1600), null, JSON.stringify(size));
+});
+
+test('a photo\'s size is read from its header, with no image element (the page\'s policy blocks blob: images)', async () => {
+  const { headerSize } = await import('../team/shrink.js');
+  const u16 = (n) => [(n >> 8) & 255, n & 255], u32 = (n) => [(n >>> 24) & 255, (n >> 16) & 255, (n >> 8) & 255, n & 255];
+  // a camera JPEG: APP0, an APP1 (EXIF) segment of some length, a DQT, then the frame header with height and width
+  const jpeg = new Blob([new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, ...u16(16), ...new Array(14).fill(0), 0xFF, 0xE1, ...u16(2 + 3000), ...new Array(3000).fill(7),
+    0xFF, 0xDB, ...u16(67), ...new Array(65).fill(1), 0xFF, 0xC2, ...u16(17), 8, ...u16(3024), ...u16(4032), 3, ...new Array(9).fill(0), 0xFF, 0xDA, 0, 8])]);
+  assert.deepEqual(await headerSize(jpeg), { width: 4032, height: 3024 });
+  const png = new Blob([new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, ...u32(13), 0x49, 0x48, 0x44, 0x52, ...u32(1200), ...u32(900), 8, 6, 0, 0, 0])]);
+  assert.deepEqual(await headerSize(png), { width: 1200, height: 900 });
+  // anything else (a HEIC, a broken file, a JPEG whose data starts before a frame header): unknown, decoded as before
+  for (const bytes of [[0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70], [0xFF, 0xD8, 0xFF], [0xFF, 0xD8, 0xFF, 0xDA, 0, 8, 1, 2], []]) assert.equal(await headerSize(new Blob([new Uint8Array(bytes)])), null, JSON.stringify(bytes));
+});
