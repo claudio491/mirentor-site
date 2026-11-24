@@ -5,6 +5,11 @@ import { $, h, giant, reduce, EASE, lock, buzz, isQuiet } from './ui.js';
 import { portrait, setPortrait } from './hand.js';
 import { changedChars } from './moments.js';
 
+/** While a full-screen moment is on, the app behind it takes no focus and no tap: Tab cannot slip behind the moment, and
+ *  Enter cannot reach a button there. Moments can follow one another, so it counts. */
+let shields = 0;
+function shield(on) { shields = Math.max(0, shields + (on ? 1 : -1)); const app = document.getElementById('app'); if (app) app.inert = shields > 0; }
+
 /** Change what is on screen with a short cross-fade, where the browser can do it. */
 export function swap(run) {
   // A page nobody is looking at changes at once: a browser holds a transition back until it draws again.
@@ -96,7 +101,7 @@ export function greet({ person, share = 0, chip, lead, name, line, land = null, 
   // The name is set as large as its length allows on a phone.
   const title = $('#gName'), n = name.length; giant(title, name);
   title.classList.toggle('word', n >= 8); title.classList.toggle('long', n === 10); title.classList.toggle('xlong', n >= 11);
-  box.classList.remove('go', 'out', 'fade'); box.hidden = false;
+  box.classList.remove('go', 'out', 'fade'); box.hidden = false; shield(true);
   document.documentElement.classList.add('greeting');
   box.focus({ preventScroll: true });
   greeting = new Promise((resolve) => {
@@ -104,7 +109,7 @@ export function greet({ person, share = 0, chip, lead, name, line, land = null, 
     let left = false;
     const later = (ms, fn) => timers.push(setTimeout(fn, ms));
     const end = () => {
-      box.hidden = true; box.classList.remove('go', 'out', 'fade'); slot.replaceChildren();
+      box.hidden = true; box.classList.remove('go', 'out', 'fade'); slot.replaceChildren(); shield(false);
       document.documentElement.classList.remove('greeting'); greeting = null; resolve();
     };
     const leave = () => {
@@ -157,14 +162,14 @@ export function celebrate({ n = '', glyph = null, face = null, a, b, sub = '', l
   return new Promise((resolve) => {
     let timer;
     const off = () => {
-      timers.forEach(clearTimeout);
+      timers.forEach(clearTimeout); shield(false);
       clearTimeout(timer); box.classList.remove('on'); box.setAttribute('aria-hidden', 'true'); box.tabIndex = -1;
       box.removeEventListener('click', off); document.removeEventListener('keydown', onKey);
       if (back && back.focus) back.focus({ preventScroll: true });
       setTimeout(resolve, reduce ? 0 : 300);
     };
     const onKey = (e) => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); off(); } };
-    box.classList.add('on'); box.setAttribute('aria-hidden', 'false'); box.tabIndex = 0; box.focus({ preventScroll: true });
+    shield(true); box.classList.add('on'); box.setAttribute('aria-hidden', 'false'); box.tabIndex = 0; box.focus({ preventScroll: true });
     buzz([14, 60, 22]);
     box.addEventListener('click', off); document.addEventListener('keydown', onKey);
     timer = setTimeout(off, 2900);
@@ -196,14 +201,14 @@ export function dayDone({ title, sub = '', glyph = null, from = null, label = ''
   return new Promise((resolve) => {
     let timer;
     const off = (go) => {
-      clearTimeout(timer); box.classList.remove('on'); box.setAttribute('aria-hidden', 'true'); box.tabIndex = -1;
+      shield(false); clearTimeout(timer); box.classList.remove('on'); box.setAttribute('aria-hidden', 'true'); box.tabIndex = -1;
       box.removeEventListener('click', onClick); document.removeEventListener('keydown', onKey);
       if (back && back.focus) back.focus({ preventScroll: true });
       setTimeout(() => resolve(go), reduce ? 0 : 420);
     };
     const onClick = () => off(true);
     const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); off(false); } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); off(true); } };
-    box.classList.add('on'); box.setAttribute('aria-hidden', 'false'); box.tabIndex = 0; box.focus({ preventScroll: true });
+    shield(true); box.classList.add('on'); box.setAttribute('aria-hidden', 'false'); box.tabIndex = 0; box.focus({ preventScroll: true });
     buzz([14, 60, 22, 60, 30]);
     box.addEventListener('click', onClick); document.addEventListener('keydown', onKey);
     timer = setTimeout(() => off(false), 8000);
