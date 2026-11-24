@@ -208,7 +208,8 @@ test('working days are Monday to Friday: the hand has five fingers', async (t) =
   const team = await s.call('GET', '/equipo/api/team', undefined, { cookie: a.cookie });
   assert.deepEqual(team.json.reps.find((x) => x.id === r.json.id).workdays, [2, 3, 4, 5]);
   const patch = await s.call('POST', `/equipo/api/reps/${r.json.id}`, { patch: { workdays: [6, 7] } }, { cookie: a.cookie });
-  assert.deepEqual([patch.status, patch.json.error], [400, 'patch']);
+  // refused, and since 24 Nov with the reason that says what to do: at least one working day (it was the generic 'patch')
+  assert.deepEqual([patch.status, patch.json.error], [400, 'workdays']);
 });
 
 test('a site posted twice with the same id is one site, and a manager can void it', async (t) => {

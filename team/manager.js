@@ -89,7 +89,8 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
   const needsCount = () => (team ? team.needs.confirm.length + team.needs.silent.length + team.needs.late.length + team.needs.pace.length : 0);
   /** Run a manager action: the answer is the new team view. The feed and the tables follow from a fresh read. */
   const act = (btn, call, okKey) => once(btn, async () => {
-    try { await wrote(call); renderAll(false); if (okKey) toast(t(okKey)); refresh(false); } catch (e) { toast(errText(e)); }
+    try { await wrote(call); renderAll(false); if (okKey) toast(t(okKey)); refresh(false); }
+    catch (e) { toast(errText(e)); if (e && (e.status === 409 || e.status === 404)) retry(); }   // out of date (expired, gone): read the team again
   });
 
   /** A step that is hard to take back asks twice (taps.js): the first tap arms the button and says what will happen (a
@@ -347,9 +348,10 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
   function dayOff() {
     const today = dayOf(team.serverTime, S.me.me.tz), countries = teamCountries(team.reps);
     formSheet({ title: t('reps.dayoff.title'), intro: t('reps.dayoff.p'), submit: t('reps.dayoff.submit'),
-      fields: [{ name: 'date', type: 'date', label: t('reps.dayoff.date'), value: today },
+      fields: [{ name: 'what', type: 'select', label: t('reps.dayoff.what'), value: 'mark', options: [{ value: 'mark', label: t('reps.dayoff.mark') }, { value: 'undo', label: t('reps.dayoff.unmark') }] },
+        { name: 'date', type: 'date', label: t('reps.dayoff.date'), value: today },
         { name: 'scope', type: 'select', label: t('reps.dayoff.scope'), value: 'all', options: [{ value: 'all', label: t('reps.dayoff.all') }, ...countries.map((c) => ({ value: c, label: t('reps.dayoff.country', { country: countryText(c) }) })), ...team.reps.map((r) => ({ value: r.id, label: r.name }))] }],
-      onSubmit: async (v) => { await wrote(() => api('POST', 'dayoff', { scope: v.scope, date: v.date })); toast(t('reps.dayoff.done')); await refresh(false); } });
+      onSubmit: async (v) => { const undo = v.what === 'undo'; await wrote(() => api('POST', 'dayoff', { scope: v.scope, date: v.date, ...(undo ? { undo: true } : {}) })); toast(t(undo ? 'reps.dayoff.undone' : 'reps.dayoff.done')); await refresh(false); } });
   }
   function repItem(r, isPlayer) {
     // Without an address nobody can come in as this person: the list says so until a manager adds it.
