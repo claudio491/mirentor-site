@@ -159,8 +159,52 @@ function markTab() {
   box.classList.toggle('none', i < 0);
   if (i >= 0) box.style.setProperty('--i', String(i));
 }
-function setTab(name, { instant = false } = {}) {
+// ---- the phone's Back button ----
+// A screen inside a zone (the profile, an install, a route, the documents...) leaves one step in the browser's history:
+// the phone's Back then comes back inside the app instead of leaving it, one screen at a time. A zone's tab is kept in
+// the address instead, so loading the page again lands on it. Nothing here changes what a screen shows.
+const DEEP = new Set(['profile', 'install', 'worker', 'iclose', 'ladder', 'zones', 'learn', 'route', 'ways', 'sites', 'docs']);
+const backNav = { trail: [], from: null, guarded: false, unguarding: false };
+const homeTab = () => (S.lead ? 'lead' : S.mgr ? 'team' : 'today');
+const isDeep = (name) => DEEP.has(name) || (name === 'lead' && !S.lead);   // the leadership view is a step in for a manager
+/** The tab in the address (none for the first one), so a reload lands on it. */
+function remember(name) {
+  if (isDeep(name)) return;
+  try { const u = new URL(location.href); u.hash = name === homeTab() ? '' : name; history.replaceState(history.state, '', u); } catch { /* a page shown inside another may not change its address */ }
+}
+function track(name, from) {
+  if (isDeep(name)) {
+    const at = backNav.trail.indexOf(name);
+    if (at >= 0) backNav.trail.length = at + 1;   // back to an earlier screen by the screen's own button
+    else { if (!backNav.trail.length) backNav.from = from; backNav.trail.push(name); }
+    if (!backNav.guarded) { try { history.pushState({ cancha: 'step' }, '', location.href); backNav.guarded = true; } catch { /* as above */ } }
+    return;
+  }
+  backNav.trail.length = 0; backNav.from = null;
+  if (backNav.guarded) { backNav.guarded = false; backNav.unguarding = true; history.back(); return; }   // left by the screen's own button: the step goes
+  remember(name);
+}
+/** The phone's Back. On a screen inside a zone: one screen back, inside the app. Otherwise the address changed (a rep's
+ *  screens through view-as, or back from them), and the screens start again from it. */
+function onBack() {
+  if (backNav.unguarding) { backNav.unguarding = false; remember(S.tab); return; }
+  if (backNav.guarded && backNav.trail.length) {
+    backNav.guarded = false;
+    backNav.trail.pop();
+    const to = backNav.trail.length ? backNav.trail[backNav.trail.length - 1] : (backNav.from || homeTab());
+    if (backNav.trail.length) { try { history.pushState({ cancha: 'step' }, '', location.href); backNav.guarded = true; } catch { /* as above */ } }
+    else backNav.from = null;
+    for (const dlg of document.querySelectorAll('dialog[open]')) closeSheet(dlg);
+    setTab(to, { replay: true });
+    if (!backNav.trail.length) remember(to);
+    return;
+  }
+  backNav.trail.length = 0; backNav.guarded = false;
+  S.tab = null; start();
+}
+function setTab(name, { instant = false, replay = false } = {}) {
   const from = S.tab, changed = from !== name;
+  if (changed && !replay && S.me) track(name, from);
   // coming back to "Mis sitios activos" from a site's screens: it shows what those screens just changed
   if (name === 'sites' && S.me && !S.mgr && !S.lead) quiet(() => sites.render());
   S.tab = name;
@@ -1227,6 +1271,7 @@ async function start(as = undefined) {
   // so nothing in it can be saved as someone else. Until the new answer arrives the screens read only (actingMode).
   for (const dlg of document.querySelectorAll('dialog[open]')) closeSheet(dlg);
   S.as = as === undefined ? url.searchParams.get('as') : as;
+  if (!S.tab && url.hash.length > 1) S.tab = decodeURIComponent(url.hash.slice(1));   // a reload lands on the tab in the address (enter() checks it is one)
   if (S.me && !S.lead && !S.mgr) renderNav();   // the log button goes at once while the screens read only
   try { S.gate = null; enter(await api('GET', S.as ? `me?as=${encodeURIComponent(S.as)}` : 'me')); }
   catch (e) {
@@ -1289,7 +1334,7 @@ function wire() {
   $('#home').addEventListener('click', (e) => { if (!S.me) return; e.preventDefault(); if (S.as) viewAs(null); else setTab(S.lead ? 'lead' : S.mgr ? 'team' : 'today'); });
   $('#asExit').addEventListener('click', (e) => { e.preventDefault(); viewAs(null); });
   // Back and forward move between the team and a rep's screens, as the address says.
-  addEventListener('popstate', () => { S.tab = null; start(); });
+  addEventListener('popstate', onBack);
   $('#langSeg').addEventListener('click', (e) => { const b = e.target.closest('button[data-lang]'); if (b) switchLang(b.dataset.lang); });
   src($('#streakChip'), () => t('top.streak'), () => { const st = S.me.streak; return t('src.streak', { spares: st.spares, max: S.me.rules.spares, best: t('u.days', { n: st.best }) }); });
   $('#queueChip').addEventListener('click', flush);
