@@ -2,30 +2,38 @@
 // first: numbers are steppers a thumb can hit, the yes or no is two buttons, and what the app already knows comes filled
 // in (report-steps.js decides it). Sent once today, it opens on "Enviado hoy" with the way to edit it; a new one
 // replaces the old on the server, which keeps both.
-import { h, t, toast, formSheet, clock, wdLong, dayMonth, cityName, num } from './ui.js';
+import { h, t, toast, formSheet, clock, wdLong, dayMonth, cityName, num, once, showErr } from './ui.js';
 import { GEAR, GEAR_COUNTS, SURGE_COUNTS, draftOf, bodyOf, countOf } from './report-steps.js';
 
 let uid = 0;
+/** Why a request failed, in words: a code the dictionary knows, or "something failed". The app may pass its own. */
+const reason = (e) => { try { return t(`err.${(e && e.code) || 'unknown'}`); } catch { return t('err.unknown'); } };
 
-export function createReport({ api }) {
+export function createReport({ api, errText = reason }) {
   /** Open the report of a site. `tz` is the time zone its times are read in; `after(res)` runs once a report is saved. */
   async function open(siteId, { tz, after = () => {}, day = '' } = {}) {
     const got = await api('GET', `site/${encodeURIComponent(siteId)}/report${day ? `?day=${encodeURIComponent(day)}` : ''}`);
     if (got.report) done(got, tz, after); else form(got, draftOf(got.prefill, null), tz, after);
   }
 
-  /** Before noon the report may be for yesterday: two buttons say which day this one is, and switching reopens it. */
+  /** Before noon the report may be for yesterday: two buttons say which day this one is, and switching reopens it. The
+   *  switch reads that day's report first: without signal (or with any refusal) it says why right under the buttons,
+   *  and the day on screen stays as it was, with what was typed in it. */
   function dayChoice(got, tz, after) {
     if (!got.days || got.days.length < 2) return null;
-    const askId = `rpt-${uid += 1}`;
+    const askId = `rpt-${uid += 1}`, err = h('p', { class: 'formerr', role: 'alert', hidden: true });
     const pick = (d, label) => {
-      const b = h('button', { type: 'button', text: label, onclick: () => { if (d !== got.day) open(got.site.id, { tz, after, day: d }); } });
+      const b = h('button', { type: 'button', text: label, onclick: (e) => {
+        if (d === got.day) return;
+        err.hidden = true;
+        once(e.currentTarget, () => open(got.site.id, { tz, after, day: d }).catch((x) => showErr(err, errText(x))));
+      } });
       b.setAttribute('aria-pressed', String(d === got.day));
       return b;
     };
     return h('div', { class: 'rpt-g' }, h('p', { class: 'rpt-ask', id: askId, text: t('report.for') }),
       h('div', { class: 'seg rpt-yn', role: 'group', 'aria-labelledby': askId },
-        pick(got.days[0], t('report.for.today')), pick(got.days[1], t('report.for.yesterday', { day: `${wdLong(got.days[1])} ${dayMonth(got.days[1])}` }))));
+        pick(got.days[0], t('report.for.today')), pick(got.days[1], t('report.for.yesterday', { day: `${wdLong(got.days[1])} ${dayMonth(got.days[1])}` }))), err);
   }
 
   /** Sent today: when, a short summary, and the way to edit it. */
