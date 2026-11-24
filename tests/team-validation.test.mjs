@@ -78,3 +78,21 @@ test('accepted minutes are taken only for the weeks since the site was opened', 
   assert.equal(s.lines().some((e) => e.type === 'site.hours'), false);
   for (const [id, week] of [['s_opened-wed-0001', '2026-11-09'], ['s_opened-wed-0001', '2026-11-16'], ['s_opened-mon-0001', '2026-11-16']]) assert.equal((await hours(id, week)).status, 200, `${id} ${week}`);
 });
+
+test('a business a rep cannot pick by its id cannot be logged by typing its name as new either', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin(), m = await s.addRep(a.cookie, 'mario');
+  await s.call('PUT', `${API}/leads`, [{ id: 'CRM-1', company: 'Farmacia Uno', city: 'Panama City', zone: 'Centro', stage: 'New' },
+    { id: 'CRM-2', company: 'Hotel Firmado', city: 'Panama City', zone: 'Centro', stage: 'Contract signed' },
+    { id: 'CRM-3', company: 'Bar No Llamar', city: 'Panama City', zone: 'Centro', stage: 'New', doNotCall: true }], { bearer: 'push-token' });
+  const log = (id, lead) => s.call('POST', `${API}/log`, logBody(id, { kind: 'talk', lead }), { cookie: m.cookie });
+  const answer = async (r) => { const x = await r; return [x.status, x.json.error]; };
+  assert.deepEqual(await answer(log('signed-by-id-01', { id: 'CRM-2' })), [400, 'lead']);
+  assert.deepEqual(await answer(log('signed-by-nm-01', { name: 'Hotel Firmado', zone: 'Centro' })), [400, 'lead']);
+  assert.deepEqual(await answer(log('signed-by-nm-02', { name: '  hotel firmado ', zone: 'CENTRO' })), [400, 'lead']);
+  assert.deepEqual(await answer(log('dnc-by-name-01', { name: 'Bar No Llamar', zone: 'Centro' })), [409, 'do_not_call']);
+  assert.equal(s.lines().some((e) => e.type === 'log' || e.type === 'lead.added'), false);
+  // a business it can pick is found by its name, as before
+  assert.equal((await log('known-by-nm-01', { name: 'farmacia uno', zone: 'centro' })).status, 200);
+  assert.equal(s.lines().find((e) => e.id === 'known-by-nm-01').lead.id, 'CRM-1');
+});
