@@ -33,7 +33,7 @@ test('a roster starts an empty folder with those people, their photos, no activi
   assert.equal(state.logs.size, 0);
   assert.equal(existsSync(path.join(dir, 'team', 'SAMPLE')), false);
   const uno = state.handles.get('uno');
-  assert.deepEqual(readFileSync(path.join(dir, 'team', 'photos', `${uno}.jpg`)), JPG);
+  assert.deepEqual(readFileSync(path.join(dir, 'team', 'photos', `${uno}.${state.reps.get(uno).photo.v}.jpg`)), JPG);   // <person id>.<version>.<ext>
 
   // what the screens get: real people, nothing earned, nobody ranked
   const ctx = { now: NOW.toISOString() };

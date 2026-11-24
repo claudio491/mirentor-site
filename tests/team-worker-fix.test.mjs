@@ -2,7 +2,7 @@
 // approved hour (I4), and a legacy site loads the consents it already had.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { start, mail, as } from './team-helper.mjs';
 import { emptyState, applyEvent } from '../lib/team/state.mjs';
@@ -70,7 +70,7 @@ test('removing a worker who holds a phone is refused until it comes back; then t
   assert.deepEqual(gone.json.workers.map((w) => w.id), [W2]);
   assert.deepEqual([gone.json.progress.total, gone.json.progress.consents], [1, 1]);
   // the consent photo stays on disk and still answers at its address, for the record
-  assert.equal(existsSync(path.join(s.dir, 'team', 'consents', `${W1}.jpg`)), true);
+  assert.equal(readdirSync(path.join(s.dir, 'team', 'consents')).some((f) => f.startsWith(`${W1}.`) && f.endsWith('.jpg')), true);
   assert.equal((await call('GET', `consent/${W1}`, undefined, a.cookie)).status, 200);
   // and the site's record still shows who signed, which phone they held and when they left, with the consent's address
   const rec = (await call('GET', `site/${siteId}/record.csv`, undefined, a.cookie)).text.trim().split('\n');

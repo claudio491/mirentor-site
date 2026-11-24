@@ -103,15 +103,16 @@ test('a practice site is removed with its consent files and a real site is not',
   const practice = await site({ practice: true }), real = await site();
   await addWorker(practice.id, W1); await upload(W1);
   await addWorker(real.id, W2); await upload(W2);
-  const file = (w) => path.join(s.dir, 'team', 'consents', `${w}.jpg`);
-  assert.equal(existsSync(file(W1)), true);
+  // a worker's consent file, whatever version it holds (<worker id>.<version>.jpg)
+  const has = (w) => existsSync(path.join(s.dir, 'team', 'consents')) && readdirSync(path.join(s.dir, 'team', 'consents')).some((f) => f.startsWith(`${w}.`));
+  assert.equal(has(W1), true);
   const refused = await manage(real.id, { what: 'remove' });
   assert.deepEqual([refused.status, refused.json.error], [409, 'not_practice']);
-  assert.equal(existsSync(file(W2)), true);
+  assert.equal(has(W2), true);
   assert.equal(s.lines().some((e) => e.type === 'site.removed'), false);
   assert.equal((await manage(practice.id, { what: 'remove' })).status, 200);
-  assert.equal(existsSync(file(W1)), false);
-  assert.equal(existsSync(file(W2)), true);
+  assert.equal(has(W1), false);
+  assert.equal(has(W2), true);
   assert.equal(s.lines().filter((e) => e.type === 'site.removed').length, 1);
   assert.equal((await s.call('GET', `${API}/install/${practice.id}`, undefined, { cookie: ana.cookie })).status, 403);
   assert.equal((await manage(practice.id, { what: 'remove' })).status, 404);
