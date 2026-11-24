@@ -2,12 +2,13 @@
 // every sentence exists in both languages, nothing the browser's policy forbids is in the page, and no markup is built from strings.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { DICT, makeT, LANGS } from '../team/i18n.js';
 import { KINDS, CHANNELS, RULES } from '../lib/team/rules.mjs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const SCRIPTS = ['team/app.js', 'team/install.js', 'team/install-steps.js', 'team/ladder.js', 'team/ladder-steps.js', 'team/docs.js', 'team/docs-steps.js', 'team/route.js', 'team/route-steps.js', 'team/leader.js', 'team/leader-steps.js', 'team/manager-steps.js', 'team/shrink.js', 'team/hand.js', 'team/manager.js', 'team/ui.js', 'team/queue.js', 'team/door.js', 'team/fx.js', 'team/moments.js', 'team/stops.js', 'team/stage.js', 'team/player.js', 'team/art.js', 'team/sites.js', 'team/report.js', 'team/report-steps.js'];
+// Every script of the client, read from the folder: a module added later is checked like the others, with no list to keep.
+const SCRIPTS = readdirSync(new URL('../team/', import.meta.url)).filter((f) => f.endsWith('.js')).sort().map((f) => `team/${f}`);
 const flat = (v) => (Array.isArray(v) ? v.join(' ') : v);
 const holes = (v) => [...new Set(flat(v).match(/\{\w+\}/g) || [])].sort();
 
