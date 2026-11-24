@@ -61,3 +61,40 @@ test('guests: a named address can be added to the team, another outside address 
   assert.deepEqual([made.email, made.role, made.handle], ['invitada@otra.test', 'manager', 'invitada']);
   assert.equal((await add('invitada@otra.test', { name: 'Otra Vez' })).json.error, 'email_taken');
 });
+
+/** A guest signs in on a portal made with these settings; answers the session cookie. */
+async function guestCookie(settings) {
+  const root = mkdtempSync(path.join(tmpdir(), 'sales-g3-'));
+  writeFileSync(path.join(root, 'index.html'), '<p>hub</p>');
+  const sales = createSales({ clientId: CLIENT, secret: 'the-same-secret', root, verify: async () => guest, now: () => nowS * 1000, ...settings });
+  const srv = http.createServer(async (req, res) => { if (!(await sales(req, res, new URL(req.url, 'http://x').pathname))) res.writeHead(404).end(); });
+  await new Promise((ok) => srv.listen(0, '127.0.0.1', ok));
+  const base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const login = await fetch(`${base}/ventas/auth`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-sales-login': '1' }, body: '{"credential":"x"}' });
+    assert.equal(login.status, 200);
+    const cookie = (login.headers.get('set-cookie') || '').split(';')[0];
+    const me = await fetch(`${base}/ventas/me.json`, { headers: { cookie }, redirect: 'manual' });
+    return { cookie, me: [me.status, me.status === 200 ? (await me.json()).email : me.headers.get('location')] };
+  } finally { srv.close(); }
+}
+
+test('guests: with the narrower list set, a guest who signs in stays in on the next request, as the sign-in said', async () => {
+  const { cookie, me } = await guestCookie({ guests: 'invitada@otra.test', allow: 'mario@mirentor.com' });
+  assert.deepEqual(me, [200, 'invitada@otra.test'], 'no loop back to the sign-in page');
+  const same = createSales({ clientId: CLIENT, secret: 'the-same-secret', root: tmpdir(), guests: 'invitada@otra.test', allow: 'mario@mirentor.com', now: () => nowS * 1000 });
+  assert.equal(same.who({ headers: { cookie } }), 'invitada@otra.test');
+  // the narrower list still holds for the company's own accounts
+  const other = createSales({ clientId: CLIENT, secret: 'the-same-secret', root: tmpdir(), allow: 'mario@mirentor.com', now: () => nowS * 1000 });
+  assert.equal(other.who({ headers: { cookie } }), null, 'and an outside address is in only while it is a guest');
+});
+
+test('guests: a guest taken off SALES_GUESTS loses the portal and the board on the next request', async () => {
+  const { cookie } = await guestCookie({ guests: 'invitada@otra.test' });
+  const kept = createSales({ clientId: CLIENT, secret: 'the-same-secret', root: tmpdir(), guests: 'Invitada@otra.test, otro@otra.test', now: () => nowS * 1000 });
+  assert.equal(kept.who({ headers: { cookie } }), 'invitada@otra.test');
+  const emptied = createSales({ clientId: CLIENT, secret: 'the-same-secret', root: tmpdir(), guests: '', now: () => nowS * 1000 });
+  assert.equal(emptied.who({ headers: { cookie } }), null);
+  const others = createSales({ clientId: CLIENT, secret: 'the-same-secret', root: tmpdir(), guests: 'otro@otra.test', now: () => nowS * 1000 });
+  assert.equal(others.who({ headers: { cookie } }), null);
+});
