@@ -52,3 +52,15 @@ test('a photo sent as its own bytes gets ninety seconds before it counts as no s
   assert.equal(requestTimeout(photo), 90000);
   for (const body of [undefined, null, { id: 'g1' }, 'texto', [1]]) assert.equal(requestTimeout(body), 15000, JSON.stringify(body));
 });
+
+// 24 Nov review: with the offline copy, a page load slower than 4 s after the session ended was answered from the copy,
+// whose 401 reloaded the copy again: the sign-in page could not be reached. A trip to the door carries a mark the
+// service worker always sends to the network (tests/team-sw.test.mjs), and the app takes it off the address once it is in.
+test('a trip to the door carries its mark, keeps what the address said, and the mark comes off again', async () => {
+  const { toDoor, offDoor } = await import('../team/door.js');
+  assert.equal(toDoor('https://www.mirentor.com/ventas/equipo/'), 'https://www.mirentor.com/ventas/equipo/?door=1');
+  assert.equal(toDoor('https://www.mirentor.com/ventas/equipo/?as=r_1#week'), 'https://www.mirentor.com/ventas/equipo/?as=r_1&door=1#week');
+  assert.equal(toDoor('https://www.mirentor.com/ventas/equipo/?door=1'), 'https://www.mirentor.com/ventas/equipo/?door=1', 'never twice');
+  assert.equal(offDoor('https://www.mirentor.com/ventas/equipo/?as=r_1&door=1#week'), 'https://www.mirentor.com/ventas/equipo/?as=r_1#week');
+  assert.equal(offDoor('https://www.mirentor.com/ventas/equipo/'), null, 'nothing to take off');
+});

@@ -36,3 +36,11 @@ test('only the board\'s own page is kept: never the sign-in page served at the s
   assert.equal(isBoardPage('<!doctype html><title>Portal de ventas</title><div id="g_id_onload"></div>'), false);
   assert.equal(isBoardPage(''), false);
 });
+
+test('a trip to the door always goes to the network, never to the copy', () => {
+  const { isDoorTrip } = sandbox;
+  assert.equal(isDoorTrip(at('./?door=1')), true);
+  assert.equal(isDoorTrip(at('./?as=r_1&door=1')), true);
+  assert.equal(isDoorTrip(at('./')), false);
+  assert.equal(isDoorTrip(at('./?as=r_1')), false);
+});

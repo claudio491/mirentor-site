@@ -5,6 +5,23 @@
  *  the portal's sign-in. LEAVE ends the session and comes back to HOME. The server answers both (lib/team/api.mjs). */
 export const HOME = './', LEAVE = 'salir';
 
+/** A trip to the door carries this mark in the address: the service worker always sends it to the network (sw.js), so
+ *  an ended session reaches the sign-in page even when the network is slow and a copy of the board is kept. */
+const MARK = 'door';
+/** The address with the mark (once), keeping what it said. */
+export function toDoor(href) {
+  const u = new URL(href);
+  if (!u.searchParams.has(MARK)) u.searchParams.append(MARK, '1');
+  return u.href;
+}
+/** The address without the mark, or null when it carries none: the app takes it off once it is in. */
+export function offDoor(href) {
+  const u = new URL(href);
+  if (!u.searchParams.has(MARK)) return null;
+  u.searchParams.delete(MARK);
+  return u.href;
+}
+
 /** What the app does when the server says this person cannot go on.
  *  'reload': the session ended, and loading the page again shows the sign-in.
  *  'gate:session': that was tried less than `wait` ms ago, or there is nowhere to remember the last try, so the screen

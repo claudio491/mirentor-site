@@ -21,7 +21,7 @@ import { nudgeOf } from './report-steps.js';
 import { mateLine } from './sites-steps.js';
 import { shellFor } from './leader-steps.js';
 import { verdict, mine as waitingOf, requestTimeout } from './queue.js';
-import { sessionMove, HOME, LEAVE } from './door.js';
+import { sessionMove, HOME, LEAVE, toDoor, offDoor } from './door.js';
 import { actingMode, readOnlyIn, repControls, withAs, logLocked, staleAs, practiceBarName } from './practice-steps.js';
 import { shortfall } from './paid.js';
 import { askTwice } from './taps.js';
@@ -1237,7 +1237,7 @@ function showGate(kind, detail = '') {
   giant($('#gateGiant'), t(`gate.${kind}.title`));
   $('#gateSupport').textContent = kind === 'error' ? errText(detail) : t(`gate.${kind}.support`);
   const go = $('#gateGo'), alt = $('#gateAlt');
-  go.textContent = t(kind === 'session' ? 'gate.enter' : 'gate.retry'); go.href = HOME;
+  go.textContent = t(kind === 'session' ? 'gate.enter' : 'gate.retry'); go.href = kind === 'session' ? toDoor(new URL(HOME, location.href).href) : HOME;
   alt.hidden = kind !== 'team'; alt.textContent = t('gate.switch'); alt.href = LEAVE;
 }
 const DOOR = 'cancha.door';   // when this tab last loaded the page again to reach the door
@@ -1249,7 +1249,8 @@ function shutOut(e) {
   let move = sessionMove(e, { lastReload: last, now: Date.now() });
   if (!move) return false;
   store.del(KEY.me);
-  if (move === 'reload') { try { sessionStorage.setItem(DOOR, String(Date.now())); location.reload(); return true; } catch { move = 'gate:session'; } }
+  // the page loaded again, marked as a trip to the door, so a kept copy of the board never stands in for the sign-in
+  if (move === 'reload') { try { sessionStorage.setItem(DOOR, String(Date.now())); const to = toDoor(location.href); if (to === location.href) location.reload(); else location.replace(to); return true; } catch { move = 'gate:session'; } }
   showGate(move === 'gate:team' ? 'team' : 'session', (e.data && e.data.email) || '');
   return true;
 }
@@ -1267,6 +1268,9 @@ function signOutAsked(btn, e) {
 /** `as` is whose screens to open as their manager. Left out, the page's own address says it. */
 async function start(as = undefined) {
   const url = new URL(location.href);
+  // Back from a trip to the door: its mark comes off the address, so it is not carried into the next one
+  const clean = offDoor(url.href);
+  if (clean) { try { history.replaceState(history.state, '', clean); } catch { /* the address keeps it; nothing else changes */ } url.searchParams.delete('door'); }
   // A sheet left open (the log sheet, say) belongs to the screens being left: it closes before the identity changes,
   // so nothing in it can be saved as someone else. Until the new answer arrives the screens read only (actingMode).
   for (const dlg of document.querySelectorAll('dialog[open]')) closeSheet(dlg);

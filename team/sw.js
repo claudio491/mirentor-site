@@ -22,6 +22,9 @@ function handles(url, method, scope) {
   if (rel.startsWith('api/') || DOOR.has(rel) || GATED.has(rel)) return false;
   return true;
 }
+/** A trip to the door (an ended session, the gate's way back in) is marked by the app (door.js): it always goes to the
+ *  network, so the sign-in page is reached however slow the network is; the copy would only show the board again. */
+function isDoorTrip(url) { return url.searchParams.has('door'); }
 /** Only the board's own page is kept: when a session has ended, the same address serves the portal's sign-in page. */
 function isBoardPage(text) { return typeof text === 'string' && text.includes('id="app"') && text.includes('src="app.js"'); }
 
@@ -31,6 +34,7 @@ const within = (promise, ms) => new Promise((resolve, reject) => {
 });
 
 async function page(event) {
+  if (isDoorTrip(new URL(event.request.url))) return fetch(event.request);
   const cache = await caches.open(CACHE);
   try {
     const res = await within(fetch(event.request), PAGE_WAIT);
