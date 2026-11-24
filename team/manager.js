@@ -8,6 +8,7 @@ import { siteBody, siteActions, roleOptions, recordUrl, siteReps, siteLeadId, si
 import { usd } from './sites-steps.js';
 import { siteStateKey } from './leader-steps.js';
 import { practiceActions, exampleActions } from './practice-steps.js';
+import { askTwice } from './taps.js';
 
 const MONDAY = '2026-11-16';   // any Monday: only used to name the days of the week
 const dayName = (n) => wdShort(addDays(MONDAY, n - 1));
@@ -27,10 +28,11 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     try { const res = await call(); if (res && res.reps) team = res; renderAll(false); if (okKey) toast(t(okKey)); refresh(false); } catch (e) { toast(errText(e)); }
   });
 
-  /** A step that is hard to take back asks twice: the first tap arms the button and says what will happen. */
-  function twice(btn, warnKey, run) {
-    if (!btn.classList.contains('armed')) { btn.classList.add('armed'); toast(t(warnKey)); setTimeout(() => btn.classList.remove('armed'), 6000); return; }
-    btn.classList.remove('armed'); run();
+  /** A step that is hard to take back asks twice (taps.js): the first tap arms the button and says what will happen; the
+   *  second runs it only after a pause, so one double tap never does both. */
+  function twice(e, warnKey, run) {
+    const step = askTwice(e.currentTarget, e);
+    if (step === 'arm') toast(t(warnKey)); else if (step === 'run') run();
   }
   /** Take back a confirmation made by mistake: that part goes back to waiting. */
   const undoConfirm = (btn, logId, what) => act(btn, () => api('POST', 'confirm', { logId, what, undo: true }), 'needs.undone');
@@ -202,8 +204,8 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     if (kind === 'installed' || kind === 'first_hour') return btn(`needs.sites.mark.${kind}`, '', (e) => act(e.currentTarget, () => siteCall(s.id, { what: kind }), 'needs.sites.done'));
     if (kind === 'hours') return btn('site.act.hours', '', () => siteHours(s));
     if (kind === 'record') return h('a', { class: 'mini-btn', 'data-act': kind, href: recordUrl(s.id), download: `record-${s.id}.csv`, text: t('site.act.record') });
-    if (kind === 'remove') return btn('site.act.remove', '', (e) => { const b = e.currentTarget; twice(b, 'site.act.remove.confirm', () => act(b, () => siteCall(s.id, { what: 'remove' }), 'site.removed')); });
-    return btn('needs.sites.void', '', (e) => { const b = e.currentTarget; twice(b, 'needs.sites.void.confirm', () => act(b, () => siteCall(s.id, { what: 'void' }), 'needs.sites.voided')); });
+    if (kind === 'remove') return btn('site.act.remove', '', (e) => { const b = e.currentTarget; twice(e, 'site.act.remove.confirm', () => act(b, () => siteCall(s.id, { what: 'remove' }), 'site.removed')); });
+    return btn('needs.sites.void', '', (e) => { const b = e.currentTarget; twice(e, 'needs.sites.void.confirm', () => act(b, () => siteCall(s.id, { what: 'void' }), 'needs.sites.voided')); });
   }
   /** A live site's daily report: open it, or once sent today, when, opening it to read or edit. */
   function reportButton(s, zone) {
@@ -309,7 +311,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     const btn = (key, cls, run) => h('button', { class: cls ? `mini-btn ${cls}` : 'mini-btn', type: 'button', 'data-act': `practice-${key}`, text: t(`reps.practice.${key}`), onclick: run });
     const controls = acts.map((k) => (k === 'create' ? btn('create', 'primary', (e) => act(e.currentTarget, () => api('POST', 'practice', {}), 'reps.practice.created'))
       : k === 'view' ? h('a', { class: 'mini-btn primary', 'data-act': 'practice-view', href: `?as=${encodeURIComponent(p.id)}`, 'data-as': p.id, onclick: openAs, text: t('reps.practice.view') })
-        : btn('remove', '', (e) => { const b = e.currentTarget; twice(b, 'reps.practice.remove.confirm', () => act(b, () => api('POST', 'practice/remove', {}), 'reps.practice.removed')); })));
+        : btn('remove', '', (e) => { const b = e.currentTarget; twice(e, 'reps.practice.remove.confirm', () => act(b, () => api('POST', 'practice/remove', {}), 'reps.practice.removed')); })));
     const who = p ? h('span', { class: 'pers' }, face({ ...p, name: t('reps.practice.name') }), h('span', { class: 'pt' }, h('b', {}, t('reps.practice.name'), ' ', h('span', { class: 'chip inst-prac', text: t('install.practice') })), h('small', { text: t('reps.practice.p') })))
       : h('span', { class: 'pers' }, h('span', { class: 'pt' }, h('small', { text: t('reps.practice.p') })));
     return h('section', { class: 'group', id: 'practiceGroup' }, h('h2', { text: t('reps.practice.h') }), h('ul', { class: 'items' }, h('li', {}, who, h('span', { class: 'acts' }, controls)), exampleGroup()));
@@ -330,7 +332,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     const refresh = acts.includes('refresh') ? h('li', { 'data-example': 'stale' }, h('span', { class: 'pers' }, h('span', { class: 'pt' }, h('b', { text: t('reps.example.stale') }), h('small', { text: t('reps.example.stale.p') }))),
       h('span', { class: 'acts' }, h('button', { class: 'mini-btn primary', type: 'button', 'data-act': 'example-refresh', text: t('reps.example.refresh'), onclick: (e) => act(e.currentTarget, () => api('POST', 'practice/example', {}), 'reps.example.refreshed') }))) : null;
     const remove = h('li', {}, h('span', { class: 'pers' }, h('span', { class: 'pt' }, h('small', { text: t('reps.example.p') }))),
-      h('span', { class: 'acts' }, h('button', { class: 'mini-btn', type: 'button', 'data-act': 'example-remove', text: t('reps.example.remove'), onclick: (e) => { const b = e.currentTarget; twice(b, 'reps.example.remove.confirm', () => act(b, () => api('POST', 'practice/example/remove', {}), 'reps.example.removed')); } })));
+      h('span', { class: 'acts' }, h('button', { class: 'mini-btn', type: 'button', 'data-act': 'example-remove', text: t('reps.example.remove'), onclick: (e) => { const b = e.currentTarget; twice(e, 'reps.example.remove.confirm', () => act(b, () => api('POST', 'practice/example/remove', {}), 'reps.example.removed')); } })));
     return [refresh, ...rows, remove].filter(Boolean);
   }
   /** What a rep earns per accepted hour. Everyone sees it; only an admin sets it. */

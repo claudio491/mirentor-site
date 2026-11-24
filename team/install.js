@@ -9,6 +9,7 @@ import { lens, setLens, drawIn } from './hand.js';
 import { workerOrder, workerSteps, prepRows, statusKey, newWorkerId, isDone, installCard, imeiFor, imeiFromScan, stepNow, recordRows, closeState, consentFailed, controls, keepForRetry, workerEditBody } from './install-steps.js';
 import { shrink, examplePage } from './shrink.js';
 import { actingMode, readOnlyIn } from './practice-steps.js';
+import { askTwice, disarm } from './taps.js';
 
 const tail = (imei) => (imei ? String(imei).slice(-4) : '');
 
@@ -266,11 +267,11 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
   function openWorker(id) {
     wid = id;
     for (const n of ['#wkErr1', '#wkErr2', '#wkErr3', '#wkErr4']) $(n).hidden = true;
-    delete $('#wkRemove').dataset.armed;
+    disarm($('#wkRemove'));
     $('#wkImei').value = ''; $('#wkShot').replaceChildren(); delete $('#wkGiant').dataset.k;
     for (const tk of $$('#s-worker .inst-tick')) { tk.classList.toggle('on', false); tk.classList.toggle('now', false); delete tk.dataset.seen; }
     for (const st of $$('#s-worker .inst-step')) delete st.dataset.locked;
-    delete $('#wkReturn').dataset.armed;
+    disarm($('#wkReturn'));
     $('#wkShot').dataset.k = '';
     quiet(paintWorker);
     setTab('worker');
@@ -403,7 +404,7 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
 
   // ---- the close ----
   function openClose() {
-    delete $('#clsGo').dataset.armed;
+    disarm($('#clsGo'));
     $('#clsErr').hidden = true;
     for (const tk of $$('#s-iclose .inst-tick')) { tk.classList.remove('on', 'now'); delete tk.dataset.seen; }
     $('#clsGiant').replaceChildren();
@@ -447,29 +448,26 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     go.classList.toggle('armed', !!go.dataset.armed);
     go.textContent = t(go.dataset.armed ? 'install.c.go.again' : 'install.c.go');
   }
-  /** Closing cannot be taken back: the first tap arms the button and says so, the second closes. */
-  function closeTap() {
+  /** Closing cannot be taken back: the first tap arms the button and says so, the second closes. The second counts only
+   *  after a pause (taps.js): one double tap is one gesture and never closes. */
+  function closeTap(e) {
     const go = $('#clsGo');
     if (!ctl().close) return;
-    if (!go.dataset.armed) {
-      go.dataset.armed = '1'; paintClose(); lock(go);
-      setTimeout(() => { if (go.dataset.armed) { delete go.dataset.armed; if (S.tab === 'iclose') quiet(paintClose); } }, 5000);
-      return;
-    }
-    delete go.dataset.armed;
+    const step = askTwice(go, e, { onDisarm: () => { if (S.tab === 'iclose') quiet(paintClose); } });
+    if (step === 'arm') { paintClose(); lock(go); }
+    if (step !== 'run') return;
+    paintClose();
     act(go, () => write('POST', `install/${encodeURIComponent(siteId)}/close`, {}), 'install.c.closed', $('#clsErr')).then((ok) => { if (ok) { buzz([10, 40, 10]); ringAt($('#clsGiant em'), { whole: false }); } });
   }
-  /** Giving a phone back cannot be taken back either: the first tap arms, the second returns it. */
-  function returnTap() {
+  /** Giving a phone back cannot be taken back either: the first tap arms, the second (after a pause) returns it. */
+  function returnTap(e) {
     const btn = $('#wkReturn'), w = worker();
     if (!w || !ctl(w).returnPhone) return;
-    if (!btn.dataset.armed) {
-      btn.dataset.armed = '1'; paintWorker(); lock(btn);
-      setTimeout(() => { if (btn.dataset.armed) { delete btn.dataset.armed; if (S.tab === 'worker') quiet(paintWorker); } }, 5000);
-      return;
-    }
-    delete btn.dataset.armed;
+    const step = askTwice(btn, e, { onDisarm: () => { if (S.tab === 'worker') quiet(paintWorker); } });
+    if (step === 'arm') { paintWorker(); lock(btn); }
+    if (step !== 'run') return;
     $('#wkImei').value = '';
+    paintWorker();
     act(btn, () => write('POST', `worker/${encodeURIComponent(w.id)}/phone/return`, {}), 'install.w.returned', $('#wkErr2'));
   }
   /** A name or an email typed wrong, written again. On a legacy site the email may stay empty. */
@@ -481,17 +479,16 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
       fields: [{ name: 'name', label: t('install.add.name'), value: w.name, max: 80 }, { name: 'email', type: 'email', label: t(legacy ? 'install.add.email.opt' : 'install.add.email'), value: w.email || '', lower: true, max: 120 }],
       onSubmit: async (v) => { view = await write('POST', `worker/${encodeURIComponent(w.id)}/edit`, workerEditBody(v, legacy)); render(true); toast(t('install.w.edited')); refresh(false); } });
   }
-  /** Taking someone off the list asks twice. Someone holding a phone is told to return it first, before anything is sent. */
-  function removeTap() {
+  /** Taking someone off the list asks twice (the second tap after a pause). Someone holding a phone is told to return it
+   *  first, before anything is sent. */
+  function removeTap(e) {
     const btn = $('#wkRemove'), w = worker();
     if (!w || !ctl(w).remove) return;
     if (w.imei) { showErr($('#wkErr4'), t('err.return_phone_first')); return; }
-    if (!btn.dataset.armed) {
-      btn.dataset.armed = '1'; paintWorker(); lock(btn);
-      setTimeout(() => { if (btn.dataset.armed) { delete btn.dataset.armed; if (S.tab === 'worker') quiet(paintWorker); } }, 5000);
-      return;
-    }
-    delete btn.dataset.armed;
+    const step = askTwice(btn, e, { onDisarm: () => { if (S.tab === 'worker') quiet(paintWorker); } });
+    if (step === 'arm') { paintWorker(); lock(btn); }
+    if (step !== 'run') return;
+    paintWorker();
     const name = w.name, key = view.site.practice ? 'install.w.removed.practice' : 'install.w.removed';
     act(btn, () => write('POST', `worker/${encodeURIComponent(w.id)}/remove`, {}), null, $('#wkErr4')).then((ok) => { if (ok) { toast(t(key, { name })); setTab('install'); } });
   }
