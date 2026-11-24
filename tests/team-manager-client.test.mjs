@@ -3,7 +3,7 @@
 // team/manager-steps.js, away from the page, so they can be tested here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { siteBody, hoursBody, siteHoursBody, siteActions, roleOptions, siteReps, siteLeadId, newRepBody, readAgainIn, readNow, freshRead, REFRESH_MS } from '../team/manager-steps.js';
+import { siteBody, hoursBody, siteHoursBody, siteActions, roleOptions, siteReps, siteLeadId, newRepBody, readAgainIn, readNow, freshRead, REFRESH_MS, countryOptions, teamCountries, countryLabel } from '../team/manager-steps.js';
 import { DICT } from '../team/i18n.js';
 
 const base = { rep: 'r_1', name: '  Negocio de Prueba ', city: 'Panama City', eligible: '', coordName: '', coordPhone: '', kind: 'normal' };
@@ -155,4 +155,21 @@ test('a read answer never undoes a write: one that went out before the last writ
   assert.equal(freshRead({ start: 4, shown: 5 }), false, 'a write was adopted after this read went out');
   assert.equal(freshRead({ start: 4, shown: 6 }), false, 'a newer read is already on screen');
   assert.equal(freshRead({ start: 7, shown: 6, writing: true }), false, 'a write on its way will answer with a newer view');
+});
+
+test('a country other than Panamá or Colombia is named, kept in the person form, and offered for a day off', () => {
+  // "Día libre" threw on a rep from MX (no words for country.MX), and the person form silently set them back to PA
+  assert.deepEqual(countryOptions('PA'), ['PA', 'CO']);
+  assert.deepEqual(countryOptions('MX'), ['PA', 'CO', 'MX'], 'their own country stays a choice, so saving keeps it');
+  assert.deepEqual(countryOptions('cr'), ['PA', 'CO', 'CR']);
+  for (const odd of ['', null, undefined, 'Panama', '1']) assert.deepEqual(countryOptions(odd), ['PA', 'CO'], String(odd));
+  // the day off offers each country the team has once, and nothing for a person with none
+  assert.deepEqual(teamCountries([{ country: 'PA' }, { country: 'MX' }, { country: 'PA' }, { country: '' }, {}, { country: 'co' }]), ['CO', 'MX', 'PA']);
+  // the app's own words first, then the browser's name for the code, then the code itself; never a missing key
+  const own = (c) => ({ PA: 'Panamá', CO: 'Colombia' })[c] || null;
+  const region = (c) => (c === 'MX' ? 'México' : null);
+  assert.deepEqual(['PA', 'MX', 'ZZ'].map((c) => countryLabel(c, { own, region })), ['Panamá', 'México', 'ZZ']);
+  assert.equal(countryLabel('MX', { own }), 'MX');
+  const es = new Intl.DisplayNames(['es-PA'], { type: 'region' });
+  assert.equal(countryLabel('MX', { own, region: (c) => es.of(c) }), 'México');
 });

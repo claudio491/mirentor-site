@@ -123,6 +123,22 @@ export function siteReps(team, viewerId) {
   return { options, value };
 }
 
+/** The countries the person form offers: Panamá and Colombia, and the person's own when it is another two-letter code,
+ *  so saving the form never changes it without anyone choosing. */
+export function countryOptions(current) {
+  const own = String(current ?? '').trim().toUpperCase(), out = ['PA', 'CO'];
+  if (/^[A-Z]{2}$/.test(own) && !out.includes(own)) out.push(own);
+  return out;
+}
+/** The countries a day off can be marked for: each one the team has, once, in order. A person with none adds nothing. */
+export const teamCountries = (reps) => [...new Set((reps || []).map((r) => String((r && r.country) ?? '').trim().toUpperCase()).filter((c) => /^[A-Z]{2}$/.test(c)))].sort();
+/** A country as the reader reads it: the app's own words when it has them (`own`), the browser's name for any other code
+ *  (`region`, Intl.DisplayNames), the code itself as a last resort. Never a missing key. */
+export function countryLabel(code, { own = () => null, region = () => null } = {}) {
+  const c = String(code ?? '').trim().toUpperCase();
+  return own(c) || region(c) || c;
+}
+
 /** Which roles the person form lists. Only an admin chooses one, and only an admin can make a leader. */
 export const roleOptions = (viewerRole) => (viewerRole === 'admin' ? ['rep', 'manager', 'admin', 'leader'] : []);
 

@@ -1,10 +1,11 @@
 // manager.js: what a manager sees. Every rep in one view, the things that wait for a decision, and the people who have access.
 // The headline of the team view is a live number (days closed today), and the rows that need attention are framed.
-import { $, h, put, t, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, dayOf, clock, stamp, ago, cityName, countTo, flipList, toast, src, once, copyText, formSheet, quiet, newId, sameText, face, putFace, giant } from './ui.js';
+import { $, h, put, t, lang, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, dayOf, clock, stamp, ago, cityName, countTo, flipList, toast, src, once, copyText, formSheet, quiet, newId, sameText, face, putFace, giant } from './ui.js';
 import { miniHand, lens, setLens, portrait, setPortrait } from './hand.js';
 import { STOPS } from './stops.js';
 import { shortNames } from './moments.js';
-import { siteBody, siteActions, roleOptions, recordUrl, siteReps, siteLeadId, siteHoursBody, recentMondays, payBody, newRepBody, readAgainIn, readNow, freshRead, REFRESH_MS } from './manager-steps.js';
+import { siteBody, siteActions, roleOptions, recordUrl, siteReps, siteLeadId, siteHoursBody, recentMondays, payBody, newRepBody, readAgainIn, readNow, freshRead, REFRESH_MS, countryOptions, teamCountries, countryLabel } from './manager-steps.js';
+import { DICT, LOCALE } from './i18n.js';
 import { usd } from './sites-steps.js';
 import { siteStateKey } from './leader-steps.js';
 import { practiceActions, exampleActions } from './practice-steps.js';
@@ -12,6 +13,11 @@ import { askTwice, guardList } from './taps.js';
 
 const MONDAY = '2026-11-16';   // any Monday: only used to name the days of the week
 const dayName = (n) => wdShort(addDays(MONDAY, n - 1));
+/** A country in the reader's words: the app's own for the ones it names (Panamá, Colombia), the browser's for any other
+ *  code, the code itself when even that is missing (manager-steps.js countryLabel). */
+const countryText = (code) => countryLabel(code, {
+  own: (c) => (`country.${c}` in DICT.es ? t(`country.${c}`) : null),
+  region: (c) => { try { return new Intl.DisplayNames([LOCALE[lang()]], { type: 'region' }).of(c) || null; } catch { return null; } } });
 
 export function createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs, openInstall, openReport }) {
   let team = null, city = 'all';
@@ -316,7 +322,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       ? { name: 'city', type: 'pick', label: t('reps.form.city'), hint: t('reps.form.city.pick'), value: city, max: 60, other: t('reps.form.city.other'), otherLabel: t('reps.form.city.other.label'), otherHint: t('reps.form.city.hint'),
         options: [...known, ...(city && !listed(city) ? [city] : [])].map((c) => ({ value: c, label: cityName(c) })) }
       : { name: 'city', label: t('reps.form.city'), hint: t('reps.form.city.hint'), value: city, max: 60 },
-      { name: 'country', type: 'select', label: t('reps.form.country'), value: rep ? rep.country : 'PA', options: ['PA', 'CO'].map((c) => ({ value: c, label: t(`country.${c}`) })) },
+      { name: 'country', type: 'select', label: t('reps.form.country'), value: rep ? rep.country : 'PA', options: countryOptions(rep ? rep.country : 'PA').map((c) => ({ value: c, label: countryText(c) })) },
       { name: 'startDate', type: 'date', label: t('reps.form.start'), value: rep ? rep.startDate : today },
       { name: 'workdays', type: 'days', label: t('reps.form.workdays'), value: rep ? rep.workdays : [1, 2, 3, 4, 5], options: [1, 2, 3, 4, 5].map((n) => ({ value: n, label: dayName(n) })) });
     const roles = rep ? [] : roleOptions(S.me.viewer.role);   // only an admin picks a role, Liderazgo among them
@@ -339,10 +345,10 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     }
   }
   function dayOff() {
-    const today = dayOf(team.serverTime, S.me.me.tz), countries = [...new Set(team.reps.map((r) => r.country))];
+    const today = dayOf(team.serverTime, S.me.me.tz), countries = teamCountries(team.reps);
     formSheet({ title: t('reps.dayoff.title'), intro: t('reps.dayoff.p'), submit: t('reps.dayoff.submit'),
       fields: [{ name: 'date', type: 'date', label: t('reps.dayoff.date'), value: today },
-        { name: 'scope', type: 'select', label: t('reps.dayoff.scope'), value: 'all', options: [{ value: 'all', label: t('reps.dayoff.all') }, ...countries.map((c) => ({ value: c, label: t('reps.dayoff.country', { country: t(`country.${c}`) }) })), ...team.reps.map((r) => ({ value: r.id, label: r.name }))] }],
+        { name: 'scope', type: 'select', label: t('reps.dayoff.scope'), value: 'all', options: [{ value: 'all', label: t('reps.dayoff.all') }, ...countries.map((c) => ({ value: c, label: t('reps.dayoff.country', { country: countryText(c) }) })), ...team.reps.map((r) => ({ value: r.id, label: r.name }))] }],
       onSubmit: async (v) => { await wrote(() => api('POST', 'dayoff', { scope: v.scope, date: v.date })); toast(t('reps.dayoff.done')); await refresh(false); } });
   }
   function repItem(r, isPlayer) {
