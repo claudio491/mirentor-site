@@ -2,12 +2,15 @@
 // first: numbers are steppers a thumb can hit, the yes or no is two buttons, and what the app already knows comes filled
 // in (report-steps.js decides it). Sent once today, it opens on "Enviado hoy" with the way to edit it; a new one
 // replaces the old on the server, which keeps both.
-import { h, t, toast, formSheet, clock, wdLong, dayMonth, cityName, num, once, showErr } from './ui.js';
-import { GEAR, GEAR_COUNTS, SURGE_COUNTS, draftOf, bodyOf, countOf } from './report-steps.js';
+import { h, t, toast, formSheet, clock, wdLong, dayMonth, dayOf, cityName, num, once, showErr } from './ui.js';
+import { GEAR, GEAR_COUNTS, SURGE_COUNTS, draftOf, bodyOf, countOf, dayKey, forYesterday } from './report-steps.js';
+import { DICT } from './i18n.js';
 
 let uid = 0;
 /** Why a request failed, in words: a code the dictionary knows, or "something failed". The app may pass its own. */
 const reason = (e) => { try { return t(`err.${(e && e.code) || 'unknown'}`); } catch { return t('err.unknown'); } };
+/** Whether the dictionary has a key, in both languages: the words for yesterday are used once they are there. */
+const known = (key) => key in DICT.es && key in DICT.en;
 
 export function createReport({ api, errText = reason }) {
   /** Open the report of a site. `tz` is the time zone its times are read in; `after(res)` runs once a report is saved. */
@@ -36,9 +39,9 @@ export function createReport({ api, errText = reason }) {
         pick(got.days[0], t('report.for.today')), pick(got.days[1], t('report.for.yesterday', { day: `${wdLong(got.days[1])} ${dayMonth(got.days[1])}` }))), err);
   }
 
-  /** Sent today: when, a short summary, and the way to edit it. */
+  /** Sent today: when, a short summary, and the way to edit it. A report sent yesterday says so, not "hoy". */
   function done(got, tz, after) {
-    const r = got.report.report, unknown = t('report.unknown');
+    const r = got.report.report, unknown = t('report.unknown'), sentBefore = Array.isArray(got.days) && dayOf(got.report.t, tz) !== got.days[0];
     const hours = (v) => (v == null ? unknown : num(v));
     const body = h('div', { class: 'rpt-done' },
       h('p', { class: 'rpt-sum', text: t('report.sum', { people: t('report.people.n', { n: r.people }), delivered: hours(r.delivered), accepted: hours(r.accepted) }) }),
@@ -46,13 +49,15 @@ export function createReport({ api, errText = reason }) {
       r.missing ? h('p', { class: 'note', text: r.missing }) : null,
       got.site.practice ? h('p', { class: 'note', text: t('report.practice') }) : null,
       dayChoice(got, tz, after));
-    formSheet({ title: t('report.title'), intro: t('report.done.p', { name: got.site.name, time: clock(got.report.t, tz) }), body, submit: t('report.edit'), skip: t('c.close'),
+    formSheet({ title: t('report.title'), intro: t(dayKey('report.done.p', sentBefore, known), { name: got.site.name, time: clock(got.report.t, tz) }), body, submit: t('report.edit'), skip: t('c.close'),
       onSubmit: async () => { form(got, draftOf(got.prefill, got.report), tz, after); return true; } });
   }
 
-  /** The form itself. Every number is a stepper; the box in the middle also takes typing. */
+  /** The form itself. Every number is a stepper; the box in the middle also takes typing. On yesterday's report a label
+   *  that says "hoy" reads its words for yesterday (report-steps.js dayKey), and so does the people's refusal. */
   function form(got, d, tz, after) {
     const reads = [];   // how each stepper's value is read back when the form is sent
+    const yday = forYesterday(got), L = (key, vars) => t(dayKey(key, yday, known), vars);
     const stepper = (label, get, set) => {
       const id = `rpt-${uid += 1}`;
       const box = h('input', { class: 'rpt-v num', id, type: 'text', inputmode: 'numeric', pattern: '[0-9]*', maxlength: 4, autocomplete: 'off', 'aria-label': label });
@@ -89,20 +94,20 @@ export function createReport({ api, errText = reason }) {
       h('p', { class: 'note rpt-who', text: [got.site.city ? cityName(got.site.city) : null, t('report.lead', { name: got.prefill.lead })].filter(Boolean).join(' · ') }),
       got.site.practice ? h('p', { class: 'note', text: t('report.practice') }) : null,
       dayChoice(got, tz, after),
-      h('div', { class: 'rpt-g rpt-top' }, stepper(t('report.people'), () => d.people, (v) => { d.people = v; }), h('p', { class: 'hint rpt-hint', text: t('report.people.hint') })),
-      h('fieldset', { class: 'rpt-g' }, h('legend', { class: 'label', text: t('report.hours') }),
+      h('div', { class: 'rpt-g rpt-top' }, stepper(L('report.people'), () => d.people, (v) => { d.people = v; }), h('p', { class: 'hint rpt-hint', text: t('report.people.hint') })),
+      h('fieldset', { class: 'rpt-g' }, h('legend', { class: 'label', text: L('report.hours') }),
         h('div', { class: 'rpt-grid' }, hoursBox('delivered', t('report.delivered')), hoursBox('accepted', t('report.accepted'))), h('p', { class: 'hint rpt-hint', text: t('report.hours.hint') })),
-      GEAR.map((g) => group(t(`report.gear.${g}`), GEAR_COUNTS.map((k) => stepper(t(`report.n.${k}`), () => d[g][k], (v) => { d[g][k] = v; })))),
+      GEAR.map((g) => group(t(`report.gear.${g}`), GEAR_COUNTS.map((k) => stepper(k === 'out' ? L('report.n.out') : k === 'working' ? L('report.n.working') : t(`report.n.${k}`), () => d[g][k], (v) => { d[g][k] = v; })))),
       group(t('report.gear.surge'), SURGE_COUNTS.map((k) => stepper(t(`report.n.surge.${k}`), () => d.surge[k], (v) => { d.surge[k] = v; }))),
       h('div', { class: 'rpt-g rpt-top' }, stepper(t('report.sets'), () => d.sets, (v) => { d.sets = v; })),
-      h('div', { class: 'rpt-g' }, h('p', { class: 'rpt-ask', id: askId, text: t('report.allOk') }), h('div', { class: 'seg rpt-yn', role: 'group', 'aria-labelledby': askId }, yes, no)),
-      text('missing', t('report.missing')), text('need', t('report.need')), text('notes', t('report.notes')));
+      h('div', { class: 'rpt-g' }, h('p', { class: 'rpt-ask', id: askId, text: L('report.allOk') }), h('div', { class: 'seg rpt-yn', role: 'group', 'aria-labelledby': askId }, yes, no)),
+      text('missing', t('report.missing')), text('need', t('report.need')), text('notes', L('report.notes')));
 
     formSheet({ title: t('report.title'), intro: t('report.intro', { name: got.site.name, day: `${wdLong(got.day)} ${dayMonth(got.day)}` }), body, submit: t('report.submit'),
       onSubmit: async () => {
         for (const read of reads) read();
         const made = bodyOf(d);
-        if (made.error) throw { code: made.error };
+        if (made.error) throw { code: dayKey(made.error, yday, (code) => known(`err.${code}`)) };
         const res = await api('POST', `site/${encodeURIComponent(got.site.id)}/report`, { ...made.body, day: got.day });
         toast(t('report.done'), clock(res.report.t, tz));
         after(res);

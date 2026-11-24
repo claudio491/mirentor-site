@@ -39,16 +39,25 @@ export function countOf(text) {
   return /^\d{1,4}$/.test(v) ? Number(v) : NaN;
 }
 
-/** The body the server takes, from the draft, or { error } with the server's own code, so the refusal reads the same. */
+/** The body the server takes, from the draft, or { error } with the server's own code, so the refusal reads the same.
+ *  Checked in the server's order: the people first (an emptied "Personas" box asks for the people, not for the
+ *  hardware), then the hours, the hardware and the yes or no. */
 export function bodyOf(d) {
+  if (!Number.isInteger(d.people) || d.people < 0) return { error: 'report_people' };
   const delivered = hoursOf(d.delivered), accepted = hoursOf(d.accepted);
   if (Number.isNaN(delivered) || Number.isNaN(accepted)) return { error: 'report_hours' };
-  const counts = [d.people, d.sets, ...GEAR.flatMap((g) => GEAR_COUNTS.map((k) => d[g][k])), ...SURGE_COUNTS.map((k) => d.surge[k])];
+  const counts = [d.sets, ...GEAR.flatMap((g) => GEAR_COUNTS.map((k) => d[g][k])), ...SURGE_COUNTS.map((k) => d.surge[k])];
   if (counts.some((n) => !Number.isInteger(n) || n < 0)) return { error: 'report_counts' };
   if (typeof d.allOk !== 'boolean') return { error: 'report_answer' };
   return { body: { people: d.people, delivered, accepted, ...Object.fromEntries(GEAR.map((g) => [g, { ...d[g] }])), surge: { ...d.surge }, sets: d.sets,
     allOk: d.allOk, missing: String(d.missing || '').trim(), need: String(d.need || '').trim(), notes: String(d.notes || '').trim() } };
 }
+
+/** Whether a report is for yesterday: until noon the server offers [today, yesterday], and this one is the second. */
+export const forYesterday = (got) => !!got && Array.isArray(got.days) && got.days.length > 1 && got.day === got.days[1];
+/** The words of a label on yesterday's report. A label that says "hoy" may have a version for yesterday, `<key>.yesterday`,
+ *  used when the dictionary has it (`has`); until then, the label as it is. */
+export const dayKey = (key, yesterday, has = () => false) => (yesterday && has(`${key}.yesterday`) ? `${key}.yesterday` : key);
 
 /** The live site Hoy reminds a rep of: from NUDGE_HOUR local time, the first active site with no report today. Null
  *  otherwise. Read-only screens never nudge. */
