@@ -208,6 +208,8 @@ let toastTimer;
 export function toast(text, strong = '') {
   const box = $('#toast');
   $('#toastP').textContent = strong; $('#toastP').hidden = !strong; $('#toastT').textContent = text;
+  // Shown in the top layer each time, so it is drawn over a sheet opened before or after it (where popovers exist).
+  if (box.showPopover) { try { if (box.matches(':popover-open')) box.hidePopover(); box.showPopover(); } catch { /* drawn in place, as before */ } }
   box.classList.add('on');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => box.classList.remove('on'), Math.min(7000, 2400 + text.length * 35));

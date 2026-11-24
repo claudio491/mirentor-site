@@ -369,10 +369,23 @@ html:has(dialog.sheet[open]){overflow:hidden}
 
 
 /* ---------- toast, popover, lock-on ---------- */
-.toast{position:fixed;z-index:30;left:50%;top:calc(10px + env(safe-area-inset-top));width:max-content;max-width:min(398px,calc(100% - 24px));transform:translate(-50%,-14px);opacity:0;pointer-events:none;
+.toast{position:fixed;z-index:30;left:50%;top:calc(10px + env(safe-area-inset-top));bottom:auto;width:max-content;max-width:min(398px,calc(100% - 24px));transform:translate(-50%,-14px);opacity:0;pointer-events:none;
   display:flex;gap:10px;align-items:baseline;padding:11px 14px;border:1px solid var(--hair);border-radius:var(--r-input);background:var(--graphite);color:var(--porcelain);font-weight:500;font-size:14.5px;line-height:1.35;box-shadow:0 12px 32px rgba(0,0,0,.42);
   transition:transform 220ms var(--ease-out),opacity 180ms linear}
 .toast.on{transform:translate(-50%,0);opacity:1}
+/* the toast is a popover so it is drawn in the top layer, over an open sheet and its backdrop (ui.js shows it there);
+   the browser's own popover box is undone: it keeps the place and look set above */
+.toast[popover]{right:auto;margin:0;overflow:visible}
+/* On a phone the news of an action comes from the bottom, over the bar, so it never covers the points chip that the
+   points fly to; with a sheet open (its buttons sit at the bottom) it comes from the top, as before. */
+@media (max-width:979px){
+  .toast{top:auto;bottom:calc(84px + env(safe-area-inset-bottom));transform:translate(-50%,14px)}
+  .toast.on{transform:translate(-50%,0)}
+  body.bare .toast,body:has(#nav[hidden]) .toast{bottom:calc(16px + env(safe-area-inset-bottom))}
+  html:has(dialog.sheet[open]) .toast{top:calc(10px + env(safe-area-inset-top));bottom:auto;transform:translate(-50%,-14px)}
+  html:has(dialog.sheet[open]) .toast.on{transform:translate(-50%,0)}
+  @media (prefers-reduced-motion:reduce){.toast,html:has(dialog.sheet[open]) .toast{transform:translate(-50%,0)}}
+}
 .toast b{font:600 13px var(--mono);font-variant-numeric:tabular-nums;color:var(--signal);white-space:nowrap}
 .pop{position:fixed;z-index:31;width:max-content;max-width:min(300px,calc(100% - 16px));background:var(--paper);color:var(--graphite);border-radius:var(--r-input);padding:12px 14px;font-size:14px;line-height:1.4;display:none;transform-origin:top left}
 .pop.on{display:block;animation:popin 160ms var(--ease-out)}
