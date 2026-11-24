@@ -46,3 +46,19 @@ test('a meeting or contract date is kept only as a real day from 30 days back to
   assert.deepEqual([again.json.repeat, again.json.updated], [true, true]);
   assert.equal(s.lines().filter((e) => e.type === 'log.update').at(-1).patch.when, undefined);
 });
+
+test('a site is opened for someone active on the team: never for a leader (who reads only) nor for someone taken off it', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin(), m = await s.addRep(a.cookie, 'mario');
+  const lia = await s.addRep(a.cookie, 'lia', { role: 'leader' }), gone = await s.addRep(a.cookie, 'exrep');
+  assert.equal((await s.call('POST', `${API}/reps/${gone.id}`, { patch: { active: false } }, { cookie: a.cookie })).status, 200);
+  const site = (id, rep) => s.call('POST', `${API}/site`, { id, rep, lead: { name: 'Sitio Uno' } }, { cookie: a.cookie });
+  for (const [id, rep] of [['s_leaders-site-01', lia.id], ['s_gone-site-0001', gone.id], ['s_nobody-site-01', 'r_nadie']]) {
+    const r = await site(id, rep);
+    assert.deepEqual([r.status, r.json.error], [400, 'fields'], rep);
+  }
+  assert.equal(s.lines().some((e) => e.type === 'site'), false);
+  // a rep, the admin (a lone admin opens sites for themself) and the practice rep, as before
+  const prac = (await s.call('POST', `${API}/practice`, {}, { cookie: a.cookie })).json.id;
+  for (const [id, rep] of [['s_reps-site-0001', m.id], ['s_admins-site-01', a.id], ['s_pracs-site-001', prac]]) assert.equal((await site(id, rep)).status, 200, rep);
+});
