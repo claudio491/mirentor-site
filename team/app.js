@@ -323,14 +323,17 @@ function paintStage(animate = false) {
   copy.dataset.sel = String(sel);
   // One button: log this stop, or go on to the next one when this one is done. A closed day has none, and neither
   // does a manager who is only looking.
-  const step = readOnly() ? null : nextStep(today, rules, localMinutes(S.me.serverTime, tz()));
+  const step = readOnly() ? null : nextStep(today, rules, localMinutes(nowIso(), tz()));
   cta.hidden = !step || today.closed || step.habit == null;
   if (!cta.hidden) {
     const onward = stop.done;
     cta.classList.toggle('onward', onward);
     if (onward) { $('#nextText').textContent = t('stop.next'); $('#nextPts').textContent = ''; cta.dataset.step = 'next'; cta.removeAttribute('aria-label'); }
     else {
-      const P = rules.points, [hh, mm] = String(rules.closeBy).split(':').map(Number), onTime = localMinutes(S.me.serverTime, tz()) < hh * 60 + mm;
+      const P = rules.points, [hh, mm] = String(rules.closeBy).split(':').map(Number), left = hh * 60 + mm - localMinutes(nowIso(), tz()), onTime = left > 0;
+      // The points for closing on time go at the hour: the button is painted again then, not up to five minutes later.
+      clearTimeout(paintStage.tick);
+      if (onTime && left < 24 * 60) paintStage.tick = setTimeout(() => { if (S.me && S.me.today && !S.me.today.closed && S.hold == null) paintStage(false); }, left * 60000 + 1000);
       const worth = [P.visit, P.conversation, P.followup, onTime ? P.dayClosedOnTime : 0][sel], pays = worth > 0 ? t('pts.plus', { n: worth }) : '';
       $('#nextText').textContent = t(`stop.cta.${sel}`); $('#nextPts').textContent = pays;
       cta.dataset.step = sel === 3 ? 'close' : 'log';
@@ -1048,10 +1051,14 @@ async function flush() {
 }
 
 // ---- session ----
+/** The server's clock, carried to this moment: what is on time is judged now, not when the last answer came. */
+let skew = 0;
+function skewFrom(me) { const at = Date.parse(me && me.serverTime); if (Number.isFinite(at)) skew = at - Date.now(); }
+const nowIso = () => new Date(Date.now() + skew).toISOString();
 /** What a view says, leaving out the clock: two reads that match have nothing new to draw. */
 const signature = (me) => JSON.stringify({ ...me, serverTime: null });
 // Only a person's own screens are kept on the phone for a start without signal: never a view-as, never the practice rep.
-function adopt(me) { epoch += 1; S.stale = null; S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); if (!S.as && me.me) store.set(KEY.me, me); }
+function adopt(me) { epoch += 1; S.stale = null; skewFrom(me); S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); if (!S.as && me.me) store.set(KEY.me, me); }
 /** A leader has no board of their own: they land on the leadership view, with no tabs, no log and no entrance. */
 function enterLeader(me) {
   epoch += 1;
@@ -1070,7 +1077,7 @@ function enterLeader(me) {
 }
 function enter(me) {
   if (me.viewer && me.viewer.role === 'leader') { enterLeader(me); return; }
-  S.lead = false; epoch += 1; S.stale = null;
+  S.lead = false; epoch += 1; S.stale = null; skewFrom(me);
   S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); S.lastPaint = Date.now();
   if (!S.as || me.viewer.role === 'rep') S.as = me.viewer.as;   // a rep's `as` is ignored by the server
   let own = S.as ? me.viewer.lang : me.me.lang;
