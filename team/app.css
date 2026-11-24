@@ -298,13 +298,19 @@ fieldset.field legend{padding:0;margin-bottom:6px}
 /* ---------- sheets ---------- */
 dialog.sheet{position:fixed;inset:auto 0 0 0;margin:0 auto;width:min(var(--col),100%);max-width:100%;max-height:92dvh;border:0;border-top:1px solid var(--hair);padding:0;background:var(--panel);color:inherit;border-radius:20px 20px 0 0;overflow:auto;overscroll-behavior:contain;
   transition:transform 320ms var(--ease-drawer),overlay 320ms allow-discrete,display 320ms allow-discrete}
-dialog.sheet::backdrop{background:rgba(12,13,14,.64);transition:opacity 240ms linear,overlay 240ms allow-discrete,display 240ms allow-discrete}
+dialog.sheet::backdrop{background:rgba(12,13,14,.64);opacity:var(--fade,1);transition:opacity 240ms linear,overlay 240ms allow-discrete,display 240ms allow-discrete}
 @starting-style{dialog.sheet[open]{transform:translateY(100%)}dialog.sheet[open]::backdrop{opacity:0}}
 dialog.sheet.closing{transform:translateY(100%);transition-duration:240ms}
 dialog.sheet.closing::backdrop{opacity:0}
+/* dragged by its top (ui.js), the sheet follows the finger with no lag */
+dialog.sheet.dragging,dialog.sheet.dragging::backdrop{transition:none}
 .sheet .in{padding:10px 16px calc(20px + env(safe-area-inset-bottom))}
-.sheet .grab{width:40px;height:4px;border-radius:2px;background:rgba(233,235,236,.28);margin:0 auto 14px}
-.sheet h2{font-size:30px;font-weight:700;letter-spacing:-.05em;text-transform:lowercase;line-height:1;padding-right:40px}
+/* the grab bar is a real handle: a 28 px strip across the sheet, the 40 px bar drawn in it */
+.sheet .grab{position:relative;height:28px;margin:-10px -16px 0;touch-action:none;cursor:grab}
+.sheet .grab::before{content:"";position:absolute;left:50%;top:10px;width:40px;height:4px;margin-left:-20px;border-radius:2px;background:rgba(233,235,236,.28);transition:background-color 160ms ease}
+.sheet.dragging .grab::before{background:rgba(233,235,236,.5)}
+.sheet.dragging .grab{cursor:grabbing}
+.sheet h2{font-size:30px;font-weight:700;letter-spacing:-.05em;text-transform:lowercase;line-height:1;padding-right:40px;touch-action:none;-webkit-user-select:none;user-select:none}
 .sheet h3{margin-top:16px}
 .sheet .x{all:unset;cursor:pointer;position:absolute;right:8px;top:8px;width:44px;height:44px;display:grid;place-items:center;border-radius:50%;color:var(--mist)}
 .sheet .x:focus-visible{outline:2px solid var(--signal)}
@@ -1200,6 +1206,9 @@ html.greeting{overflow:hidden}
 .rt-way .inst-tag{grid-row:1 / span 2;align-self:center}
 .rt-card .rt-more{margin-top:10px;border-color:rgba(27,29,32,.24);color:var(--graphite)}
 @media (min-width:1080px){.z-hoy>.rt-card{grid-row:9}.z-hoy>.lad-card:not(.rt-card){grid-row:10}}
+/* the entries at the end of Hoy (the site's report, my active sites, documents) sit under the cards, at their own height:
+   left to the grid they fell into the stage's column and stretched to the cards' height */
+@media (min-width:1080px){.z-hoy>.lad-learn{grid-column:2;align-self:start}.z-hoy>.rpt-entry{grid-row:11}.z-hoy>.sa-entry{grid-row:12}.z-hoy>.doc-entry{grid-row:13}}
 
 /* =====================================================================================================================
    THE LEADERSHIP VIEW. One page, read only, read on a Monday. The hours lead on the deep ground: the headline is the

@@ -2,6 +2,7 @@
 // so a name or a note typed by a person can never become part of the page's structure.
 import { DICT, LANGS, LOCALE, makeT } from './i18n.js';
 import { countFrame, dayOnly } from './moments.js';
+import { follow, speed, release } from './sheet-drag.js';
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -242,17 +243,65 @@ export function src(node, label, text) {
 }
 
 // ---- sheets ----
-export function openSheet(dlg) { hidePop(); dlg.classList.remove('closing'); if (!dlg.open) dlg.showModal(); dlg.scrollTop = 0; }
+/** Whatever a drag left on a sheet: where it stood and how much of the page it let through. */
+function settle(dlg) { dlg.classList.remove('dragging'); dlg.style.removeProperty('transform'); dlg.style.removeProperty('--fade'); }
+export function openSheet(dlg) { hidePop(); settle(dlg); dlg.classList.remove('closing'); if (!dlg.open) dlg.showModal(); dlg.scrollTop = 0; }
 export function closeSheet(dlg) {
   if (!dlg.open) return;
+  settle(dlg);   // a sheet let go mid-drag leaves from where it stands
   if (reduce) { dlg.close(); return; }
   dlg.classList.add('closing');
   // The class stays on after closing: a closed sheet is still drawn while it leaves, and without the class it would
   // slide back up for that moment. Opening it again takes the class off.
   setTimeout(() => dlg.close(), 240);
 }
+/** A sheet is dragged by its top, the grab bar and the title: down it follows the finger, and let go it closes or goes
+ *  back (sheet-drag.js decides). The rest of the sheet scrolls as it always did, and the close button and Escape still
+ *  close it for whoever does not drag. Only the first finger counts: a second one that lands mid-drag is ignored. */
+function dragToClose(dlg) {
+  let drag = null, dragged = -1;
+  const onTop = (e) => !!e.target.closest('.grab') || !!e.target.closest('h2');
+  dlg.addEventListener('pointerdown', (e) => {
+    dragged = -1;
+    if (drag || !e.isPrimary || e.button !== 0 || !onTop(e)) return;
+    drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, on: false, height: dlg.getBoundingClientRect().height, samples: [{ y: e.clientY, t: e.timeStamp }] };
+  });
+  dlg.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dy = e.clientY - drag.y0;
+    if (!drag.on) {
+      if (Math.abs(dy) < 6 || Math.abs(e.clientX - drag.x0) > Math.abs(dy)) return;
+      drag.on = true;
+      dlg.setPointerCapture(e.pointerId);
+      dlg.classList.add('dragging');
+    }
+    drag.samples.push({ y: e.clientY, t: e.timeStamp });
+    if (drag.samples.length > 16) drag.samples.shift();
+    const y = follow(dy);
+    dlg.style.transform = `translateY(${y.toFixed(1)}px)`;
+    dlg.style.setProperty('--fade', Math.max(0, 1 - Math.max(0, y) / drag.height).toFixed(3));
+  });
+  const end = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = drag; drag = null;
+    if (!d.on) return;
+    dragged = e.timeStamp;   // the click a mouse sends on release is not a tap on the backdrop
+    if (dlg.hasPointerCapture(e.pointerId)) dlg.releasePointerCapture(e.pointerId);
+    const last = d.samples[d.samples.length - 1];
+    const verdict = release({ dy: last.y - d.y0, vy: speed(d.samples), height: d.height });
+    if (verdict === 'close' && dlg.open) closeSheet(dlg); else settle(dlg);
+  };
+  dlg.addEventListener('pointerup', end);
+  dlg.addEventListener('pointercancel', end);
+  // Only the pointer's own click, right after a release, is swallowed: a finger lifted after a drag sends none, and a
+  // key or a script (detail 0) must always reach the close button.
+  dlg.addEventListener('click', (e) => {
+    if (dragged >= 0 && e.detail > 0 && e.timeStamp - dragged < 400) { dragged = -1; e.stopImmediatePropagation(); }
+  }, true);
+}
 export function initSheets() {
   for (const dlg of $$('dialog.sheet')) {
+    dragToClose(dlg);
     dlg.addEventListener('click', (e) => { if (e.target === dlg || e.target.closest('[data-close]')) closeSheet(dlg); });
     dlg.addEventListener('cancel', (e) => { e.preventDefault(); closeSheet(dlg); });
   }
