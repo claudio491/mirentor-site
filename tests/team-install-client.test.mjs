@@ -165,8 +165,11 @@ test('the controls a screen offers: none at all when a manager looks through vie
 
 test('a failed consent upload keeps the photo for a retry only when the failure was the signal or the server', async () => {
   const { keepForRetry } = await import('../team/install-steps.js');
-  for (const e of [{ code: 'offline', status: 0 }, { code: 'unknown', status: 502 }, { code: 'unknown', status: 500 }]) assert.equal(keepForRetry(e), true, JSON.stringify(e));
-  for (const e of [{ code: 'too_big', status: 413 }, { code: 'image', status: 400 }, { code: 'legacy', status: 409 }, { code: 'not_yours', status: 403 }, null]) assert.equal(keepForRetry(e), false, JSON.stringify(e));
+  const refusal = (status, code) => ({ status, code, data: { ok: false, error: code } });
+  for (const e of [{ code: 'offline', status: 0 }, { code: 'unknown', status: 502, data: null }, refusal(500, 'server')]) assert.equal(keepForRetry(e), true, JSON.stringify(e));
+  // a page that is not the server's own answer (a captive portal, a proxy): nobody looked at the photo, so it is kept
+  for (const e of [{ code: 'unknown', status: 200, data: null }, { code: 'unknown', status: 413, data: null }, { code: 'unknown', status: 403, data: { message: 'x' } }]) assert.equal(keepForRetry(e), true, JSON.stringify(e));
+  for (const e of [refusal(413, 'too_big'), refusal(400, 'image'), refusal(409, 'legacy'), refusal(403, 'not_yours'), null]) assert.equal(keepForRetry(e), false, JSON.stringify(e));
 });
 
 test('a correction sends a clean name and email; the email may be empty only on a legacy site', async () => {
