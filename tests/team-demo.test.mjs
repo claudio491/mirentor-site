@@ -1,3 +1,4 @@
+import { ART } from '../team/art.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import nodeCrypto from 'node:crypto';
@@ -61,7 +62,7 @@ test('the copy is one page that loads nothing: no module left to fetch, no path 
   assert.equal(made.fragment.includes('Persona Uno') && made.fragment.includes('data:image/jpeg;base64,'), true);
   // The illustrations travel inside too: each one is in the script as itself, and no address of one is left.
   assert.equal(/["'`]art\/[a-z0-9.-]+\.webp/.test(made.script), false, 'an illustration is still read from a server');
-  assert.equal((made.script.match(/data:image\/webp;base64,/g) || []).length, 13);
+  assert.equal((made.script.match(/data:image\/webp;base64,/g) || []).length, Object.keys(ART).length, 'every illustration art.js names is carried inside');
 });
 
 test('inside the page, the team\'s own server code lets the viewer be anyone on the team, scores a log and keeps the log it is given', async () => {

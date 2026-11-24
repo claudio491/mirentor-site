@@ -744,6 +744,8 @@ html[data-vt=back]::view-transition-new(root){animation-name:vt-wipe-back}
 :root{--deep:#141618}
 [data-art="visit"]{--art:var(--art-visit)}[data-art="talk"]{--art:var(--art-talk)}[data-art="follow"]{--art:var(--art-follow)}[data-art="close"]{--art:var(--art-close)}[data-art="rest"]{--art:var(--art-rest)}
 [data-art="meeting"]{--art:var(--art-meeting);--art-glow:var(--art-meeting-glow)}[data-art="contract"]{--art:var(--art-contract);--art-glow:var(--art-contract-glow)}
+/* a small lens (the route, the week's legend, the log sheet) draws a stop from its small copy, not from the 2240 px strip */
+.sl [data-art="visit"]{--art:var(--art-visit-thumb)}.sl [data-art="talk"]{--art:var(--art-talk-thumb)}.sl [data-art="follow"]{--art:var(--art-follow-thumb)}.sl [data-art="close"]{--art:var(--art-close-thumb)}.sl [data-art="rest"]{--art:var(--art-rest-thumb)}
 [data-f="1"]{--fx:33.333%}[data-f="2"]{--fx:66.667%}[data-f="3"]{--fx:100%}
 
 /* ---------- the top bar: the week in points, and the person's own face ---------- */

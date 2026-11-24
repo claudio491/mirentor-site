@@ -151,3 +151,17 @@ test('the stylesheet keeps the motion rules', () => {
     if (size && Number(size[1]) < 13) assert.ok(/var\(--mono\)/.test(m[2]) || /\.(tab|flabel|slabel|count|tag|cell-l|chip)\b/.test(m[1]), `text under 13 px outside a label: ${m[1].trim()}`);
   }
 });
+
+// 24 Nov: on a slow signal the modules were found one level at a time (app.js asks for ui.js, which asks for i18n.js...),
+// each level a round trip: the flow audit measured the first screen at 30 s on slow 3G. The page names every module the
+// app loads, so the browser asks for all of them at once. This keeps that list exactly the app's module graph.
+test('the page preloads every module the app imports, and nothing else', () => {
+  const graph = new Set(), walk = (file) => {
+    if (graph.has(file)) return; graph.add(file);
+    for (const m of read(`team/${file}`).matchAll(/^import\s+(?:[^;]*?\s+from\s+)?'\.\/([\w-]+\.js)';?/gm)) walk(m[1]);
+  };
+  walk('app.js');
+  const page = read('team/index.html');
+  const preloaded = new Set([...page.matchAll(/<link rel="modulepreload" href="([\w-]+\.js)">/g)].map((m) => m[1]));
+  assert.deepEqual([...preloaded].sort(), [...graph].sort());
+});

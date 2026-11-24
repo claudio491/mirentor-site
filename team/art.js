@@ -14,7 +14,12 @@ export const ART = {
   "meeting": "art/meeting.webp",
   "meetingGlow": "art/meeting.glow.webp",
   "contract": "art/contract.webp",
-  "contractGlow": "art/contract.glow.webp"
+  "contractGlow": "art/contract.glow.webp",
+  "visitThumb": "art/visit.thumb.webp",
+  "talkThumb": "art/talk.thumb.webp",
+  "followThumb": "art/follow.thumb.webp",
+  "closeThumb": "art/close.thumb.webp",
+  "restThumb": "art/rest.thumb.webp"
 };
 /** How much of each frame of a stop is light (0 to 1), frame by frame: the pool under the stop follows it. */
 export const LIGHT = {"visit": [0.0006, 0.016, 0.05, 0.0516], "talk": [0.0051, 0.0109, 0.0169, 0.0167], "follow": [0.0034, 0.0102, 0.0143, 0.0117], "close": [0.0173, 0.0268, 0.029, 0.0096], "rest": [0.0024, 0.0026, 0.0026, 0.0027]};
