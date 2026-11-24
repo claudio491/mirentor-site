@@ -3,7 +3,7 @@
 // fills (site hours, the pay rate) and the example team's controls.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { usd, money, paySource, mateLine, mateCard, siteRows, hasSites } from '../team/sites-steps.js';
+import { usd, money, paySource, mateLine, mateCard, siteRows, hasSites, goneLine } from '../team/sites-steps.js';
 import { siteHoursBody, payBody, recentMondays, siteActions } from '../team/manager-steps.js';
 import { exampleActions } from '../team/practice-steps.js';
 import { repFacts } from '../team/leader-steps.js';
@@ -30,13 +30,41 @@ test('a teammate\'s line on the table and their card: sites counted, the week\'s
   const crew = { id: 'r_b', sites: [{ name: 'Sitio de ejemplo 3', workers: 3, minutes: 640 }], minutes: 640, cents: 1067 };
   assert.equal(mateLine(crew, es), '1 sitio activo · 10 h 40 min · US$10.67');
   assert.equal(mateLine({ ...crew, cents: null }, en), '1 active site · 10 h 40 min · amount to be defined');
-  assert.equal(mateLine({ id: 'r_d', sites: [], minutes: 0, cents: 0 }, es), '0 sitios activos · 0 min · US$0.00');
   assert.equal(mateLine(null, es), null, 'no entry: no line');
+
   const card = mateCard(crew, 100, es);
   assert.deepEqual(card.sites, [{ name: 'Sitio de ejemplo 3', line: '3 trabajadores · 10 h 40 min' }]);
   assert.deepEqual([card.total, card.source], ['US$10.67', '10 h 40 min aceptadas × US$1.00 por hora']);
   // a card never has a worker's name to show: the entry holds counts and site names only
   assert.deepEqual(Object.keys(card.sites[0]).sort(), ['line', 'name']);
+});
+
+test('a teammate\'s line leaves out what is zero or undefined, and is no line at all when nothing is left', () => {
+  // "0 sitios activos · 0 min · monto por definir" wrapped to three lines on 4 of 5 rows at 375 px and said nothing
+  const site = { name: 'Sitio de ejemplo 3', workers: 3, minutes: 640 };
+  assert.equal(mateLine({ id: 'r_d', sites: [], minutes: 0, cents: 0 }, es), null);
+  assert.equal(mateLine({ id: 'r_d', sites: [], minutes: 0, cents: null }, es), null, '"monto por definir" only when there is something to pay for');
+  assert.equal(mateLine({ id: 'r_d' }, en), null, 'nothing known: no line');
+  // only the parts with a number
+  assert.equal(mateLine({ id: 'r_e', sites: [site], minutes: 0, cents: null }, es), '1 sitio activo');
+  assert.equal(mateLine({ id: 'r_e', sites: [site], minutes: 0, cents: 0 }, en), '1 active site');
+  assert.equal(mateLine({ id: 'r_e', sites: [], minutes: 640, cents: null }, es), '10 h 40 min · monto por definir');
+  assert.equal(mateLine({ id: 'r_e', sites: [], minutes: 640, cents: 1067 }, en), '10 h 40 min · US$10.67');
+  // with every number it means what it always did
+  assert.equal(mateLine({ id: 'r_e', sites: [site, site], minutes: 640, cents: 1067 }, es), '2 sitios activos · 10 h 40 min · US$10.67');
+});
+
+test('the earnings lines write hours the way the reader writes a number', () => {
+  const de = (n) => n.toLocaleString('de-DE'), big = 1666 * 60;   // a format unlike the app's own, so passing it shows
+  assert.equal(mateLine({ id: 'r_e', sites: [], minutes: big, cents: null }, es, de), '1.666 h · monto por definir');
+  assert.equal(paySource(big, 100, en, de), '1.666 h accepted × US$1.00 per hour');
+  assert.equal(goneLine({ minutes: big, cents: 166600 }, es, de), 'Sitios anulados esta semana: 1.666 h · US$1,666.00');
+  const card = mateCard({ id: 'r_e', sites: [{ name: 'Sitio Grande', workers: 40, minutes: big }], minutes: big, cents: 166600 }, 100, es, de);
+  assert.deepEqual([card.hours, card.sites[0].line, card.source], ['1.666 h', '40 trabajadores · 1.666 h', '1.666 h aceptadas × US$1.00 por hora']);
+  const row = siteRows([{ id: 's_1', name: 'Sitio Grande', workers: 40, recording: 40, phones: 40, consents: 40, week: big, last: big + 1, cents: 166600 }], en, de)[0];
+  assert.deepEqual([row.week, row.last], ['1.666 h', '1.666 h 1 min']);
+  // with no format given, the thousands are still grouped
+  assert.equal(mateLine({ id: 'r_e', sites: [], minutes: big, cents: null }, en), '1,666 h · amount to be defined');
 });
 
 test('my active sites: the rows and their facts; the Hoy entry shows only with at least one site', () => {

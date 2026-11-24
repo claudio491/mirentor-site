@@ -19,7 +19,7 @@ test('the example team from an earlier day offers to update it; from today it do
 test('a teammate\'s line counts active sites', () => {
   const crew = { id: 'r_b', sites: [{ name: 'Sitio de ejemplo 3', workers: 3, minutes: 640 }], minutes: 640, cents: 1067 };
   assert.equal(mateLine(crew, es), '1 sitio activo · 10 h 40 min · US$10.67');
-  assert.equal(mateLine({ ...crew, sites: [] }, en), '0 active sites · 10 h 40 min · US$10.67');
+  assert.equal(mateLine({ ...crew, sites: [] }, en), '10 h 40 min · US$10.67', 'no active site: that part is left out');
 });
 
 test('what sites voided this week still bring reads as its own line, in both languages; none, no line', () => {

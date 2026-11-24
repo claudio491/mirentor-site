@@ -1,9 +1,40 @@
 // shrink.js: a photo from the phone's camera, made small enough to send. An iPhone photo can be HEIC or weigh 4 MB; the
 // server takes only JPEG, PNG or WebP under its limit. The browser decodes whatever it can show, and a canvas writes it
-// back as JPEG, smaller on each pass until it fits.
+// back as JPEG, smaller on each pass until it fits. The photo is decoded at the size it will be drawn at, not at the
+// camera's full size: a 12 MP photo decoded whole holds 48 MB of pixels on a phone that may not have them.
 
-async function decode(file) {
+/** What to ask the browser to decode a photo at, from its own size: the longer side brought down to `maxSide`, given as
+ *  that one side only, so the browser keeps the proportions however the photo is turned. Null when it already fits (it
+ *  is never made larger) or its size is unknown. */
+export function resizeFor(size, maxSide) {
+  const w = size && size.width, h = size && size.height;
+  if (!(w > 0) || !(h > 0) || Math.max(w, h) <= maxSide) return null;
+  return w >= h ? { resizeWidth: maxSide } : { resizeHeight: maxSide };
+}
+/** A photo's width and height as its header states them, or null. A JPEG's markers are walked by their lengths up to
+ *  the frame header, a PNG's are fixed: only a few bytes are read, and no pixel is decoded. (An image element would
+ *  need a blob: address, which the page's policy does not allow.) Anything else, a HEIC for one, is unknown. */
+export async function headerSize(file) {
+  const at = async (pos, n) => new Uint8Array(await file.slice(pos, pos + n).arrayBuffer());
+  const head = await at(0, 24), u16 = (b, i) => (b[i] << 8) | b[i + 1], u32 = (b, i) => ((b[i] << 24) >>> 0) + (b[i + 1] << 16) + (b[i + 2] << 8) + b[i + 3];
+  if (head.length >= 24 && u32(head, 0) === 0x89504E47 && u32(head, 12) === 0x49484452) return { width: u32(head, 16), height: u32(head, 20) };
+  if (head.length < 4 || head[0] !== 0xFF || head[1] !== 0xD8) return null;
+  for (let pos = 2, steps = 0; pos < file.size && steps < 400; steps += 1) {
+    const m = await at(pos, 9);
+    if (m.length < 2 || m[0] !== 0xFF) return null;
+    const type = m[1];
+    if (type === 0xFF) { pos += 1; continue; }                                         // a fill byte
+    if (type === 0x01 || (type >= 0xD0 && type <= 0xD8)) { pos += 2; continue; }        // a marker with no length
+    if (type === 0xD9 || type === 0xDA || m.length < 4) return null;                    // the data starts with no frame header
+    if (type >= 0xC0 && type <= 0xCF && type !== 0xC4 && type !== 0xC8 && type !== 0xCC) return m.length < 9 ? null : { width: u16(m, 7), height: u16(m, 5) };
+    pos += 2 + u16(m, 2);
+  }
+  return null;
+}
+async function decode(file, maxSide) {
   if (typeof createImageBitmap === 'function') {
+    const fit = resizeFor(await headerSize(file).catch(() => null), maxSide);
+    if (fit) { try { return await createImageBitmap(file, { imageOrientation: 'from-image', ...fit, resizeQuality: 'high' }); } catch { /* a browser that does not take a size decodes it whole, below */ } }
     try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch { /* some browsers decode only through an image element */ }
   }
   const url = URL.createObjectURL(file);
@@ -19,7 +50,7 @@ const toJpeg = (canvas, quality) => new Promise((resolve, reject) => canvas.toBl
 /** The photo as a JPEG whose longer side is at most `maxSide` and whose size is at most `maxBytes`. Throws when the
  *  browser cannot read the file as an image, and with code `too_big` when it cannot be brought under `maxBytes`. */
 export async function shrink(file, { maxSide = 1600, maxBytes = 800 * 1024 } = {}) {
-  const src = await decode(file);
+  const src = await decode(file, maxSide);
   const w0 = src.width || src.naturalWidth, h0 = src.height || src.naturalHeight;
   if (!w0 || !h0) throw new Error('decode');
   let side = Math.min(maxSide, Math.max(w0, h0)), quality = 0.86, out = null;

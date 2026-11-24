@@ -17,6 +17,7 @@ const MAX_CELLS = 40;   // a site's meter draws one cell per eligible worker, up
 
 export function createLeader({ api, S, errText, setTab }) {
   let view = null;
+  let watch = null;   // the one observer that puts a city band together when it comes into view, reused on every visit
   const H = (m) => hm(m, num);
   const pct = (p) => t('lead.pct.n', { pct: p });
   const share = (x) => Math.round(x * 1000) / 10;   // a fraction as a percentage with one decimal
@@ -127,7 +128,7 @@ export function createLeader({ api, S, errText, setTab }) {
         h('div', { class: 'ld-wn' }, h('b', { text: rep.first }), step ? h('small', {}, sentence('lead.rep.new', { n: srcNum('', step.value, from(step.source)) })) : null)),
       h('div', { class: 'ld-nums' }, facts.filter((f) => f.key !== 'ladder').map((f) => h('div', { class: 'ld-n' }, srcNum('ld-nv', f.value, from(f.source)), h('span', { class: 'label', text: t(LABELS[f.key]) })))),
       // the week's accepted hours and earnings, to the cent or "monto por definir", opening into hours times rate
-      rep.minutes != null ? h('p', { class: 'ld-earn' }, src(h('button', { class: 'src', type: 'button', text: t('lead.rep.earn', { h: hm(rep.minutes), m: money(rep.cents, t) }) }), () => t('c.source'), () => paySource(rep.minutes, rep.rate ?? null, t))) : null);
+      rep.minutes != null ? h('p', { class: 'ld-earn' }, src(h('button', { class: 'src', type: 'button', text: t('lead.rep.earn', { h: H(rep.minutes), m: money(rep.cents, t) }) }), () => t('c.source'), () => paySource(rep.minutes, rep.rate ?? null, t, num))) : null);
   }
   function cityNode(c) {
     const name = c.city ? cityName(c.city) : t('lead.city.none');
@@ -147,6 +148,7 @@ export function createLeader({ api, S, errText, setTab }) {
 
   function render() {
     if (!view) return;
+    if (watch) watch.disconnect();   // the bands are drawn again: the ones it watched are gone
     $('#ldBack').hidden = S.me.viewer.role === 'leader';
     $('#ldHoursBtn').hidden = !S.mgr;   // a manager types a week by hand; a leader reads only
     $('#ldChip').textContent = t(S.mgr ? 'lead.open' : 'lead.chip');   // "read only" is said to the one who only reads
@@ -188,11 +190,11 @@ export function createLeader({ api, S, errText, setTab }) {
     document.querySelectorAll('#ldWeeks .ld-bt i').forEach((n, i) => grow(n, 600 + i * 60, 620));
     const bands = [...document.querySelectorAll('#ldCities .ld-city')];
     if (!('IntersectionObserver' in window)) { bands.forEach(arriveCity); return; }
-    // A band under the fold puts itself together when it comes into view; until then it is simply drawn.
-    for (const band of bands) {
-      const io = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) { io.disconnect(); arriveCity(band); } }, { threshold: 0.12 });
-      io.observe(band);
-    }
+    // A band under the fold puts itself together when it comes into view; until then it is simply drawn. One observer
+    // does it for every band, and lets go of each band once it arrived and of all of them on the next visit.
+    if (!watch) watch = new IntersectionObserver((entries) => { for (const e of entries) if (e.isIntersecting) { watch.unobserve(e.target); arriveCity(e.target); } }, { threshold: 0.12 });
+    watch.disconnect();
+    for (const band of bands) watch.observe(band);
   }
 
   /** A week's hours typed by hand, as the Scorecard shows them. The answer is the whole view, with the week marked manual. */

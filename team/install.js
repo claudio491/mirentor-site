@@ -3,12 +3,13 @@
 // on graphite; one worker, whose consent photo opens the phone step and whose phone opens the clip step; and the close,
 // with the site's record. Every screen labels a practice site "Práctica".
 // The server answers every action with the whole install; the screen draws the difference and moves only what changed.
-import { $, $$, h, s, put, t, num, cityName, stamp, dayMonth, giant, countTo, recount, flipList, toast, src, once, formSheet, ringAt, lock, buzz, reduce, isQuiet, quiet, showErr, EASE } from './ui.js';
+import { $, $$, h, s, put, t, lang, num, cityName, stamp, dayMonth, giant, countTo, recount, flipList, toast, src, once, formSheet, ringAt, lock, buzz, reduce, isQuiet, quiet, showErr, EASE } from './ui.js';
 import { reveal, stagger } from './fx.js';
 import { lens, setLens, drawIn } from './hand.js';
 import { workerOrder, workerSteps, prepRows, statusKey, newWorkerId, isDone, installCard, imeiFor, imeiFromScan, stepNow, recordRows, closeState, consentFailed, controls, keepForRetry, workerEditBody } from './install-steps.js';
 import { shrink, examplePage } from './shrink.js';
 import { actingMode, readOnlyIn } from './practice-steps.js';
+import { askTwice, disarm } from './taps.js';
 
 const tail = (imei) => (imei ? String(imei).slice(-4) : '');
 
@@ -266,11 +267,11 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
   function openWorker(id) {
     wid = id;
     for (const n of ['#wkErr1', '#wkErr2', '#wkErr3', '#wkErr4']) $(n).hidden = true;
-    delete $('#wkRemove').dataset.armed;
-    $('#wkImei').value = ''; $('#wkShot').replaceChildren(); delete $('#wkGiant').dataset.k;
+    disarm($('#wkRemove'));
+    $('#wkImei').value = ''; $('#wkShot').replaceChildren(); delete $('#wkGiant').dataset.k; delete $('#wkGiant').dataset.words;
     for (const tk of $$('#s-worker .inst-tick')) { tk.classList.toggle('on', false); tk.classList.toggle('now', false); delete tk.dataset.seen; }
     for (const st of $$('#s-worker .inst-step')) delete st.dataset.locked;
-    delete $('#wkReturn').dataset.armed;
+    disarm($('#wkReturn'));
     $('#wkShot').dataset.k = '';
     quiet(paintWorker);
     setTab('worker');
@@ -284,8 +285,13 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     $('#wkRO').hidden = !readOnly();
     $('#wkSite').textContent = site.name; $('#wkPractice').hidden = !site.practice;
     $('#wkName').textContent = all ? w.name : t('install.w.lead', { name: w.name });
-    const g = $('#wkGiant'), key = all ? 'done' : `${now.at}/${now.of}`;
-    if (g.dataset.k !== key) { giant(g, all ? t('install.w.done') : t('install.w.giant', { a: now.at, b: now.of })); if (g.dataset.k && !isQuiet()) reveal(g); g.dataset.k = key; }
+    // the headline is written again when the step or the language changed, and rises only when the step did
+    const g = $('#wkGiant'), key = all ? 'done' : `${now.at}/${now.of}`, words = `${lang()}|${key}`;
+    if (g.dataset.words !== words) {
+      giant(g, all ? t('install.w.done') : t('install.w.giant', { a: now.at, b: now.of }));
+      if (g.dataset.k && g.dataset.k !== key && !isQuiet()) reveal(g);
+      g.dataset.k = key; g.dataset.words = words;
+    }
     g.classList.toggle('full', all);
     $('#wkSupport').textContent = site.legacy ? t(w.consent ? 'install.legacy.w.s.consent_only' : 'install.legacy.w.s.no_consent') : t(`install.w.s.${w.status}`);
     $('#wkS2').hidden = !!site.legacy;
@@ -306,9 +312,13 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     const key1 = w.consent ? `${w.id}:${w.consent.v}` : `${w.id}:none`;
     if (shot.dataset.k !== key1) {
       shot.dataset.k = key1;
-      put(shot, w.consent ? h('img', { src: `api/consent/${encodeURIComponent(w.id)}?v=${encodeURIComponent(w.consent.v)}`, alt: t('install.w.photo.alt', { name: w.name }), decoding: 'async' })
-        : [h('span', { class: 'inst-doc', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'), h('i'), h('i')), h('span', { class: 'inst-shot-t', text: t('install.w.photo.hint') })]);
+      put(shot, w.consent ? h('img', { src: `api/consent/${encodeURIComponent(w.id)}?v=${encodeURIComponent(w.consent.v)}`, alt: '', decoding: 'async' })
+        : [h('span', { class: 'inst-doc', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'), h('i'), h('i')), h('span', { class: 'inst-shot-t' })]);
     }
+    // the photo is kept while it is the same; its words follow the language and the name on every paint
+    const photo = $('img', shot), hint = $('.inst-shot-t', shot);
+    if (photo) photo.alt = t('install.w.photo.alt', { name: w.name });
+    if (hint) hint.textContent = t('install.w.photo.hint');
     hooks($('#wkDocs'), 'consent');   // the consent form and what to say, next to the photo
     $('#wkMeta').hidden = !w.consent;
     if (w.consent) $('#wkMeta').textContent = t('install.w.saved', { form: w.consent.form, when: stamp(w.consent.t, tz()) });
@@ -360,12 +370,22 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
       : ok ? t('install.w.imei.ok') : digits.length === 15 && /^\d+$/.test(digits) ? t('install.w.imei.check') : /[^\d\s-]/.test(v) ? t('install.w.imei.chars') : t('install.w.imei.count', { n: digits.length });
     $('#wkImeiHint').classList.toggle('ok', ok);
   }
-  /** A consent photo: shrunk to JPEG on the phone, then sent for this worker's id. A failed upload keeps the photo and
-   *  the id, so the retry is the same worker and the same photo; until it arrives the worker stays "Falta firma". */
-  async function sendConsent(blob) {
-    const id = wid, err = $('#wkErr1'), btn = $('#wkRetry');
+  /** One consent upload at a time. While a photo is being shrunk or sent, the photo button is off, and a second pick, a
+   *  retry or an example starts nothing: a second upload for the same person could arrive after the first. */
+  let uploading = false;
+  async function oneUpload(fn) {
+    if (uploading) return;
+    uploading = true; $('#wkFile').disabled = true; $('#wkFileBtn').classList.add('busy');
+    try { await fn(); } finally { uploading = false; $('#wkFile').disabled = false; $('#wkFileBtn').classList.remove('busy'); }
+  }
+  const photoWord = () => t(worker() && worker().consent ? 'install.w.photo.again' : 'install.w.photo');
+  /** A consent photo: shrunk to JPEG on the phone, then sent for the id of the worker it was taken for. A failed upload
+   *  keeps the photo and the id, so the retry is the same worker and the same photo; until it arrives the worker stays
+   *  "Falta firma". */
+  async function sendConsent(blob, id = wid) {
+    const err = $('#wkErr1'), btn = $('#wkRetry');
     if (readOnly()) return;
-    err.hidden = true; $('#wkFileBtn').classList.add('busy'); $('#wkFileT').textContent = t('install.w.sending');
+    err.hidden = true; $('#wkFileT').textContent = t('install.w.sending');
     try {
       view = await write('PUT', `worker/${encodeURIComponent(id)}/consent`, blob);
       failed.delete(id);
@@ -379,14 +399,17 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
       if (w) Object.assign(w, consentFailed(w));
       render(true); showErr(err, e && e.code === 'offline' ? t('install.w.failed') : keep ? t('install.w.failed.server') : why(e));
       if (keep && btn) btn.focus();
-    } finally { $('#wkFileBtn').classList.remove('busy'); if (worker()) $('#wkFileT').textContent = t(worker().consent ? 'install.w.photo.again' : 'install.w.photo'); }
+    } finally { if (worker()) $('#wkFileT').textContent = photoWord(); }
   }
-  async function pickConsent(file) {
+  function pickConsent(file) {
     if (!file) return;
-    let blob;
-    $('#wkFileT').textContent = t('install.w.shrinking');
-    try { blob = await shrink(file); } catch (e) { showErr($('#wkErr1'), e && e.code === 'too_big' ? errText(e) : t('install.err.read')); $('#wkFileT').textContent = t('install.w.photo'); return; }
-    await sendConsent(blob);
+    const id = wid;   // the person on screen when the photo was picked, whoever is open once it is shrunk
+    oneUpload(async () => {
+      let blob;
+      $('#wkFileT').textContent = t('install.w.shrinking');
+      try { blob = await shrink(file); } catch (e) { showErr($('#wkErr1'), e && e.code === 'too_big' ? errText(e) : t('install.err.read')); $('#wkFileT').textContent = photoWord(); return; }
+      await sendConsent(blob, id);
+    });
   }
   /** A photo of the box or the sticker: the browser's barcode reader looks for an IMEI in it. */
   async function scanImei(file) {
@@ -403,7 +426,7 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
 
   // ---- the close ----
   function openClose() {
-    delete $('#clsGo').dataset.armed;
+    disarm($('#clsGo'));
     $('#clsErr').hidden = true;
     for (const tk of $$('#s-iclose .inst-tick')) { tk.classList.remove('on', 'now'); delete tk.dataset.seen; }
     $('#clsGiant').replaceChildren();
@@ -447,29 +470,26 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     go.classList.toggle('armed', !!go.dataset.armed);
     go.textContent = t(go.dataset.armed ? 'install.c.go.again' : 'install.c.go');
   }
-  /** Closing cannot be taken back: the first tap arms the button and says so, the second closes. */
-  function closeTap() {
+  /** Closing cannot be taken back: the first tap arms the button and says so, the second closes. The second counts only
+   *  after a pause (taps.js): one double tap is one gesture and never closes. */
+  function closeTap(e) {
     const go = $('#clsGo');
     if (!ctl().close) return;
-    if (!go.dataset.armed) {
-      go.dataset.armed = '1'; paintClose(); lock(go);
-      setTimeout(() => { if (go.dataset.armed) { delete go.dataset.armed; if (S.tab === 'iclose') quiet(paintClose); } }, 5000);
-      return;
-    }
-    delete go.dataset.armed;
+    const step = askTwice(go, e, { onDisarm: () => { if (S.tab === 'iclose') quiet(paintClose); } });
+    if (step === 'arm') { paintClose(); lock(go); }
+    if (step !== 'run') return;
+    paintClose();
     act(go, () => write('POST', `install/${encodeURIComponent(siteId)}/close`, {}), 'install.c.closed', $('#clsErr')).then((ok) => { if (ok) { buzz([10, 40, 10]); ringAt($('#clsGiant em'), { whole: false }); } });
   }
-  /** Giving a phone back cannot be taken back either: the first tap arms, the second returns it. */
-  function returnTap() {
+  /** Giving a phone back cannot be taken back either: the first tap arms, the second (after a pause) returns it. */
+  function returnTap(e) {
     const btn = $('#wkReturn'), w = worker();
     if (!w || !ctl(w).returnPhone) return;
-    if (!btn.dataset.armed) {
-      btn.dataset.armed = '1'; paintWorker(); lock(btn);
-      setTimeout(() => { if (btn.dataset.armed) { delete btn.dataset.armed; if (S.tab === 'worker') quiet(paintWorker); } }, 5000);
-      return;
-    }
-    delete btn.dataset.armed;
+    const step = askTwice(btn, e, { onDisarm: () => { if (S.tab === 'worker') quiet(paintWorker); } });
+    if (step === 'arm') { paintWorker(); lock(btn); }
+    if (step !== 'run') return;
     $('#wkImei').value = '';
+    paintWorker();
     act(btn, () => write('POST', `worker/${encodeURIComponent(w.id)}/phone/return`, {}), 'install.w.returned', $('#wkErr2'));
   }
   /** A name or an email typed wrong, written again. On a legacy site the email may stay empty. */
@@ -481,17 +501,16 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
       fields: [{ name: 'name', label: t('install.add.name'), value: w.name, max: 80 }, { name: 'email', type: 'email', label: t(legacy ? 'install.add.email.opt' : 'install.add.email'), value: w.email || '', lower: true, max: 120 }],
       onSubmit: async (v) => { view = await write('POST', `worker/${encodeURIComponent(w.id)}/edit`, workerEditBody(v, legacy)); render(true); toast(t('install.w.edited')); refresh(false); } });
   }
-  /** Taking someone off the list asks twice. Someone holding a phone is told to return it first, before anything is sent. */
-  function removeTap() {
+  /** Taking someone off the list asks twice (the second tap after a pause). Someone holding a phone is told to return it
+   *  first, before anything is sent. */
+  function removeTap(e) {
     const btn = $('#wkRemove'), w = worker();
     if (!w || !ctl(w).remove) return;
     if (w.imei) { showErr($('#wkErr4'), t('err.return_phone_first')); return; }
-    if (!btn.dataset.armed) {
-      btn.dataset.armed = '1'; paintWorker(); lock(btn);
-      setTimeout(() => { if (btn.dataset.armed) { delete btn.dataset.armed; if (S.tab === 'worker') quiet(paintWorker); } }, 5000);
-      return;
-    }
-    delete btn.dataset.armed;
+    const step = askTwice(btn, e, { onDisarm: () => { if (S.tab === 'worker') quiet(paintWorker); } });
+    if (step === 'arm') { paintWorker(); lock(btn); }
+    if (step !== 'run') return;
+    paintWorker();
     const name = w.name, key = view.site.practice ? 'install.w.removed.practice' : 'install.w.removed';
     act(btn, () => write('POST', `worker/${encodeURIComponent(w.id)}/remove`, {}), null, $('#wkErr4')).then((ok) => { if (ok) { toast(t(key, { name })); setTab('install'); } });
   }
@@ -527,9 +546,9 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     $('#wkBack').addEventListener('click', () => setTab('install'));
     $('#clsBack').addEventListener('click', () => setTab('install'));
     $('#wkFile').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; pickConsent(f); });
-    $('#wkRetry').addEventListener('click', (e) => { const blob = failed.get(wid); if (blob) once(e.currentTarget, () => sendConsent(blob)); });
+    $('#wkRetry').addEventListener('click', (e) => { const blob = failed.get(wid); if (blob) once(e.currentTarget, () => oneUpload(() => sendConsent(blob))); });
     // On a practice site: a page drawn here, with only the word EJEMPLO on it, is filed as the consent so the lock can be shown opening.
-    $('#wkExample').addEventListener('click', (e) => { const w = worker(); if (w && ctl(w).example) once(e.currentTarget, async () => sendConsent(await examplePage(t('install.w.example.word')))); });
+    $('#wkExample').addEventListener('click', (e) => { const w = worker(); if (w && ctl(w).example) once(e.currentTarget, () => oneUpload(async () => sendConsent(await examplePage(t('install.w.example.word')), w.id))); });
     $('#wkScan').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; scanImei(f); });
     $('#wkImei').addEventListener('input', () => { $('#wkErr2').hidden = true; imeiHint(); });
     $('#wkImeiSave').addEventListener('click', (e) => { const imei = imeiFor(view && view.site, $('#wkImei').value); if (imei) act(e.currentTarget, () => write('POST', `worker/${encodeURIComponent(wid)}/phone`, { imei }), 'install.w.phone.saved', $('#wkErr2')); });

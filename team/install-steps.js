@@ -1,6 +1,7 @@
 // install-steps.js: what the install screens decide on the phone, away from the page so it can be tested.
 // Which step of a worker is open, whether the Hoy card shows, how the list is ordered and what a worker looks like
 // after a consent upload that did not reach the server. The server stays the judge: these only shape the screen.
+import { fromServer } from './queue.js';
 
 /** IMEI: 15 digits, not all the same, the last one a Luhn check digit. Spaces and dashes typed or scanned with it are dropped.
  *  The same rule as lib/team/install.mjs, so the screen refuses what the server would. */
@@ -141,6 +142,7 @@ export function workerEditBody(v, legacy = false) {
   return { name, email };
 }
 
-/** A consent photo is kept for "Reintentar con la misma foto" only when the signal or the server failed. A refusal of the
- *  photo itself (too big, not an image) or of the person asks for a new photo or explains; retrying it would fail again. */
-export const keepForRetry = (e) => !!e && (e.code === 'offline' || e.status >= 500);
+/** A consent photo is kept for "Reintentar con la misma foto" only when the signal or the server failed, or the answer
+ *  was not the server's own (a captive portal's or a proxy's page: nobody looked at the photo). A refusal of the photo
+ *  itself (too big, not an image) or of the person asks for a new photo or explains; retrying it would fail again. */
+export const keepForRetry = (e) => !!e && (e.code === 'offline' || e.status >= 500 || !fromServer(e));

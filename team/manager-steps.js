@@ -44,15 +44,19 @@ const isMonday = (day) => {
   const d = new Date(`${day}T12:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === day && d.getUTCDay() === 1;
 };
-/** Hours and minutes typed as two fields, as minutes. Empty is zero; minutes run 0 to 59. */
+/** Hours and minutes typed as two fields, as minutes, or null when they cannot be read. Each is a whole number written
+ *  with digits only, minutes 0 to 59: "51,5" or "51.5" is refused, never read as 515 or as 51. One of the two may stay
+ *  empty (51 h, or 45 min); both empty is no number at all, never a zero, since the server records a zero as a fact.
+ *  At most 100,000 minutes, as the server takes. */
 const minutesOf = (hh, mm) => {
-  const a = trim(hh) || '0', b = trim(mm) || '0';
-  if (!/^\d+$/.test(a) || !/^\d+$/.test(b) || Number(b) > 59) return null;
-  const total = Number(a) * 60 + Number(b);
+  const a = trim(hh), b = trim(mm);
+  if (!a && !b) return null;
+  if ((a && !/^[0-9]+$/.test(a)) || (b && !/^[0-9]+$/.test(b)) || Number(b || 0) > 59) return null;
+  const total = Number(a || 0) * 60 + Number(b || 0);
   return total <= 100000 ? total : null;
 };
-/** The body of POST hours for one week typed by hand: the week starts on a Monday, both counts are minutes (zero is a
- *  week too), and the buyers cannot accept more than was delivered. */
+/** The body of POST hours for one week typed by hand: the week starts on a Monday, both counts are minutes (a week with
+ *  nothing delivered is typed as 0), and the buyers cannot accept more than was delivered. */
 export function hoursBody(v) {
   const week = trim(v.week);
   if (!isMonday(week)) refuse('week');
@@ -119,6 +123,22 @@ export function siteReps(team, viewerId) {
   return { options, value };
 }
 
+/** The countries the person form offers: Panamá and Colombia, and the person's own when it is another two-letter code,
+ *  so saving the form never changes it without anyone choosing. */
+export function countryOptions(current) {
+  const own = String(current ?? '').trim().toUpperCase(), out = ['PA', 'CO'];
+  if (/^[A-Z]{2}$/.test(own) && !out.includes(own)) out.push(own);
+  return out;
+}
+/** The countries a day off can be marked for: each one the team has, once, in order. A person with none adds nothing. */
+export const teamCountries = (reps) => [...new Set((reps || []).map((r) => String((r && r.country) ?? '').trim().toUpperCase()).filter((c) => /^[A-Z]{2}$/.test(c)))].sort();
+/** A country as the reader reads it: the app's own words when it has them (`own`), the browser's name for any other code
+ *  (`region`, Intl.DisplayNames), the code itself as a last resort. Never a missing key. */
+export function countryLabel(code, { own = () => null, region = () => null } = {}) {
+  const c = String(code ?? '').trim().toUpperCase();
+  return own(c) || region(c) || c;
+}
+
 /** Which roles the person form lists. Only an admin chooses one, and only an admin can make a leader. */
 export const roleOptions = (viewerRole) => (viewerRole === 'admin' ? ['rep', 'manager', 'admin', 'leader'] : []);
 
@@ -128,6 +148,30 @@ export function newRepBody(v) {
   const base = { name: v.name, city: v.city, country: v.country, startDate: v.startDate, workdays: v.workdays };
   return v.access === 'none' ? { access: 'none', ...base } : { email: v.email, ...base, role: v.role };
 }
+
+/** How often a manager's screens read the team view by themselves while one of them is in front: what adds no line to
+ *  the feed (a held meeting, phones, a closed install, a site's report, a worker) shows within a minute. */
+export const REFRESH_MS = 60000;
+const MANAGER_TABS = ['team', 'needs', 'reps'];
+/** How long until the manager's team view is read again by itself, in milliseconds. With a view on screen, every
+ *  REFRESH_MS. With none (a read failed, so the screens would stay blank) it tries again soon and waits longer each time:
+ *  2, 4, 8 and 16 seconds, then every 30. */
+export function readAgainIn({ hasTeam = false, failures = 0 } = {}) {
+  if (hasTeam) return REFRESH_MS;
+  return Math.min(30000, 2000 * 2 ** Math.max(0, failures - 1));
+}
+/** Whether that read goes out now. Never while the page is hidden, nor while a write is on its way (its answer is the
+ *  view). With a view on screen, only while a manager screen is in front and no form is open over it; with none, whatever
+ *  is open: the screens are blank. */
+export function readNow({ hidden = false, writing = false, sheet = false, hasTeam = false, tab = null } = {}) {
+  if (hidden || writing) return false;
+  if (!hasTeam) return true;
+  return !sheet && MANAGER_TABS.includes(tab);
+}
+/** Whether a read's answer may be shown. Reads and writes take numbers from one counter, in the order they happen:
+ *  `start` is the read's, `shown` the one of what is on screen. An answer that went out before the last write the screen
+ *  adopted (or before a newer read already shown) is dropped, and so is one that lands while a write is on its way. */
+export const freshRead = ({ start, shown, writing = false }) => !writing && start > shown;
 
 /** The address of a site's record, relative to the page. */
 export const recordUrl = (siteId) => `api/site/${encodeURIComponent(siteId)}/record.csv`;

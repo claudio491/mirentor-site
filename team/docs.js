@@ -6,6 +6,7 @@
 import { $, $$, h, s, put, t, lang, giant, flipList, toast, once, formSheet, reduce, quiet, newId } from './ui.js';
 import { reveal, stagger } from './fx.js';
 import { DOC_GROUPS, DOC_STEPS, docGroups, docsFlat, docsAt, docRow, docsState, canManageDocs, moves, docBody, docFields, checkDoc } from './docs-steps.js';
+import { askTwice, guardList } from './taps.js';
 
 /** A small page: the paper of the consent step, at the size of a row. */
 const page = () => h('span', { class: 'doc-page', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'));
@@ -77,7 +78,7 @@ export function createDocs({ api, S, errText, setTab }) {
           h('button', { class: 'mini-btn doc-mv', type: 'button', disabled: !can.up, 'aria-label': t('docs.up.aria', { title: row.title }), onclick: (e) => move(e.currentTarget, d.id, 'up') }, arrow(true)),
           h('button', { class: 'mini-btn doc-mv', type: 'button', disabled: !can.down, 'aria-label': t('docs.down.aria', { title: row.title }), onclick: (e) => move(e.currentTarget, d.id, 'down') }, arrow(false)),
           h('button', { class: 'mini-btn', type: 'button', text: t('docs.edit'), 'aria-label': t('docs.edit.aria', { title: row.title }), onclick: () => edit(d) }),
-          h('button', { class: 'mini-btn', type: 'button', text: t('docs.remove'), 'aria-label': t('docs.remove.aria', { title: row.title }), onclick: (e) => remove(e.currentTarget, d.id) }));
+          h('button', { class: 'mini-btn', type: 'button', text: t('docs.remove'), 'aria-label': t('docs.remove.aria', { title: row.title }), onclick: (e) => remove(e, d.id) }));
       });
   }
 
@@ -86,11 +87,12 @@ export function createDocs({ api, S, errText, setTab }) {
   const write = async (path, body) => { if (!manage()) throw Object.assign(new Error('read_only'), { code: 'read_only' }); take(await api('POST', path, body)); render(); };
   const act = (btn, path, body, okKey) => once(btn, async () => { try { await write(path, body); if (okKey) toast(t(okKey)); } catch (e) { toast(errText(e)); } });
   const move = (btn, id, dir) => act(btn, `docs/${encodeURIComponent(id)}/move`, { dir });
-  /** Removing takes two taps: the first arms the button and says what will happen. */
-  function remove(btn, id) {
-    if (!btn.classList.contains('armed')) { btn.classList.add('armed'); toast(t('docs.remove.confirm')); setTimeout(() => btn.classList.remove('armed'), 6000); return; }
-    btn.classList.remove('armed');
-    act(btn, `docs/${encodeURIComponent(id)}/remove`, {}, 'docs.removed');
+  /** Removing takes two taps (taps.js): the first arms the button and says what will happen, the second removes it, and
+   *  counts only after a pause, so one double tap never does both. */
+  function remove(e, id) {
+    const btn = e.currentTarget, step = askTwice(btn, e);
+    if (step === 'arm') toast(t('docs.remove.confirm'));
+    else if (step === 'run') act(btn, `docs/${encodeURIComponent(id)}/remove`, {}, 'docs.removed');
   }
   /** The form, for a new document or to edit one. A new one carries an id made when the form opens: sent twice, it is one. */
   function form(doc = null) {
@@ -137,6 +139,8 @@ export function createDocs({ api, S, errText, setTab }) {
   }
 
   function wire() {
+    // moving a document moves its row, and the next one slides under the finger: a double click acts once (taps.js)
+    guardList($('#docList'));
     $('#docBack').addEventListener('click', () => setTab(back));
     $('#docAdd').addEventListener('click', () => form());
   }

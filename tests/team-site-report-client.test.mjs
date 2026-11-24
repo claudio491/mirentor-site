@@ -1,7 +1,9 @@
 // The daily site report's decisions on the phone: the starting values, the body sent, and when Hoy reminds.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { draftOf, bodyOf, hoursOf, countOf, nudgeOf, GEAR } from '../team/report-steps.js';
+import { draftOf, bodyOf, hoursOf, countOf, nudgeOf, dayKey, forYesterday, GEAR } from '../team/report-steps.js';
+import { readFileSync } from 'node:fs';
+import { DICT } from '../team/i18n.js';
 import { GEAR as SERVER_GEAR, checkReport } from '../lib/team/report.mjs';
 
 test('the form starts from what the app knows: people and phones working tonight, hours empty, no answer yet', () => {
@@ -42,4 +44,32 @@ test('Hoy reminds from 5 pm local time, of the first live site with no report to
   assert.equal(nudgeOf(me('2026-11-16T22:00:00Z', two), true), null);
   assert.equal(nudgeOf(me('2026-11-16T22:00:00Z', [two[0]])), null);
   assert.equal(nudgeOf(me('2026-11-16T22:00:00Z', [])), null);
+});
+
+test('an emptied "Personas" box asks for the people, not for the hardware, in the order the server checks', () => {
+  const d = { ...draftOf({ people: 2, phones: 2 }, null), allOk: true };
+  for (const people of [Number.NaN, -1, 1.5, undefined]) assert.equal(bodyOf({ ...d, people }).error, 'report_people', String(people));
+  // the people come first, as on the server: with bad hours or counts too, the people are what is asked for
+  assert.equal(bodyOf({ ...d, people: Number.NaN, delivered: 'siete', sets: Number.NaN }).error, 'report_people');
+  assert.equal(checkReport({ ...bodyOf(d).body, people: null }).error, 'report_people');
+  assert.equal(bodyOf({ ...d, sets: Number.NaN }).error, 'report_counts');
+  assert.equal(bodyOf({ ...d, people: 0 }).body.people, 0);   // nobody worked is an answer
+});
+
+test('a report for yesterday reads "ayer" where a label says "hoy", once the dictionary has those words', () => {
+  const got = (day) => ({ day, days: ['2026-11-26', '2026-11-25'] });
+  assert.deepEqual([forYesterday(got('2026-11-25')), forYesterday(got('2026-11-26')), forYesterday({ day: '2026-11-26', days: ['2026-11-26'] }), forYesterday({})], [true, false, false, false]);
+  const has = (k) => k === 'report.people.yesterday';
+  assert.equal(dayKey('report.people', true, has), 'report.people.yesterday');
+  assert.equal(dayKey('report.people', false, has), 'report.people');
+  assert.equal(dayKey('report.hours', true, has), 'report.hours', 'no yesterday words yet: the label as it is');
+  // every label the form reads exists, and a yesterday version, where there is one, never says today
+  const src = readFileSync(new URL('../team/report.js', import.meta.url), 'utf8');
+  const keys = [...src.matchAll(/\b(?:L|dayKey)\(\s*'([^']+)'/g)].map((m) => m[1]);
+  for (const k of ['report.people', 'report.hours', 'report.n.out', 'report.n.working', 'report.allOk', 'report.notes']) assert.ok(keys.includes(k), `${k} is read through L()`);
+  for (const k of keys) {
+    for (const l of ['es', 'en']) assert.ok(k in DICT[l], `${l} ${k}`);
+    const y = `${k}.yesterday`;
+    if (y in DICT.es) for (const [l, re] of [['es', /\bhoy\b|esta noche/i], ['en', /\btoday\b|tonight/i]]) assert.equal(re.test(DICT[l][y]), false, `${l} ${y} says today`);
+  }
 });
