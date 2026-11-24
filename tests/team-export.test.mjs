@@ -45,3 +45,26 @@ test('export: a do-not-call log a manager voided is not sent as do not call, nor
   assert.deepEqual(ex.logs.map((l) => l.id), ['dnc-log-0002']);
   assert.deepEqual(ex.stages, [{ lead: 'PA-0002', stage: 'Contacted' }]);
 });
+
+test('export: a log completed after it was exported goes out again, once, with what was added; a restart keeps that', async (t) => {
+  const s = await start({ clock: Date.parse('2026-11-16T14:00:00Z') }); t.after(() => s.srv.close());   // Monday 09:00 in Panama
+  const a = await s.admin(), m = await s.addRep(a.cookie, 'mario');
+  await s.call('PUT', `${API}/leads`, [{ id: 'PA-0001', company: 'Farmacia Uno', city: 'Panama City', zone: 'Centro', stage: 'New' }], B);
+  const call = (id, over = {}) => s.call('POST', `${API}/log`, logBody(id, { kind: 'call', lead: { id: 'PA-0001' }, clientAt: new Date(s.time.now).toISOString(), ...over }), { cookie: m.cookie });
+  assert.equal((await call('call-0900-0001')).status, 200);
+  s.time.now = Date.parse('2026-11-16T15:00:00Z');   // 10:00: the bridge's hourly run
+  const first = await exportSince(s, '2026-11-16T00:00:00Z');
+  assert.deepEqual([first.logs.map((l) => l.id), first.doNotCall], [['call-0900-0001'], []]);
+  s.time.now = Date.parse('2026-11-16T19:00:00Z');   // 14:00: the owner asks not to be called again; same business, same result
+  const again = await call('call-1400-0001', { tag: 'do_not_call', note: 'No volver a llamar' });
+  assert.deepEqual([again.json.repeat, again.json.updated, again.json.logId], [true, true, 'call-0900-0001']);
+  s.time.now = Date.parse('2026-11-16T20:00:00Z');   // 15:00: the next run
+  const next = await exportSince(s, first.until);
+  assert.deepEqual(next.logs.map((l) => [l.id, l.tag, l.note, l.day]), [['call-0900-0001', 'do_not_call', 'No volver a llamar', '2026-11-16']]);
+  assert.deepEqual(next.doNotCall, ['PA-0001']);
+  assert.equal((await exportSince(s, '2026-11-16T00:00:00Z')).logs.length, 1, 'each log once per export');
+  assert.equal((await exportSince(s, next.until)).logs.length, 0, 'and nothing again once that run is done');
+  s.srv.close();
+  const back = await start({ dir: s.dir, clock: s.time.now }); t.after(() => back.srv.close());
+  assert.deepEqual((await exportSince(back, first.until)).logs.map((l) => l.id), ['call-0900-0001']);
+});
