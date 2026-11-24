@@ -22,7 +22,7 @@ import { mateLine } from './sites-steps.js';
 import { shellFor } from './leader-steps.js';
 import { verdict, mine as waitingOf, requestTimeout } from './queue.js';
 import { sessionMove, HOME, LEAVE } from './door.js';
-import { actingMode, readOnlyIn, repControls, withAs, logLocked, staleAs } from './practice-steps.js';
+import { actingMode, readOnlyIn, repControls, withAs, logLocked, staleAs, practiceBarName } from './practice-steps.js';
 
 const API = 'api';   // every address is relative to the page, so the app works wherever it is mounted
 const KEY = { lang: 'cancha.lang', queue: 'cancha.queue', me: 'cancha.me', greet: 'cancha.greet' };
@@ -123,7 +123,7 @@ function renderTop() {
   $('#asBar').hidden = !S.as;
   // the practice rep says so on every screen: its chip and one line that nothing here counts
   // (on a phone the bar stays in view while the screen scrolls, so it says the same in one short line)
-  const pracName = S.me && S.me.me.example ? S.me.me.name : t('reps.practice.name');
+  const pracName = practiceBarName(S.me, t('reps.practice.name'));
   if (S.as && S.me) put($('#asText'), ...(mode() === 'practice' ? [h('span', { class: 'chip inst-prac', text: t('install.practice') }), ' ',
     h('span', { class: 'as-long', text: S.me.me.example ? t('top.practice.example', { name: S.me.me.name }) : t('top.practice') }), h('span', { class: 'as-short', text: t('top.practice.short', { name: pracName }) })] : [t('top.viewAs', { name: S.me.me.name })]));
   $('#asBar').classList.toggle('prac', !!S.as && mode() === 'practice');

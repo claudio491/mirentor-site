@@ -56,3 +56,7 @@ export const logLocked = (today, mode) => !!(today && today.closed) && mode !== 
 /** An answer that says the rep the address names is gone (the practice rep was removed, then Back or a reload): the
  *  address is dropped and the screens start as the person. */
 export const staleAs = (err, as) => !!as && !!err && err.status === 404 && err.code === 'rep';
+
+/** The name the practice bar shows: an example rep's own name, anything else the plain label. Every answer goes
+ *  through the top bar, and a leader's has no `me`, so this never reaches past what is there. */
+export const practiceBarName = (answer, label) => (answer && answer.me && answer.me.example ? answer.me.name : label);

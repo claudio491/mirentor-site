@@ -3,7 +3,7 @@
 // The server stays the judge; these decide only what the screen offers.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { actingMode, readOnlyIn, repControls, withAs, practiceActions, logLocked, staleAs } from '../team/practice-steps.js';
+import { actingMode, readOnlyIn, repControls, withAs, practiceActions, logLocked, staleAs, practiceBarName } from '../team/practice-steps.js';
 import { controls, imeiFor, practiceImei } from '../team/install-steps.js';
 import { ladderControls, postSeen } from '../team/ladder-steps.js';
 import { practiceNote } from '../team/leader-steps.js';
@@ -129,4 +129,15 @@ test('an address that names a rep who is gone is dropped, and the screens start 
   assert.equal(staleAs({ code: 'offline', status: 0 }, 'r_prac'), false);
   assert.equal(staleAs({ code: 'read_only', status: 403 }, 'r_prac'), false);
   assert.equal(staleAs(null, 'r_prac'), false);
+});
+
+// 24 Nov: a leader's answer has no `me` (a leader reads one page and logs nothing). The top bar asked for `me.example`
+// on every answer, so a leader's board stopped at "no cargó." The name the practice bar shows is decided here now.
+test('the practice bar names an example rep by name and anything else by the plain label, a leader included', () => {
+  const label = 'Vendedor de práctica';
+  assert.equal(practiceBarName({ lead: { cities: [] } }, label), label, "a leader's answer has no `me`: no throw, the plain label");
+  assert.equal(practiceBarName(null, label), label);
+  assert.equal(practiceBarName({ me: { id: 'r_ex', name: 'Vendedor A', example: true } }, label), 'Vendedor A');
+  assert.equal(practiceBarName(prac, label), label);
+  assert.equal(practiceBarName(real, label), label);
 });
