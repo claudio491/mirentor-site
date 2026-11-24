@@ -4,7 +4,7 @@
 // back as it was, byte for byte. An older build never sees a practice rep, business or site of theirs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { start, logBody } from './team-helper.mjs';
 import { openTeamStore } from '../lib/team/store.mjs';
@@ -139,6 +139,48 @@ test('a real viewer sees none of it; removing the team restores every real answe
   assert.deepEqual([older.reps.filter((x) => /Vendedor [A-D]/.test(x)), older.leads, older.sites], [[], [], []]);
   // and a second removal finds nothing
   assert.equal((await unload()).status, 404);
+});
+
+test('a real log that holds an id the recipe would use is never confirmed by the example team, and the team still loads', async (t) => {
+  const { s, ana, load } = await setup(t);
+  const R = { cookie: ana.cookie };
+  // Monday 16 Nov: the recipe's last week is 9 to 13 Nov; Vendedor A books a meeting on the 9th and signs its contract on the 11th
+  const real = ['ex-a-2026-11-11-contract', 'ex-a-2026-11-09-5'];
+  assert.equal((await s.call('POST', `${API}/log`, logBody(real[0], { kind: 'contract', lead: { name: 'Hotel Real', zone: 'Centro' } }), R)).status, 200);
+  assert.equal((await s.call('POST', `${API}/log`, logBody(real[1], { kind: 'meeting', channel: 'visit', lead: { name: 'Clinica Real', zone: 'Centro' } }), R)).status, 200);
+  assert.equal((await load()).status, 200);
+  assert.deepEqual(s.lines().filter((e) => e.type === 'confirm' && real.includes(e.logId)), [], 'nothing of the recipe lands on a real log');
+  const leadId = s.lines().find((e) => e.id === real[0]).lead.id;
+  const route = (await s.call('GET', `${API}/route?lead=${leadId}`, undefined, R)).json.route;
+  assert.deepEqual([route.contract.sent, route.contract.signed], [null, null]);
+  // the example team has its own logs, and their ids are of a shape a phone cannot send
+  const theirs = s.lines().filter((e) => e.type === 'log' && e.rep.startsWith('r_ejemplo-')).map((e) => e.id);
+  assert.ok(theirs.length > 50);
+  assert.equal(s.lines().filter((e) => e.type === 'confirm' && e.what === 'contract_signed' && theirs.includes(e.logId)).length, 2);
+  for (const id of [theirs[0], theirs.find((x) => x.endsWith('-contract'))]) assert.deepEqual([(await s.call('POST', `${API}/log`, logBody(id), R)).json.error], ['id']);
+});
+
+test('an example team loaded by an older build, with the old log ids, still shows, pays and is brought up to date', async (t) => {
+  const { s, a, load } = await setup(t);
+  assert.equal((await load()).status, 200);
+  // the log as the build before held it: the example team's log ids written with a dash
+  const file = path.join(s.dir, 'team', 'events.jsonl'), old = (id) => (id.startsWith('ex_') ? `ex-${id.slice(3)}` : id);
+  const lines = s.lines().map((e) => (e.type === 'log' ? { ...e, id: old(e.id) } : e.type === 'confirm' ? { ...e, logId: old(e.logId) } : e));
+  assert.ok(lines.some((e) => e.type === 'log' && e.id.startsWith('ex-a-')));
+  s.srv.close();
+  writeFileSync(file, `${lines.map((e) => JSON.stringify(e)).join('\n')}\n`);
+  const back = await start({ dir: s.dir, clock: s.time.now }); t.after(() => back.srv.close());
+  const team = (await back.call('GET', `${API}/team`, undefined, { cookie: a.cookie })).json;
+  const A = examples(team).find((r) => r.example === 'A').id;
+  const signed = (me) => me.ledger.filter((e) => e.code === 'contract_signed' && e.status === 'earned').map((e) => e.logId);
+  assert.deepEqual(signed((await back.call('GET', `${API}/me?as=${A}`, undefined, { cookie: a.cookie })).json), ['ex-a-2026-11-11-contract']);
+  // a day later the button brings it up to date: the old team leaves whole, today's comes with the new ids
+  back.time.now += 24 * 3600 * 1000;
+  assert.equal((await back.call('POST', `${API}/practice/example`, {}, { cookie: a.cookie })).status, 200);
+  const now = (await back.call('GET', `${API}/team`, undefined, { cookie: a.cookie })).json;
+  assert.equal(examples(now).length, 4);
+  const A2 = examples(now).find((r) => r.example === 'A').id;
+  assert.deepEqual(signed((await back.call('GET', `${API}/me?as=${A2}`, undefined, { cookie: a.cookie })).json), ['ex_a-2026-11-11-contract']);
 });
 
 /** What builds before this task make of the log: the reducer cases they have for people, businesses and sites
