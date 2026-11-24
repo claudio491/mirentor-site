@@ -1412,7 +1412,7 @@ html[data-vt=back]::view-transition-new(root){animation-name:vt-wipe-back}
 .sa-mate .inst-rows{margin-bottom:6px}
 .sa-mate .sa-figs{grid-template-columns:repeat(2,minmax(0,1fr))}
 .sa-src{margin-top:10px}
-.trow .who .mate-ln{all:unset;box-sizing:border-box;display:block;max-width:100%;margin-top:3px;cursor:pointer;font:500 12.5px/1.35 var(--mono);color:var(--porcelain);opacity:.86;font-variant-numeric:tabular-nums;white-space:normal;overflow-wrap:anywhere}
+.trow .who .mate-ln{all:unset;box-sizing:border-box;display:block;max-width:100%;margin-top:-2px;padding:5px 0;cursor:pointer;font:500 13px/1.35 var(--mono);color:var(--porcelain);opacity:.86;font-variant-numeric:tabular-nums;white-space:normal;overflow-wrap:anywhere}
 .trow .who .mate-ln .ml-p{white-space:nowrap}
 .trow .who .mate-ln:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
 @media (hover:hover) and (pointer:fine){.trow .who .mate-ln:hover{opacity:1;text-decoration:underline;text-underline-offset:3px}}
