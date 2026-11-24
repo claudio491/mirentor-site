@@ -292,6 +292,14 @@ fieldset.field legend{padding:0;margin-bottom:6px}
 .rows .st{color:var(--mist)}
 .settings{display:grid;gap:10px;margin-top:12px}
 .settings .line{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:44px;color:var(--mist);font-size:14.5px}
+/* what the profile opens reads as a list of rows (label left, a chevron right), and signing out stands apart, quiet */
+.settings{gap:8px}
+.settings>.btn{position:relative;justify-content:flex-start;gap:6px;width:100%;min-height:54px;padding:0 46px 0 18px;border-radius:14px;border-color:var(--rule);background:rgba(233,235,236,.025);text-align:left}
+.settings>.btn::after{content:"";position:absolute;right:20px;top:50%;width:7px;height:7px;margin-top:-4px;border-top:1.5px solid var(--mist);border-right:1.5px solid var(--mist);transform:rotate(45deg);transition:transform 160ms var(--ease-out)}
+@media (hover:hover) and (pointer:fine){.settings>.btn:not(.signout):hover::after{transform:translateX(3px) rotate(45deg)}}
+.settings>.btn.signout{justify-content:center;margin-top:16px;padding:0 18px;border-color:transparent;background:transparent;color:var(--mist);font-weight:500}
+.settings>.btn.signout::after{display:none}
+.settings>.btn.signout.armed{border-color:var(--signal);color:var(--porcelain)}
 
 /* ---------- bottom nav ---------- */
 .nav{position:fixed;z-index:5;bottom:0;left:50%;transform:translateX(-50%);width:min(var(--col),100%);display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px;view-transition-name:nav;
@@ -1205,7 +1213,9 @@ html.greeting{overflow:hidden}
 .lad-play:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
 .lad-learn{margin-top:14px;justify-content:flex-start;gap:12px;padding-left:10px}
 .lad-learn .label{margin-left:auto}
-.lad-prevbtn{border-color:var(--signal)}
+/* a manager's ways to other views sit under the headline as buttons, not among the status chips */
+.mh-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.mh-acts:not(:has(.mini-btn:not([hidden]))){display:none}
 .lad-of{font-weight:500;color:var(--mist)}
 /* a small video picture: the play mark, or an empty dashed frame while it has no address */
 .lrn-thumb{position:relative;flex:none;display:grid;place-items:center;width:44px;height:30px;border-radius:7px;background:linear-gradient(150deg,#34383d,#1f2225)}

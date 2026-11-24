@@ -195,10 +195,12 @@
   <section class="screen" id="s-team" hidden aria-labelledby="teamGiant">
     <div class="mhero">
       <div class="mh-a">
-        <div class="hud-row"><span class="chip"><i class="dot"></i><span id="teamDateChip"></span></span><span class="chip ghost" id="teamSampleChip" hidden data-t="c.sample"></span><button class="chip lad-prevbtn" type="button" id="previewBtn" hidden><i class="dot"></i><span data-t="ladder.preview.open"></span></button><button class="chip ld-open" type="button" id="leadBtn" hidden><i class="dot"></i><span data-t="lead.open"></span></button><button class="chip" type="button" id="docsBtn" hidden><i class="dot"></i><span data-t="docs.chip"></span></button></div>
+        <div class="hud-row"><span class="chip"><i class="dot"></i><span id="teamDateChip"></span></span><span class="chip ghost" id="teamSampleChip" hidden data-t="c.sample"></span></div>
         <p class="lead" data-t="mgr.lead"></p>
         <h1 class="giant" id="teamGiant"></h1>
         <p class="support" id="teamSupport"></p>
+        <!-- what a manager can open from here: buttons, set apart from the status chips above -->
+        <div class="mh-acts"><button class="mini-btn" type="button" id="previewBtn" hidden><span data-t="ladder.preview.open"></span></button><button class="mini-btn" type="button" id="leadBtn" hidden><span data-t="lead.open"></span></button><button class="mini-btn" type="button" id="docsBtn" hidden><span data-t="docs.chip"></span></button></div>
       </div>
       <div class="wall" id="wall" role="group" data-t-aria="wall.aria"></div>
     </div>
