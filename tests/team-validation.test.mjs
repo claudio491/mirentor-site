@@ -47,6 +47,43 @@ test('a meeting or contract date is kept only as a real day from 30 days back to
   assert.equal(s.lines().filter((e) => e.type === 'log.update').at(-1).patch.when, undefined);
 });
 
+test('a contact and a date belong to a meeting or a contract: sent with any other result, they are dropped and the log stands', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());   // Monday 16 Nov 2026
+  const a = await s.admin(), m = await s.addRep(a.cookie, 'mario');
+  const C = { cookie: m.cookie };
+  // typed for a meeting, then the result switched to a conversation: the screen kept the fields, the server keeps none
+  const talk = await s.call('POST', `${API}/log`, logBody('talk-extra-0001', { kind: 'talk', channel: 'visit', contact: 'Sra. Ruiz', when: '2026-11-20', note: 'Volver el jueves', lead: { name: 'Bar Uno', zone: 'Centro' } }), C);
+  assert.equal(talk.status, 200, talk.text);
+  const meet = await s.call('POST', `${API}/log`, logBody('meet-extra-0001', { kind: 'meeting', channel: 'visit', contact: 'Sra. Ruiz', when: '2026-11-20', lead: { name: 'Bar Dos', zone: 'Centro' } }), C);
+  assert.equal(meet.status, 200, meet.text);
+  const sent = await s.call('POST', `${API}/log`, logBody('cont-extra-0001', { kind: 'contract', contact: 'Sr. Paz', when: '2026-11-21', lead: { name: 'Bar Tres', zone: 'Centro' } }), C);
+  assert.equal(sent.status, 200, sent.text);
+  const byId = Object.fromEntries(s.lines().filter((e) => e.type === 'log').map((e) => [e.id, e]));
+  assert.deepEqual([byId['talk-extra-0001'].contact, byId['talk-extra-0001'].when, byId['talk-extra-0001'].note], [undefined, undefined, 'Volver el jueves'], 'the note stays: it belongs to any result');
+  assert.deepEqual([byId['meet-extra-0001'].contact, byId['meet-extra-0001'].when], ['Sra. Ruiz', '2026-11-20']);
+  assert.deepEqual([byId['cont-extra-0001'].contact, byId['cont-extra-0001'].when], ['Sr. Paz', '2026-11-21']);
+});
+
+test('a business a rep added is theirs to log again, even with no city; someone else with no city still reaches nothing of it', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin(), beto = await s.addRep(a.cookie, 'beto', { city: '' }), cata = await s.addRep(a.cookie, 'cata', { city: '' });
+  const log = (who, id, lead, kind = 'talk') => s.call('POST', `${API}/log`, logBody(id, { kind, channel: kind === 'call' ? 'call' : 'visit', lead }), { cookie: who.cookie });
+  const first = await log(beto, 'nocity-log-0001', { name: 'Taller Beto', zone: 'Centro' });
+  assert.equal(first.status, 200, first.text);
+  const made = s.lines().find((e) => e.id === 'nocity-log-0001').lead.id;
+  const again = await log(beto, 'nocity-log-0002', { id: made }, 'call');
+  assert.equal(again.status, 200, again.text);
+  const typed = await log(beto, 'nocity-log-0003', { name: 'Taller Beto', zone: 'Centro' }, 'absent');
+  assert.equal(typed.status, 200, typed.text);
+  assert.equal(s.lines().find((e) => e.id === 'nocity-log-0003').lead.id, made, 'typed again, it is the same business');
+  const other = await log(cata, 'nocity-log-0004', { id: made });
+  assert.deepEqual([other.status, other.json.error], [400, 'lead']);
+  // the search says the same: Beto finds the business he added, Cata finds nothing
+  const find = async (who) => (await s.call('GET', `${API}/leads?q=taller`, undefined, { cookie: who.cookie })).json.leads.map((l) => l.id);
+  assert.deepEqual(await find(beto), [made]);
+  assert.deepEqual(await find(cata), []);
+});
+
 test('a site is opened for someone active on the team: never for a leader (who reads only) nor for someone taken off it', async (t) => {
   const s = await start(); t.after(() => s.srv.close());
   const a = await s.admin(), m = await s.addRep(a.cookie, 'mario');

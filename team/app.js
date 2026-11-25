@@ -1008,7 +1008,8 @@ function saveLog() {
   if (L.channel) body.channel = L.channel;
   if (L.voicemail) body.voicemail = true;
   if (L.tag) body.tag = L.tag;
-  for (const k of ['contact', 'when', 'note']) if (L[k]) body[k] = L[k];
+  // a contact and a date are a meeting's or a contract's: typed for one and kept when the result changed, they stay here
+  for (const k of L.kind === 'meeting' || L.kind === 'contract' ? ['contact', 'when', 'note'] : ['note']) if (L[k]) body[k] = L[k];
   return once($('#saveLog'), async () => {
     closeSheet($('#logSheet')); setTab(L.from || 'today');
     toast(`${t('c.saving')}…`);   // on a slow signal the tap is answered at once; the result replaces this line
