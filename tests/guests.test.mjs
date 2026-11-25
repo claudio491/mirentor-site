@@ -80,12 +80,12 @@ async function guestCookie(settings) {
 }
 
 test('guests: with the narrower list set, a guest who signs in stays in on the next request, as the sign-in said', async () => {
-  const { cookie, me } = await guestCookie({ guests: 'invitada@otra.test', allow: 'mario@mirentor.com' });
+  const { cookie, me } = await guestCookie({ guests: 'invitada@otra.test', allow: 'ejemplo@mirentor.com' });
   assert.deepEqual(me, [200, 'invitada@otra.test'], 'no loop back to the sign-in page');
-  const same = createSales({ clientId: CLIENT, secret: 'the-same-secret', root: tmpdir(), guests: 'invitada@otra.test', allow: 'mario@mirentor.com', now: () => nowS * 1000 });
+  const same = createSales({ clientId: CLIENT, secret: 'the-same-secret', root: tmpdir(), guests: 'invitada@otra.test', allow: 'ejemplo@mirentor.com', now: () => nowS * 1000 });
   assert.equal(same.who({ headers: { cookie } }), 'invitada@otra.test');
   // the narrower list still holds for the company's own accounts
-  const other = createSales({ clientId: CLIENT, secret: 'the-same-secret', root: tmpdir(), allow: 'mario@mirentor.com', now: () => nowS * 1000 });
+  const other = createSales({ clientId: CLIENT, secret: 'the-same-secret', root: tmpdir(), allow: 'ejemplo@mirentor.com', now: () => nowS * 1000 });
   assert.equal(other.who({ headers: { cookie } }), null, 'and an outside address is in only while it is a guest');
 });
 
