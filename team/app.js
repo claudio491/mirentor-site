@@ -25,6 +25,7 @@ import { sessionMove, HOME, LEAVE, toDoor, offDoor } from './door.js';
 import { actingMode, readOnlyIn, repControls, withAs, logLocked, staleAs, practiceBarName } from './practice-steps.js';
 import { shortfall } from './paid.js';
 import { askTwice } from './taps.js';
+import { createReads } from './reads.js';
 
 const API = 'api';   // every address is relative to the page, so the app works wherever it is mounted
 const KEY = { lang: 'cancha.lang', queue: 'cancha.queue', me: 'cancha.me', greet: 'cancha.greet', langPending: 'cancha.langPending' };
@@ -57,9 +58,9 @@ const errText = (e) => { try { return t(`err.${(e && e.code) || 'unknown'}`); } 
 setExplain(errText);
 
 // ---- state ----
-/** Bumped by every answer the screen adopts. A read that went out before the last adoption came back with older news
- *  than the screen already shows (a log saved meanwhile, say), so it is dropped instead of drawn. */
-let epoch = 0;
+/** The order of what the screens show (reads.js): a read that went out before something the screen already adopted (a
+ *  log saved meanwhile, a newer read) came back with older news, so it is dropped instead of drawn. */
+const reads = createReads();
 const S = { me: null, sig: '', tab: null, docs: [], period: 'week', as: null, mgr: false, lead: false, queue: store.get(KEY.queue, []), seenFeed: null, lastLoad: 0, lastPaint: 0, arrived: new Set(), ledgerAll: false,
   stop: null,     // the stop the person tapped on the route; null follows the day
   hold: null,     // the stop a log landed on, kept on the stage until its answer has played
@@ -1127,10 +1128,10 @@ const nowIso = () => new Date(Date.now() + skew).toISOString();
 /** What a view says, leaving out the clock: two reads that match have nothing new to draw. */
 const signature = (me) => JSON.stringify({ ...me, serverTime: null });
 // Only a person's own screens are kept on the phone for a start without signal: never a view-as, never the practice rep.
-function adopt(me) { epoch += 1; S.stale = null; skewFrom(me); S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); if (!S.as && me.me) store.set(KEY.me, { ...me, keptAt: Date.now() }); }
+function adopt(me, read = null) { if (read == null) reads.adopted(); else reads.take(read); S.stale = null; skewFrom(me); S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); if (!S.as && me.me) store.set(KEY.me, { ...me, keptAt: Date.now() }); }
 /** A leader has no board of their own: they land on the leadership view, with no tabs, no log and no entrance. */
 function enterLeader(me) {
-  epoch += 1;
+  reads.adopted();
   S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); S.lastPaint = Date.now();
   S.as = null; S.mgr = false; S.lead = true;
   const own = me.viewer.lang;
@@ -1146,7 +1147,7 @@ function enterLeader(me) {
 }
 function enter(me) {
   if (me.viewer && me.viewer.role === 'leader') { enterLeader(me); return; }
-  S.lead = false; epoch += 1; S.stale = null; skewFrom(me);
+  S.lead = false; reads.adopted(); S.stale = null; skewFrom(me);
   S.me = me; S.sig = signature(me); S.lastLoad = Date.now(); S.lastPaint = Date.now();
   if (!S.as || me.viewer.role === 'rep') S.as = me.viewer.as;   // a rep's `as` is ignored by the server
   let own = S.as ? me.viewer.lang : me.me.lang;
@@ -1201,16 +1202,17 @@ function welcome(day, ready, arriveAll) {
 /** The quiet check while the app is open. The screen is redrawn only when something moved, or every five minutes so
  * the times stay true; redrawing for nothing would swap a button out from under a finger. */
 async function poll() {
-  const at = epoch;
+  const read = reads.send();
   try {
     const me = await api('GET', S.as ? `me?as=${encodeURIComponent(S.as)}` : 'me');
-    if (at !== epoch) return;   // something newer was adopted while this read was out
+    if (!reads.fresh(read)) return;   // something newer was adopted while this read was out
     S.lastLoad = Date.now();
     const had = JSON.stringify(S.docs);
     await docs.load().catch(() => { /* kept as it was */ });
+    if (!reads.fresh(read)) return;   // ... or while the documents were read (a log answered meanwhile, say)
     if (signature(me) === S.sig && JSON.stringify(S.docs) === had && Date.now() - S.lastPaint < 5 * 60000) return;
     const before = S.me;
-    adopt(me);
+    adopt(me, read);
     if (S.mgr) await manager.load();
     if (S.lead || S.tab === 'lead') await leader.load();
     renderAll(true);
@@ -1218,11 +1220,11 @@ async function poll() {
   } catch (e) { if (staleAs(e, S.as)) viewAs(null); else shutOut(e); }
 }
 async function refresh(animate = false) {
-  const at = epoch;
+  const read = reads.send();
   try {
     const me = await api('GET', S.as ? `me?as=${encodeURIComponent(S.as)}` : 'me');
-    if (at !== epoch) return;   // something newer was adopted while this read was out
-    adopt(me);
+    if (!reads.fresh(read)) return;   // something newer was adopted while this read was out
+    adopt(me, read);
     if (S.mgr) await manager.load();
     if (S.lead || S.tab === 'lead') await leader.load();
     renderAll(animate);
@@ -1277,6 +1279,7 @@ async function start(as = undefined) {
   // A sheet left open (the log sheet, say) belongs to the screens being left: it closes before the identity changes,
   // so nothing in it can be saved as someone else. Until the new answer arrives the screens read only (actingMode).
   for (const dlg of document.querySelectorAll('dialog[open]')) closeSheet(dlg);
+  reads.adopted();   // nothing read for the screens being left is adopted from now on (a quiet check still out, say)
   S.as = as === undefined ? url.searchParams.get('as') : as;
   if (!S.tab && url.hash.length > 1) S.tab = decodeURIComponent(url.hash.slice(1));   // a reload lands on the tab in the address (enter() checks it is one)
   if (S.me && !S.lead && !S.mgr) renderNav();   // the log button goes at once while the screens read only
