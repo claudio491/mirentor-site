@@ -77,3 +77,14 @@ test('the tab in the address is read only when it names one of the screens: anyt
   assert.equal(tabOf('#nope', known), null);
   assert.equal(tabOf('#constructor', known), null);
 });
+
+test('a language picked with no signal waits for its own person: another account signed in on the same phone never gets it', async () => {
+  const { langWaiting } = await import('../team/queue.js');
+  const LANGS = ['es', 'en'];
+  assert.equal(langWaiting({ rep: 'r_a', lang: 'en' }, 'r_a', LANGS), 'en');
+  assert.equal(langWaiting({ rep: 'r_a', lang: 'en' }, 'r_b', LANGS), null, 'another person on the same phone');
+  assert.equal(langWaiting('en', 'r_a', LANGS), null, 'no owner: dropped');
+  assert.equal(langWaiting({ rep: 'r_a', lang: 'fr' }, 'r_a', LANGS), null, 'not a language of the board');
+  assert.equal(langWaiting(null, 'r_a', LANGS), null);
+  assert.equal(langWaiting({ rep: undefined, lang: 'en' }, undefined, LANGS), null, 'nobody to own it');
+});

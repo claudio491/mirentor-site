@@ -22,4 +22,8 @@ export const mine = (queue, repId) => (Array.isArray(queue) ? queue.filter((q) =
 
 /** How long a request may hang before it counts as no signal. A photo goes as its own bytes and can take long on a weak
  *  signal, so it gets ninety seconds; everything else, fifteen. */
+/** A language picked with no signal waits on the phone like a log: it remembers whose it is, and only its owner's next
+ *  start sends it (a shared phone never hands it to the next account). The language, or null. */
+export const langWaiting = (kept, repId, langs) =>
+  (kept && typeof kept === 'object' && repId && kept.rep === repId && langs.includes(kept.lang) ? kept.lang : null);
 export const requestTimeout = (body) => (typeof Blob !== 'undefined' && body instanceof Blob ? 90000 : 15000);

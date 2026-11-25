@@ -20,7 +20,7 @@ import { createReport } from './report.js';
 import { nudgeOf } from './report-steps.js';
 import { mateLine } from './sites-steps.js';
 import { shellFor } from './leader-steps.js';
-import { verdict, mine as waitingOf, requestTimeout } from './queue.js';
+import { verdict, mine as waitingOf, requestTimeout, langWaiting } from './queue.js';
 import { sessionMove, HOME, LEAVE, toDoor, offDoor, tabOf } from './door.js';
 import { actingMode, readOnlyIn, repControls, withAs, logLocked, staleAs, practiceBarName } from './practice-steps.js';
 import { shortfall } from './paid.js';
@@ -318,7 +318,9 @@ async function switchLang(next) {
   setLang(next); store.set(KEY.lang, next); applyStatic();
   if (S.me) {
     renderAll(false);
-    if (!readOnly()) api('POST', 'lang', { lang: next }).then(() => store.del(KEY.langPending)).catch(() => { store.set(KEY.langPending, next); });   // kept on this phone and sent at the next start
+    // kept on this phone, with whose it is, and sent at that person's next start
+    const who = S.me.me ? S.me.me.id : null;
+    if (!readOnly()) api('POST', 'lang', { lang: next }).then(() => store.del(KEY.langPending)).catch(() => { if (who) store.set(KEY.langPending, { rep: who, lang: next }); });
   }
   else { for (const b of $$('#langSeg button')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang())); if (S.gate) showGate(S.gate.kind, S.gate.detail); }
   toast(t('toast.lang'));
@@ -1152,8 +1154,8 @@ function enter(me) {
   if (!S.as || me.viewer.role === 'rep') S.as = me.viewer.as;   // a rep's `as` is ignored by the server
   let own = S.as ? me.viewer.lang : me.me.lang;
   // A language picked with no signal is the person's choice: it wins over the server's and is sent again.
-  const pend = S.as ? null : store.get(KEY.langPending, null);
-  if (pend && LANGS.includes(pend)) {
+  const pend = S.as ? null : langWaiting(store.get(KEY.langPending, null), me.me && me.me.id, LANGS);   // only this person's (queue.js)
+  if (pend) {
     own = pend;
     if (pend === me.me.lang) store.del(KEY.langPending);
     else api('POST', 'lang', { lang: pend }).then(() => store.del(KEY.langPending)).catch(() => { /* still no signal: kept for the next start */ });
