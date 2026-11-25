@@ -1,6 +1,6 @@
 // route-steps.js: what the route screens decide on the phone, away from the page so it can be tested. The server sends
 // each business's route (lib/team/route.mjs): six stops, each 'done', 'now' (the rep's), 'wait' (a manager's) or
-// 'later'. These only choose the words of a stop, the controls it offers in each mode, the business the Hoy card shows
+// 'later'. A wait on the contract that nobody confirmed in time carries `expired`: the rep logs the contract again. These only choose the words of a stop, the controls it offers in each mode, the business the Hoy card shows
 // and what the "open the site" form sends. The server stays the judge of every write.
 
 const refuse = (code) => { throw Object.assign(new Error(code), { code }); };
@@ -12,6 +12,7 @@ const trim = (v) => String(v ?? '').trim();
 export function stopLine(route, i, { agreement = false } = {}) {
   const s = route.stops[i];
   if (s.status === 'done') return s.at ? { key: 'route.done.at', at: s.at } : { key: 'route.done.passed', at: null };
+  if (s.status === 'wait' && s.expired) return { key: `route.expired.${s.key}`, at: s.expired };
   if (s.status === 'now' && s.key === 'sent' && !agreement) return { key: 'route.now.sent.nodoc', at: null };
   return { key: `route.${s.status}.${s.key}`, at: null };
 }
@@ -38,7 +39,9 @@ export function stopControls(route, i, mode) {
   if (write && s.status === 'now' && i === 0) out.log = 'meeting';
   if (write && s.status === 'now' && i === 1) out.log = 'contract';
   if (write && s.status === 'now' && i === 3) out.openSite = true;
-  if (mode === 'practice' && route.practice && s.status === 'wait' && PRACTICE[i]) out.practice = PRACTICE[i];
+  // a confirmation nobody gave in time is refused by the server: the contract is logged again from here
+  if (write && s.status === 'wait' && s.expired && (i === 1 || i === 2)) out.log = 'contract';
+  if (mode === 'practice' && route.practice && s.status === 'wait' && !s.expired && PRACTICE[i]) out.practice = PRACTICE[i];
   return out;
 }
 
@@ -51,6 +54,7 @@ export function routeCard(routes, mode) {
     if (r.complete) return false;
     const s = r.stops[r.at];
     if (s.status === 'now') return r.at >= 1 && r.at <= 4;
+    if (s.status === 'wait' && s.expired) return mode !== 'view';   // the contract to log again
     return s.status === 'wait' && mode === 'practice' && !!r.practice;
   };
   return list.filter(open).sort((a, b) => b.at - a.at)[0] || null;

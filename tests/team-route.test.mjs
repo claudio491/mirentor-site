@@ -285,3 +285,26 @@ test('a legacy site is complete for the route and stays out of both lists', () =
   const bare = replay([...base, site({ legacy: true, lead: { id: null, name: 'Sitio Antiguo' } })]);
   assert.deepEqual([routesOf(bare, 'r1'), teamRoutes(bare)], [[], []]);
 });
+
+test('a wait nobody confirmed in time is marked expired: it stops waiting on a manager, and a contract logged again waits afresh', () => {
+  const contract = log('l-cont-0001', 'contract', { t: T(1) });   // 1 Nov, 15:00 UTC
+  const events = [...base, log('l-meet-0001', 'meeting'), contract];
+  const st = replay(events);
+  // the sending waits 14 days, like its points (score.mjs): not yet on 15 Nov 14:00, expired on 15 Nov 16:00
+  assert.equal(routeOf(st, 'r1', LEAD.id, { now: T(15, 14) }).stops[1].expired, null);
+  const r = routeOf(st, 'r1', LEAD.id, { now: T(15, 16) });
+  assert.equal(r.stops[1].status, 'wait');
+  assert.equal(Date.parse(r.stops[1].expired), Date.parse(T(15)), 'when it expired');
+  assert.equal(routeOf(st, 'r1', LEAD.id).stops[1].expired, null, 'with no clock given nothing is judged');
+  // the manager's list: a fresh wait of another rep comes first, the expired one is no longer a wait on them
+  const LEAD2 = { id: 'APP-0002', name: 'Ferretería Dos', zone: 'Centro' };
+  const both = replay([...events, rep('r2'), { type: 'log', t: T(14), id: 'l-cont-0002', rep: 'r2', lead: LEAD2, kind: 'contract' }]);
+  assert.deepEqual(teamRoutes(both, { now: T(15, 16) }).map((x) => x.rep), ['r2', 'r1']);
+  // logged again on a later day: the latest contract waits afresh
+  const again = replay([...events, log('l-cont-0003', 'contract', { t: T(16) })]);
+  assert.equal(routeOf(again, 'r1', LEAD.id, { now: T(16, 18) }).stops[1].expired, null);
+  // the signature waits 30 days from the confirmed sending
+  const sent = replay([...events, confirm('l-cont-0001', 'contract_sent', T(2))]);
+  assert.equal(routeOf(sent, 'r1', LEAD.id, { now: '2026-12-02T14:00:00Z' }).stops[2].expired, null);
+  assert.equal(Date.parse(routeOf(sent, 'r1', LEAD.id, { now: '2026-12-02T16:00:00Z' }).stops[2].expired), Date.parse('2026-12-02T15:00:00Z'));
+});

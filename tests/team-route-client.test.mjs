@@ -111,3 +111,19 @@ test('stop 2 promises the agreement only when a document is hooked to the contra
   assert.equal(T('route.now.sent.nodoc').includes('Tu líder todavía no cargó el acuerdo en Documentos.'), true);
   assert.equal(E('route.now.sent.nodoc').includes('Your manager has not added the agreement to Documents yet.'), true);
 });
+
+test('an expired wait says when it expired and offers to log the contract again; the practice control is gone; the Hoy card picks it up', () => {
+  const r = route([D, W, L, L, L, L]); r.stops[1].expired = '2026-12-04T15:00:00.000Z';
+  assert.deepEqual(stopLine(r, 1), { key: 'route.expired.sent', at: '2026-12-04T15:00:00.000Z' });
+  assert.equal(stopControls(r, 1, 'self').log, 'contract');
+  assert.equal(stopControls(r, 1, 'view').log, null, 'a manager reading a real rep\'s screens writes nothing');
+  const prac = route([D, W, L, L, L, L], { practice: true }); prac.stops[1].expired = '2026-12-04T15:00:00.000Z';
+  assert.equal(stopControls(prac, 1, 'practice').practice, null, 'the server refuses a confirmation that expired');
+  assert.equal(stopControls(prac, 1, 'practice').log, 'contract');
+  const signed = route([D, D, W, L, L, L]); signed.stops[2].expired = '2026-12-30T15:00:00.000Z';
+  assert.deepEqual(stopLine(signed, 2), { key: 'route.expired.signed', at: '2026-12-30T15:00:00.000Z' });
+  assert.equal(stopControls(signed, 2, 'self').log, 'contract');
+  assert.equal(routeCard([route([D, W, L, L, L, L]), r], 'self'), r, 'the rep has something to do there now');
+  // every expired line exists in both languages
+  for (const lang of ['es', 'en']) for (const k of ['route.expired.sent', 'route.expired.signed', 'route.support.expired', 'route.tag.expired']) assert.notEqual(makeT(lang)(k, { when: 'x', stop: 'y' }), k, `${lang} ${k}`);
+});

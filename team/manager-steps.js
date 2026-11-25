@@ -80,6 +80,9 @@ export function recentMondays(today, n = 6) {
   d.setUTCDate(d.getUTCDate() - back);
   return Array.from({ length: n }, (_, i) => { const x = new Date(d); x.setUTCDate(x.getUTCDate() - 7 * i); return x.toISOString().slice(0, 10); });
 }
+/** The weeks the pay form offers: the recent ones for the first rate (they showed no amount), only this week once a rate
+ *  is in force (a week already shown keeps what it paid; the server says the same). */
+export const payWeeks = (today, pay, n = 6) => (pay ? recentMondays(today, 1) : recentMondays(today, n));
 /** The body of POST pay: dollars typed with up to two decimals become integer cents, read as text so no float rounds
  *  them; from US$0.01 to US$1,000 per accepted hour, from a Monday. */
 export function payBody(v) {

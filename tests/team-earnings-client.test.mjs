@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { usd, money, paySource, mateLine, mateCard, siteRows, hasSites, goneLine } from '../team/sites-steps.js';
-import { siteHoursBody, payBody, recentMondays, siteActions } from '../team/manager-steps.js';
+import { siteHoursBody, payBody, recentMondays, payWeeks, siteActions } from '../team/manager-steps.js';
 import { exampleActions } from '../team/practice-steps.js';
 import { repFacts } from '../team/leader-steps.js';
 import { makeT } from '../team/i18n.js';
@@ -108,4 +108,9 @@ test('the example team\'s controls: load when there is none; view each and remov
 test('the leadership rep card carries active sites as a number with its source', () => {
   const rep = { week: { visits: 1, conversations: 2, meetings: 0, contracts: 0 }, isNew: false, sites: 2, minutes: 600, cents: null };
   assert.deepEqual(repFacts(rep).find((f) => f.key === 'sites'), { key: 'sites', value: 2, source: 'site' });
+});
+
+test('the pay form offers past weeks only for the first rate: once one is in force, a new one starts this week', () => {
+  assert.deepEqual(payWeeks('2026-11-18', null, 3), ['2026-11-16', '2026-11-09', '2026-11-02'], 'no rate yet: the weeks that showed no amount');
+  assert.deepEqual(payWeeks('2026-11-18', { cents: 100, from: '2026-11-09' }, 3), ['2026-11-16']);
 });

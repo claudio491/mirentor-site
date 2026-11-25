@@ -34,7 +34,9 @@ export function createRoute({ api, S, errText, adopt, renderAll, setTab, openLog
   const current = () => routes().find((r) => r.lead.id === leadId) || (fetched && fetched.lead.id === leadId ? fetched : null);
   const stopName = (r) => t(`route.stop.${r.stops[Math.min(r.at, 5)].key}`);
   /** What the route says now, in one line: whose move it is and on which stop. */
-  const summary = (r) => (r.complete ? t('route.support.done') : t(`route.support.${r.stops[r.at].status === 'wait' ? 'wait' : 'now'}`, { stop: stopName(r) }));
+  /** whose move a stop is, as the word in its keys: the rep's, a manager's, or a wait that expired (the rep's again) */
+  const whose = (st) => (st.status === 'wait' ? (st.expired ? 'expired' : 'wait') : 'now');
+  const summary = (r) => (r.complete ? t('route.support.done') : t(`route.support.${whose(r.stops[r.at])}`, { stop: stopName(r) }));
 
   // ---- one business ----
   async function open(id, from = null) {
@@ -116,7 +118,7 @@ export function createRoute({ api, S, errText, adopt, renderAll, setTab, openLog
         // whose move it is, on the stop to do
         const tag = $('.inst-tag', li);
         tag.hidden = !now || stop.status === 'later';
-        tag.textContent = now ? t(`route.tag.${stop.status === 'wait' ? 'wait' : 'now'}`) : '';
+        tag.textContent = now ? t(`route.tag.${whose(stop)}`) : '';
         tag.classList.toggle('ok', now && stop.status === 'now'); tag.classList.toggle('miss', now && stop.status === 'wait');
         const more = $('.lad-more', li), nodes = controls(r, i, ctl);
         more.hidden = !nodes.length;
@@ -201,7 +203,7 @@ export function createRoute({ api, S, errText, adopt, renderAll, setTab, openLog
         $('small', li).textContent = r.complete ? t('ways.complete') : t('ways.stop', { n: r.at + 1, b: r.stops.length, stop: stopName(r) });
         const tag = $('.inst-tag', li);
         tag.hidden = r.complete;
-        tag.textContent = st ? t(`route.tag.${st.status === 'wait' ? 'wait' : 'now'}`) : '';
+        tag.textContent = st ? t(`route.tag.${whose(st)}`) : '';
         tag.classList.toggle('ok', !!st && st.status === 'now'); tag.classList.toggle('miss', !!st && st.status === 'wait');
         $('.inst-hit', li).setAttribute('aria-label', t('route.row.aria', { lead: r.lead.name }));
       });

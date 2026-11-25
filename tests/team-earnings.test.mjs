@@ -141,6 +141,12 @@ test('earnings: no rate means no amount anywhere; an admin sets the rate; cents 
   assert.deepEqual(s.lines().filter((e) => e.type === 'pay.rate').map((e) => [e.cents, e.from]), [[100, LAST_WEEK], [200, THIS_WEEK]]);
   mine = await me(ana);
   assert.deepEqual([mine.earn.week.cents, mine.earn.last.cents], [12220, 1000]);
+  // a week already shown with a rate keeps it: once a rate was in force, a newer one starts this week, never before
+  // (the first rate above could still reach back, since those weeks showed no amount at all)
+  const back = await s.call('POST', `${API}/pay`, { cents: 300, from: LAST_WEEK }, { cookie: a.cookie });
+  assert.deepEqual([back.status, back.json.error], [409, 'week_shown']);
+  assert.equal(s.lines().filter((e) => e.type === 'pay.rate').length, 2, 'nothing written');
+  assert.deepEqual([(await me(ana)).earn.last.cents], [1000], 'last week still pays what it showed');
   // the leadership view's rep cards carry the same three figures
   const card = (await s.call('GET', `${API}/lead`, undefined, { cookie: a.cookie })).json.cities.flatMap((c) => c.reps).find((r) => r.id === ana.id);
   assert.deepEqual([card.sites, card.minutes, card.cents], [1, 3666, 12220]);

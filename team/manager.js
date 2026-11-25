@@ -4,7 +4,7 @@ import { $, h, put, t, lang, num, ord, wdShort, dayMonth, upper, isoWeek, addDay
 import { miniHand, lens, setLens, portrait, setPortrait } from './hand.js';
 import { STOPS } from './stops.js';
 import { shortNames } from './moments.js';
-import { siteBody, siteActions, roleOptions, recordUrl, siteReps, siteLeadId, siteHoursBody, recentMondays, payBody, newRepBody, readAgainIn, readNow, freshRead, REFRESH_MS, countryOptions, teamCountries, countryLabel } from './manager-steps.js';
+import { siteBody, siteActions, roleOptions, recordUrl, siteReps, siteLeadId, siteHoursBody, recentMondays, payWeeks, payBody, newRepBody, readAgainIn, readNow, freshRead, REFRESH_MS, countryOptions, teamCountries, countryLabel } from './manager-steps.js';
 import { DICT, LOCALE } from './i18n.js';
 import { usd } from './sites-steps.js';
 import { siteStateKey } from './leader-steps.js';
@@ -415,7 +415,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       isAdmin() ? h('button', { class: 'mini-btn', type: 'button', 'data-act': 'pay', text: t(p ? 'c.change' : 'pay.set'), onclick: payForm }) : null);
   }
   function payForm() {
-    const today = dayOf(team.serverTime, S.me.me.tz), weeks = recentMondays(today, 6);
+    const today = dayOf(team.serverTime, S.me.me.tz), weeks = payWeeks(today, team.pay, 6);
     formSheet({ title: t('pay.form.title'), intro: t('pay.form.p'), submit: t('site.phones.submit'),
       fields: [{ name: 'usd', label: t('pay.form.usd'), hint: t('pay.form.usd.hint'), value: team.pay ? (team.pay.cents / 100).toFixed(2) : '', max: 8 },
         { name: 'from', type: 'select', label: t('pay.form.from'), value: weeks[0], options: weeks.map((w) => ({ value: w, label: t('week.of', { date: dayMonth(w) }) })) }],
