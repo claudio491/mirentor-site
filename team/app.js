@@ -164,7 +164,10 @@ function markTab() {
 // the phone's Back then comes back inside the app instead of leaving it, one screen at a time. A zone's tab is kept in
 // the address instead, so loading the page again lands on it. Nothing here changes what a screen shows.
 const DEEP = new Set(['profile', 'install', 'worker', 'iclose', 'ladder', 'zones', 'learn', 'route', 'ways', 'sites', 'docs']);
-const backNav = { trail: [], from: null, guarded: false, unguarding: false };
+// asPushed: this visit opened a rep's screens (view-as) on top of the team's own step in the history
+const backNav = { trail: [], from: null, guarded: false, unguarding: false, asPushed: false };
+/** Nothing of a zone's trail is carried into other screens: a change of identity starts the history steps again. */
+function resetBack() { backNav.trail.length = 0; backNav.from = null; backNav.guarded = false; backNav.asPushed = false; }
 const homeTab = () => (S.lead ? 'lead' : S.mgr ? 'team' : 'today');
 const isDeep = (name) => DEEP.has(name) || (name === 'lead' && !S.lead);   // the leadership view is a step in for a manager
 /** The tab in the address (none for the first one), so a reload lands on it. */
@@ -199,7 +202,7 @@ function onBack() {
     if (!backNav.trail.length) remember(to);
     return;
   }
-  backNav.trail.length = 0; backNav.guarded = false;
+  resetBack();
   S.tab = null; start();
 }
 function setTab(name, { instant = false, replay = false } = {}) {
@@ -1297,9 +1300,22 @@ async function start(as = undefined) {
 }
 /** Open a rep's screens as their manager, or come back to the team, without loading the page again. */
 async function viewAs(id = null) {
+  // Back to the team from a rep's screens this visit opened: the browser steps back to the team's own place in the
+  // history (past the step a zone's screen left), so the phone's Back afterwards does not open the rep's screens again.
+  // The popstate that follows starts the screens from the team's address (onBack).
+  if (!id && backNav.asPushed) {
+    const steps = backNav.guarded ? 2 : 1;
+    resetBack();
+    try { history.go(-steps); return; } catch { /* the address changes in place, below */ }
+  }
   const url = new URL(location.href);
   if (id) url.searchParams.set('as', id); else url.searchParams.delete('as');
-  try { history.pushState(null, '', url); } catch { /* a page shown inside another one may not change its address: the view changes all the same */ }
+  url.hash = '';   // the other screens open on their first tab
+  // Left from a screen inside a zone, the step it left in the history becomes the new view: nothing of the zone is
+  // carried into it (track() would otherwise step back onto the old address, and the team would show under ?as=).
+  const step = backNav.guarded;
+  resetBack();
+  try { if (step) history.replaceState(null, '', url); else history.pushState(null, '', url); backNav.asPushed = !!id; } catch { /* a page shown inside another one may not change its address: the view changes all the same */ }
   S.tab = null; window.scrollTo(0, 0);
   await start(id);
 }
