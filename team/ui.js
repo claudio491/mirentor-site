@@ -207,7 +207,7 @@ export function scan(box) {
 }
 
 // ---- toast ----
-let toastTimer;
+let toastTimer, toastMs = 0, toastHeld = false;
 export function toast(text, strong = '') {
   const box = $('#toast');
   $('#toastP').textContent = strong; $('#toastP').hidden = !strong; $('#toastT').textContent = text;
@@ -215,7 +215,20 @@ export function toast(text, strong = '') {
   if (box.showPopover) { try { if (box.matches(':popover-open')) box.hidePopover(); box.showPopover(); } catch { /* drawn in place, as before */ } }
   box.classList.add('on');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => box.classList.remove('on'), Math.min(7000, 2400 + text.length * 35));
+  toastMs = Math.min(7000, 2400 + text.length * 35);
+  if (document.body.classList.contains('moment')) { toastHeld = true; return; }   // it waits for the moment to end
+  toastTimer = setTimeout(() => box.classList.remove('on'), toastMs);
+}
+/** A full-screen moment starts (fx.js): a toast on screen waits out of sight (app.css), its time stopped. */
+export function holdToast() {
+  if (!$('#toast').classList.contains('on')) return;
+  clearTimeout(toastTimer); toastHeld = true;
+}
+/** The moment ended: a toast that waited behind it now gets its whole time, so nothing it said goes unseen. */
+export function releaseToast() {
+  if (!toastHeld) return;
+  toastHeld = false; clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $('#toast').classList.remove('on'), toastMs);
 }
 
 // ---- the source popover: every number opens into where it comes from ----

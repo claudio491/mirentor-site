@@ -391,6 +391,7 @@ html:has(dialog.sheet[open]){overflow:hidden}
   display:flex;gap:10px;align-items:baseline;padding:11px 14px;border:1px solid var(--hair);border-radius:var(--r-input);background:var(--graphite);color:var(--porcelain);font-weight:500;font-size:14.5px;line-height:1.35;box-shadow:0 12px 32px rgba(0,0,0,.42);
   transition:transform 220ms var(--ease-out),opacity 180ms linear}
 .toast.on{transform:translate(-50%,0);opacity:1}
+body.moment .toast.on{opacity:0}   /* a full-screen moment holds the stage: the toast waits out of sight (fx.js shield) */
 /* the toast is a popover so it is drawn in the top layer, over an open sheet and its backdrop (ui.js shows it there);
    the browser's own popover box is undone: it keeps the place and look set above */
 .toast[popover]{right:auto;margin:0;overflow:visible}

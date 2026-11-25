@@ -1,14 +1,22 @@
 // fx.js: the moments of the app. The entrance that finds the person, the box that marks an achievement, and the small
 // rewards around a number. Everything here is extra: with reduced motion, or in a browser that lacks a feature, the
 // screens underneath say the same thing without it.
-import { $, h, giant, reduce, EASE, lock, buzz, isQuiet } from './ui.js';
+import { $, h, giant, reduce, EASE, lock, buzz, isQuiet, holdToast, releaseToast } from './ui.js';
 import { portrait, setPortrait } from './hand.js';
 import { changedChars } from './moments.js';
 
 /** While a full-screen moment is on, the app behind it takes no focus and no tap: Tab cannot slip behind the moment, and
- *  Enter cannot reach a button there. Moments can follow one another, so it counts. */
+ *  Enter cannot reach a button there. Moments can follow one another, so it counts. A toast waits out of sight meanwhile
+ *  (body.moment in app.css): it lives in the top layer, above the moment, and would talk over it. */
 let shields = 0;
-function shield(on) { shields = Math.max(0, shields + (on ? 1 : -1)); const app = document.getElementById('app'); if (app) app.inert = shields > 0; }
+function shield(on) {
+  const was = shields > 0;
+  shields = Math.max(0, shields + (on ? 1 : -1));
+  const now = shields > 0, app = document.getElementById('app');
+  if (app) app.inert = now;
+  document.body.classList.toggle('moment', now);
+  if (now && !was) holdToast(); else if (was && !now) releaseToast();
+}
 
 /** Change what is on screen with a short cross-fade, where the browser can do it. */
 export function swap(run) {
