@@ -286,7 +286,8 @@ const es = {
   'toast.zero.why': 'Registrado. No suma puntos: {why}.',
   'toast.repeat': 'Ya estaba registrado hoy. No suma otra vez.', 'toast.repeat.updated': 'Ya estaba registrado hoy. Sus detalles quedaron actualizados.', 'toast.zero': 'Registrado. Este no suma puntos.',
   'toast.queued': 'Guardado en tu teléfono. Se envía cuando vuelva la señal.',
-  'toast.sent': ['Se envió {n} registro guardado.', 'Se enviaron {n} registros guardados.'], 'toast.dropped': 'Un registro guardado no se pudo enviar. {why}',
+  'toast.sent': ['Se envió {n} registro guardado.', 'Se enviaron {n} registros guardados.'],
+  'toast.sent.today': ['Se envió {n} registro guardado. Cuenta para hoy.', 'Se enviaron {n} registros guardados. Cuentan para hoy.'], 'toast.dropped': 'Un registro guardado no se pudo enviar. {why}',
   'toast.lang': 'La app ahora está en español.',
   'lockon.title.a': 'tomaste', 'lockon.title.b': 'la punta.', 'lockon.s.behind': '{name} queda a {gap}. La semana cierra el domingo.', 'lockon.s': 'La semana cierra el domingo.',
   // ---- the entrance, the next step and the moments ----
@@ -958,7 +959,8 @@ const en = {
   'toast.zero.why': 'Logged. No points: {why}.',
   'toast.repeat': 'Already logged today. It does not count twice.', 'toast.repeat.updated': 'Already logged today. Its details were updated.', 'toast.zero': 'Logged. This one earns no points.',
   'toast.queued': 'Saved on your phone. It will send when the signal is back.',
-  'toast.sent': ['{n} saved log was sent.', '{n} saved logs were sent.'], 'toast.dropped': 'A saved log could not be sent. {why}',
+  'toast.sent': ['{n} saved log was sent.', '{n} saved logs were sent.'],
+  'toast.sent.today': ['{n} saved log was sent. It counts for today.', '{n} saved logs were sent. They count for today.'], 'toast.dropped': 'A saved log could not be sent. {why}',
   'toast.lang': 'The app is now in English.',
   'lockon.title.a': 'you took', 'lockon.title.b': 'the lead.', 'lockon.s.behind': '{name} is {gap} behind. The week closes on Sunday.', 'lockon.s': 'The week closes on Sunday.',
   // ---- the entrance, the next step and the moments ----

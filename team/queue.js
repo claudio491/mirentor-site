@@ -31,6 +31,12 @@ export const langOwner = (view) => (view && view.viewer && view.viewer.id) || (v
  *  on the same phone leaves it), or when what is kept is not one this version writes. */
 export const langDone = (kept, who) => !!kept && (typeof kept !== 'object' || kept.rep === who);
 
+/** How many of the logs just sent were made on an earlier day than `today`. They count for today, the day they reached
+ *  the server (it dates every log on arrival, so no phone clock moves a log into another day), and the toast says so.
+ *  `dayOf` turns a moment into the person's day. */
+export const madeEarlier = (items, today, dayOf) =>
+  items.filter((q) => q && q.body && typeof q.body.clientAt === 'string' && dayOf(q.body.clientAt) < today).length;
+
 /** How long a request may hang before it counts as no signal. A photo goes as its own bytes and can take long on a weak
  *  signal, so it gets ninety seconds; everything else, fifteen. */
 export const requestTimeout = (body) => (typeof Blob !== 'undefined' && body instanceof Blob ? 90000 : 15000);

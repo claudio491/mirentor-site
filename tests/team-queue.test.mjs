@@ -100,3 +100,12 @@ test('a waiting language belongs to the viewer (a manager acting as the practice
   assert.equal(langDone('en', 'r_b'), true, 'not one this version writes: nobody would ever read it');
   assert.equal(langDone(null, 'r_b'), false, 'nothing to clear');
 });
+
+test('logs that waited with no signal count for the day they reach the server; the toast says so when one was made on an earlier day', async () => {
+  const { madeEarlier } = await import('../team/queue.js');
+  const day = (iso) => iso.slice(0, 10);
+  const q = (at) => ({ rep: 'r_a', body: { clientAt: at } });
+  assert.equal(madeEarlier([q('2026-11-24T22:00:00Z'), q('2026-11-25T09:00:00Z')], '2026-11-25', day), 1);
+  assert.equal(madeEarlier([q('2026-11-25T09:00:00Z')], '2026-11-25', day), 0);
+  assert.equal(madeEarlier([{ rep: 'r_a', body: {} }, null], '2026-11-25', day), 0, 'no time: nothing to say');
+});

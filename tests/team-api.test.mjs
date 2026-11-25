@@ -459,3 +459,19 @@ test('the sketches page holds five sketches, each says it is one, in both langua
   assert.equal(words.includes('\u2014'), false);
   assert.doesNotMatch([page, style, script].join('\n'), /https?:\/\/|\/\/[a-z0-9-]+\./i);
 });
+
+test('a log made yesterday with no signal and sent today counts for today, the day it reached the server', async (t) => {
+  const s = await start(); t.after(() => s.srv.close());
+  const a = await s.admin(), m = await s.addRep(a.cookie, 'mario');
+  const yesterday = new Date(s.time.now - 20 * 3600 * 1000).toISOString();
+  const r = await s.call('POST', '/equipo/api/log', logBody('late-day-0001', { clientAt: yesterday, sentAt: new Date(s.time.now).toISOString() }), { cookie: m.cookie });
+  assert.equal(r.status, 200, r.text);
+  const ev = s.lines().find((e) => e.id === 'late-day-0001');
+  assert.equal(ev.clientAt, yesterday, 'the moment of the contact is kept');
+  const me = (await s.call('GET', '/equipo/api/me', undefined, { cookie: m.cookie })).json;
+  const ats = me.ledger.filter((e) => e.logId === 'late-day-0001').map((e) => e.at);
+  assert.ok(ats.length > 0 && ats.every((x) => x === ev.t), `its points are dated when it arrived: ${ats}`);
+  assert.equal(me.today.habits[0], true, 'it counts in today\'s habits');
+  assert.equal(new Date(Date.parse(ev.t)).toISOString(), new Date(s.time.now).toISOString(), 'stamped when it arrived');
+  assert.equal(ev.late, undefined, 'sent with its sending time: an honest wait is not flagged');
+});

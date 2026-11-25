@@ -20,7 +20,7 @@ import { createReport } from './report.js';
 import { nudgeOf } from './report-steps.js';
 import { mateLine } from './sites-steps.js';
 import { shellFor } from './leader-steps.js';
-import { verdict, mine as waitingOf, requestTimeout, langWaiting, langOwner, langDone } from './queue.js';
+import { verdict, mine as waitingOf, requestTimeout, langWaiting, langOwner, langDone, madeEarlier } from './queue.js';
 import { sessionMove, HOME, LEAVE, toDoor, offDoor, tabOf } from './door.js';
 import { actingMode, readOnlyIn, repControls, withAs, logLocked, staleAs, practiceBarName, asMove } from './practice-steps.js';
 import { shortfall } from './paid.js';
@@ -1109,9 +1109,10 @@ async function flush() {
   if (flushing || !S.me || readOnly() || !myQueue().length) return;
   flushing = true;
   let sent = 0;
+  const went = [];   // the logs that reached the server, to say when one of them was made on an earlier day
   try {
     for (const item of myQueue()) {
-      try { await api('POST', 'log', { ...item.body, sentAt: new Date().toISOString() }); sent += 1; }   // clientAt stays the moment of the contact
+      try { await api('POST', 'log', { ...item.body, sentAt: new Date().toISOString() }); sent += 1; went.push(item); }   // clientAt stays the moment of the contact
       catch (e) {
         if (verdict(e) === 'keep') { shutOut(e); break; }   // it stays in the queue for the next try
         toast(t('toast.dropped', { why: errText(e) }));   // refused for good: it leaves the queue with the reason shown
@@ -1120,7 +1121,13 @@ async function flush() {
     }
   } finally { flushing = false; }
   renderTop();
-  if (sent) { await refresh(true); toast(t('toast.sent', { n: sent })); }
+  if (sent) {
+    await refresh(true);
+    // made yesterday with no signal, it counts today: the day it reached the server (the phone's clock carried to the server's)
+    const tz = S.me && S.me.me ? S.me.me.tz : null, today = tz ? dayOf(nowIso(), tz) : null;
+    const earlier = today ? madeEarlier(went, today, (iso) => dayOf(new Date(Date.parse(iso) + skew).toISOString(), tz)) : 0;
+    toast(t(earlier ? 'toast.sent.today' : 'toast.sent', { n: sent }));
+  }
 }
 
 // ---- session ----
