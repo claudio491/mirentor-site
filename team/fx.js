@@ -8,14 +8,16 @@ import { changedChars } from './moments.js';
 /** While a full-screen moment is on, the app behind it takes no focus and no tap: Tab cannot slip behind the moment, and
  *  Enter cannot reach a button there. Moments can follow one another, so it counts. A toast waits out of sight meanwhile
  *  (body.moment in app.css): it lives in the top layer, above the moment, and would talk over it. */
-let shields = 0;
+let shields = 0, unveil = 0;
 function shield(on) {
   const was = shields > 0;
   shields = Math.max(0, shields + (on ? 1 : -1));
   const now = shields > 0, app = document.getElementById('app');
   if (app) app.inert = now;
-  document.body.classList.toggle('moment', now);
-  if (now && !was) holdToast(); else if (was && !now) releaseToast();
+  clearTimeout(unveil);
+  if (now) { document.body.classList.add('moment'); if (!was) holdToast(); return; }
+  // Moments follow one another with a short breath between them: the toast comes back only once no other one started.
+  if (was) unveil = setTimeout(() => { document.body.classList.remove('moment'); releaseToast(); }, reduce ? 50 : 450);
 }
 
 /** Change what is on screen with a short cross-fade, where the browser can do it. */
