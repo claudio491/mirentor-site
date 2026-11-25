@@ -165,3 +165,21 @@ test('the page preloads every module the app imports, and nothing else', () => {
   const preloaded = new Set([...page.matchAll(/<link rel="modulepreload" href="([\w-]+\.js)">/g)].map((m) => m[1]));
   assert.deepEqual([...preloaded].sort(), [...graph].sort());
 });
+
+// The wiring of the read order and the door lives in app.js, which needs a page to run: pinned here by its source.
+test('the quiet check asks again after the documents, a new start drops what is still out, and an ended session reloads marked for the door', () => {
+  const app = read('team/app.js');
+  const between = (a, b) => app.slice(app.indexOf(a), app.indexOf(b, app.indexOf(a)));
+  const poll = between('async function poll()', 'async function refresh(');
+  assert.match(poll, /await docs\.load\(\)[^\n]*\n\s*if \(!reads\.fresh\(read\)\) return;/, 'a log answered while the documents were read is not undone');
+  assert.match(poll, /adopt\(me, read\)/);
+  const start = between('async function start(', 'async function viewAs(');
+  assert.match(start, /reads\.adopted\(\)/, 'nothing read for the screens being left is adopted');
+  assert.match(start, /if \(ticket === starts\) enter\(me\)/, 'the answer of a start that a newer one replaced is dropped');
+  assert.match(start, /if \(ticket !== starts\) return;/);
+  const shut = between('function shutOut(', 'function signOut(');
+  assert.match(shut, /const to = toDoor\(location\.href\)/, 'the reload goes to the door, which the worker sends to the network');
+  assert.match(shut, /location\.replace\(to\)/);
+  const gate = between('function showGate(', 'const DOOR');
+  assert.match(gate, /kind === 'session' \? toDoor\(/);
+});

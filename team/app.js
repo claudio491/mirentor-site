@@ -20,9 +20,9 @@ import { createReport } from './report.js';
 import { nudgeOf } from './report-steps.js';
 import { mateLine } from './sites-steps.js';
 import { shellFor } from './leader-steps.js';
-import { verdict, mine as waitingOf, requestTimeout, langWaiting } from './queue.js';
+import { verdict, mine as waitingOf, requestTimeout, langWaiting, langOwner, langDone } from './queue.js';
 import { sessionMove, HOME, LEAVE, toDoor, offDoor, tabOf } from './door.js';
-import { actingMode, readOnlyIn, repControls, withAs, logLocked, staleAs, practiceBarName } from './practice-steps.js';
+import { actingMode, readOnlyIn, repControls, withAs, logLocked, staleAs, practiceBarName, asMove } from './practice-steps.js';
 import { shortfall } from './paid.js';
 import { askTwice } from './taps.js';
 import { createReads } from './reads.js';
@@ -165,10 +165,10 @@ function markTab() {
 // the phone's Back then comes back inside the app instead of leaving it, one screen at a time. A zone's tab is kept in
 // the address instead, so loading the page again lands on it. Nothing here changes what a screen shows.
 const DEEP = new Set(['profile', 'install', 'worker', 'iclose', 'ladder', 'zones', 'learn', 'route', 'ways', 'sites', 'docs']);
-// asPushed: this visit opened a rep's screens (view-as) on top of the team's own step in the history
-const backNav = { trail: [], from: null, guarded: false, unguarding: false, asPushed: false };
+// asDepth: how many steps this visit put above the team's own in the history for a rep's screens (view-as)
+const backNav = { trail: [], from: null, guarded: false, unguarding: false, asDepth: 0 };
 /** Nothing of a zone's trail is carried into other screens: a change of identity starts the history steps again. */
-function resetBack() { backNav.trail.length = 0; backNav.from = null; backNav.guarded = false; backNav.asPushed = false; }
+function resetBack() { backNav.trail.length = 0; backNav.from = null; backNav.guarded = false; backNav.asDepth = 0; }
 const homeTab = () => (S.lead ? 'lead' : S.mgr ? 'team' : 'today');
 const isDeep = (name) => DEEP.has(name) || (name === 'lead' && !S.lead);   // the leadership view is a step in for a manager
 /** The tab in the address (none for the first one), so a reload lands on it. */
@@ -319,8 +319,8 @@ async function switchLang(next) {
   if (S.me) {
     renderAll(false);
     // kept on this phone, with whose it is, and sent at that person's next start
-    const who = S.me.me ? S.me.me.id : null;
-    if (!readOnly()) api('POST', 'lang', { lang: next }).then(() => store.del(KEY.langPending)).catch(() => { if (who) store.set(KEY.langPending, { rep: who, lang: next }); });
+    const who = langOwner(S.me);   // the viewer's: the server changes the viewer's own language (queue.js)
+    if (!readOnly()) api('POST', 'lang', { lang: next }).then(() => { if (langDone(store.get(KEY.langPending, null), who)) store.del(KEY.langPending); }).catch(() => { if (who) store.set(KEY.langPending, { rep: who, lang: next }); });
   }
   else { for (const b of $$('#langSeg button')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang())); if (S.gate) showGate(S.gate.kind, S.gate.detail); }
   toast(t('toast.lang'));
@@ -1155,7 +1155,7 @@ function enter(me) {
   if (!S.as || me.viewer.role === 'rep') S.as = me.viewer.as;   // a rep's `as` is ignored by the server
   let own = S.as ? me.viewer.lang : me.me.lang;
   // A language picked with no signal is the person's choice: it wins over the server's and is sent again.
-  const pend = S.as ? null : langWaiting(store.get(KEY.langPending, null), me.me && me.me.id, LANGS);   // only this person's (queue.js)
+  const pend = S.as ? null : langWaiting(store.get(KEY.langPending, null), langOwner(me), LANGS);   // only this person's (queue.js)
   if (pend) {
     own = pend;
     if (pend === me.me.lang) store.del(KEY.langPending);
@@ -1274,7 +1274,9 @@ function signOutAsked(btn, e) {
   else if (step === 'run') signOut();
 }
 /** `as` is whose screens to open as their manager. Left out, the page's own address says it. */
+let starts = 0;   // a start that a newer one replaced (two quick taps on two faces) drops its answer
 async function start(as = undefined) {
+  const ticket = ++starts;
   const url = new URL(location.href);
   // Back from a trip to the door: its mark comes off the address, so it is not carried into the next one
   const clean = offDoor(url.href);
@@ -1286,8 +1288,9 @@ async function start(as = undefined) {
   S.as = as === undefined ? url.searchParams.get('as') : as;
   if (!S.tab) S.tab = tabOf(url.hash, SCREENS);   // a reload lands on the tab in the address, when it names a screen (enter() checks this person has it)
   if (S.me && !S.lead && !S.mgr) renderNav();   // the log button goes at once while the screens read only
-  try { S.gate = null; enter(await api('GET', S.as ? `me?as=${encodeURIComponent(S.as)}` : 'me')); }
+  try { S.gate = null; const me = await api('GET', S.as ? `me?as=${encodeURIComponent(S.as)}` : 'me'); if (ticket === starts) enter(me); }
   catch (e) {
+    if (ticket !== starts) return;   // the screens asked for since then answer for themselves
     const cached = store.get(KEY.me, null);
     // The address names a rep who is gone (the practice rep was removed, then Back or a reload): drop it, start as the person.
     if (staleAs(e, S.as)) { url.searchParams.delete('as'); try { history.replaceState(null, '', url); } catch { /* the view changes all the same */ } S.tab = null; await start(null); return; }
@@ -1304,24 +1307,21 @@ async function start(as = undefined) {
     else if (!shutOut(e)) showGate('error', e);
   }
 }
-/** Open a rep's screens as their manager, or come back to the team, without loading the page again. */
+/** Open a rep's screens as their manager, or come back to the team, without loading the page again. What it does to the
+ *  history is decided in practice-steps.js (asMove): one step above the team per visit, a second tap replaces it, and
+ *  the way back steps down to the team's own place, so the phone's Back afterwards never opens a rep's screens again. */
 async function viewAs(id = null) {
-  // Back to the team from a rep's screens this visit opened: the browser steps back to the team's own place in the
-  // history (past the step a zone's screen left), so the phone's Back afterwards does not open the rep's screens again.
-  // The popstate that follows starts the screens from the team's address (onBack).
-  if (!id && backNav.asPushed) {
-    const steps = backNav.guarded ? 2 : 1;
+  const step = asMove({ id, as: S.as, depth: backNav.asDepth, guarded: backNav.guarded });
+  if (step.move === 'none') return;   // those screens are the ones already open (a second tap on the same face)
+  if (step.move === 'back') {
     resetBack();
-    try { history.go(-steps); return; } catch { /* the address changes in place, below */ }
+    try { history.go(-step.steps); return; } catch { /* the address changes in place, below */ }   // the popstate starts the team (onBack)
   }
   const url = new URL(location.href);
   if (id) url.searchParams.set('as', id); else url.searchParams.delete('as');
   url.hash = '';   // the other screens open on their first tab
-  // Left from a screen inside a zone, the step it left in the history becomes the new view: nothing of the zone is
-  // carried into it (track() would otherwise step back onto the old address, and the team would show under ?as=).
-  const step = backNav.guarded;
-  resetBack();
-  try { if (step) history.replaceState(null, '', url); else history.pushState(null, '', url); backNav.asPushed = !!id; } catch { /* a page shown inside another one may not change its address: the view changes all the same */ }
+  resetBack();   // nothing of a zone is carried into the other screens: track() would step back onto the old address
+  try { if (step.move === 'replace') history.replaceState(null, '', url); else history.pushState(null, '', url); backNav.asDepth = step.depth || 0; } catch { /* a page shown inside another one may not change its address: the view changes all the same */ }
   S.tab = null; window.scrollTo(0, 0);
   await start(id);
 }

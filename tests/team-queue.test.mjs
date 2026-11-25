@@ -88,3 +88,15 @@ test('a language picked with no signal waits for its own person: another account
   assert.equal(langWaiting(null, 'r_a', LANGS), null);
   assert.equal(langWaiting({ rep: undefined, lang: 'en' }, undefined, LANGS), null, 'nobody to own it');
 });
+
+test('a waiting language belongs to the viewer (a manager acting as the practice rep changes their own), and only its owner clears it', async () => {
+  const { langOwner, langDone } = await import('../team/queue.js');
+  assert.equal(langOwner({ viewer: { id: 'r_boss', role: 'manager', as: 'r_prac' }, me: { id: 'r_prac' } }), 'r_boss', 'the server changes the viewer\'s language');
+  assert.equal(langOwner({ viewer: { id: 'r_a', role: 'rep', as: null }, me: { id: 'r_a' } }), 'r_a');
+  assert.equal(langOwner({ me: { id: 'r_a' } }), 'r_a', 'a view kept by an older version, with no viewer');
+  assert.equal(langOwner(null), null);
+  assert.equal(langDone({ rep: 'r_a', lang: 'en' }, 'r_a'), true);
+  assert.equal(langDone({ rep: 'r_a', lang: 'en' }, 'r_b'), false, 'another account on the same phone leaves it');
+  assert.equal(langDone('en', 'r_b'), true, 'not one this version writes: nobody would ever read it');
+  assert.equal(langDone(null, 'r_b'), false, 'nothing to clear');
+});

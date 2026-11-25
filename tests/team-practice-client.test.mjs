@@ -141,3 +141,23 @@ test('the practice bar names an example rep by name and anything else by the pla
   assert.equal(practiceBarName(prac, label), label);
   assert.equal(practiceBarName(real, label), label);
 });
+
+test('view-as and the history: one step above the team per visit, a second tap replaces it, and the team comes back in one go', async () => {
+  const { asMove } = await import('../team/practice-steps.js');
+  // from the team: one step in
+  assert.deepEqual(asMove({ id: 'r_a', as: null, depth: 0, guarded: false }), { move: 'push', depth: 1 });
+  // a second tap before the first answer, on another rep or the same one: the step is replaced, never stacked
+  assert.deepEqual(asMove({ id: 'r_b', as: 'r_a', depth: 1, guarded: false }), { move: 'replace', depth: 1 });
+  assert.deepEqual(asMove({ id: 'r_a', as: 'r_a', depth: 1, guarded: false }), { move: 'none' });
+  // from a screen inside a zone, the zone's step becomes the view
+  assert.deepEqual(asMove({ id: 'r_a', as: null, depth: 0, guarded: true }), { move: 'replace', depth: 1 });
+  assert.deepEqual(asMove({ id: 'r_b', as: 'r_a', depth: 1, guarded: true }), { move: 'replace', depth: 2 });
+  // back to the team: as many steps as this visit put above it, plus a zone's
+  assert.deepEqual(asMove({ id: null, as: 'r_a', depth: 1, guarded: false }), { move: 'back', steps: 1 });
+  assert.deepEqual(asMove({ id: null, as: 'r_a', depth: 1, guarded: true }), { move: 'back', steps: 2 });
+  assert.deepEqual(asMove({ id: null, as: 'r_b', depth: 2, guarded: false }), { move: 'back', steps: 2 });
+  // a rep's screens opened by the address itself (a reload, a link): nothing of this visit is below, so the team is a
+  // new step, or takes the place of a zone's
+  assert.deepEqual(asMove({ id: null, as: 'r_a', depth: 0, guarded: false }), { move: 'push', depth: 0 });
+  assert.deepEqual(asMove({ id: null, as: 'r_a', depth: 0, guarded: true }), { move: 'replace', depth: 0 });
+});

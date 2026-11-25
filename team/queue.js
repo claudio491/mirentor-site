@@ -20,10 +20,17 @@ export function verdict(err) {
 /** A phone can be shared: each waiting log remembers whose it is, and only its owner sends it. */
 export const mine = (queue, repId) => (Array.isArray(queue) ? queue.filter((q) => q && typeof q === 'object' && q.rep === repId && q.body) : []);
 
-/** How long a request may hang before it counts as no signal. A photo goes as its own bytes and can take long on a weak
- *  signal, so it gets ninety seconds; everything else, fifteen. */
 /** A language picked with no signal waits on the phone like a log: it remembers whose it is, and only its owner's next
  *  start sends it (a shared phone never hands it to the next account). The language, or null. */
 export const langWaiting = (kept, repId, langs) =>
   (kept && typeof kept === 'object' && repId && kept.rep === repId && langs.includes(kept.lang) ? kept.lang : null);
+/** Whose a language picked now is: the viewer's, since the server changes the viewer's own (a manager acting as the
+ *  practice rep changes theirs). A view kept by an older version names only `me`. */
+export const langOwner = (view) => (view && view.viewer && view.viewer.id) || (view && view.me && view.me.id) || null;
+/** Whether a language that reached the server clears the one waiting: only when it was this person's (another account
+ *  on the same phone leaves it), or when what is kept is not one this version writes. */
+export const langDone = (kept, who) => !!kept && (typeof kept !== 'object' || kept.rep === who);
+
+/** How long a request may hang before it counts as no signal. A photo goes as its own bytes and can take long on a weak
+ *  signal, so it gets ninety seconds; everything else, fifteen. */
 export const requestTimeout = (body) => (typeof Blob !== 'undefined' && body instanceof Blob ? 90000 : 15000);

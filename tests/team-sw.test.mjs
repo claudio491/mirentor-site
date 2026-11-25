@@ -44,3 +44,23 @@ test('a trip to the door always goes to the network, never to the copy', () => {
   assert.equal(isDoorTrip(at('./')), false);
   assert.equal(isDoorTrip(at('./?as=r_1')), false);
 });
+
+test('with a slow network a page comes from the copy, but a trip to the door waits for the network: the sign-in page, never the board', async () => {
+  // the worker in a sandbox of its own: a network that answers in 30 ms, a wait for pages cut to nothing (so every page
+  // load is "slow"), and a copy that holds the board
+  const board = '<!doctype html><main class="app" id="app"></main><script type="module" src="app.js"></script>';
+  const put = [];
+  const box = {
+    self: { addEventListener() {}, registration: { scope: SCOPE } },
+    caches: { open: async () => ({ match: async () => new Response(board), put: async (k) => { put.push(String(k)); } }) },
+    fetch: () => new Promise((r) => setTimeout(() => r(new Response('<title>Portal de ventas</title>sign-in')), 30)),
+    URL, Response, clearTimeout,
+    setTimeout: (fn, ms) => setTimeout(fn, ms >= 1000 ? 0 : ms),
+  };
+  vm.createContext(box);
+  vm.runInContext(source, box);
+  const nav = (path) => ({ request: { url: at(path).href, mode: 'navigate' }, resultingClientId: 'c1' });
+  assert.match(await (await box.page(nav('./'))).text(), /id="app"/, 'a page load that hangs is answered from the copy');
+  assert.match(await (await box.page(nav('./?door=1'))).text(), /sign-in/, 'the door is answered by the network, however long it takes');
+  assert.deepEqual(put, [], 'and nothing of it is kept');
+});

@@ -59,4 +59,17 @@ export const staleAs = (err, as) => !!as && !!err && err.status === 404 && err.c
 
 /** The name the practice bar shows: an example rep's own name, anything else the plain label. Every answer goes
  *  through the top bar, and a leader's has no `me`, so this never reaches past what is there. */
+/** What opening a rep's screens (`id`), or coming back to the team (`id` null), does to the browser's history.
+ *  `as` is whose screens are open now, `depth` how many steps this visit put above the team's own (0 when the screens
+ *  were opened by the address itself: a reload, a link), `guarded` whether a screen inside a zone left a step on top.
+ *  A second tap replaces the step instead of stacking another (two quick taps on two faces), a zone's step becomes the
+ *  view, and the way back to the team goes down every step this visit put there: the phone's Back afterwards never
+ *  opens a rep's screens again. { move: 'push' | 'replace', depth } with the depth afterwards, { move: 'back', steps },
+ *  or { move: 'none' } when those screens are already the ones open. */
+export function asMove({ id, as, depth = 0, guarded = false }) {
+  if (!id) return depth > 0 ? { move: 'back', steps: depth + (guarded ? 1 : 0) } : { move: guarded ? 'replace' : 'push', depth: 0 };
+  if (guarded) return { move: 'replace', depth: depth + 1 };
+  if (depth > 0) return id === as ? { move: 'none' } : { move: 'replace', depth };
+  return { move: 'push', depth: 1 };
+}
 export const practiceBarName = (answer, label) => (answer && answer.me && answer.me.example ? answer.me.name : label);
