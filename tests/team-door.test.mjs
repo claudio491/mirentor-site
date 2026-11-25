@@ -186,3 +186,15 @@ test('on the portal\'s own host the board borrows the door where the portal keep
   // the same service asked by another name keeps the portal under /ventas, as before
   assert.match((await s.signIn('jefe@mirentor.com')).headers.get('set-cookie'), /Path=\/ventas; /);
 });
+
+test('the board\'s own key, and the desk\'s while the callers move over: the desk\'s is named in the log, then refused once TEAM_TOKEN_ONLY is set', async (t) => {
+  const moving = await start({ env: { DESK_PUSH_TOKEN: 'the-desk-key' } }); t.after(() => moving.srv.close());
+  assert.equal((await moving.call('GET', `${BOARD}/api/export?since=2026-11-01T00:00:00Z`, undefined, { bearer: TOKEN })).status, 200);
+  assert.equal(moving.said.some((m) => /desk key/.test(m)), false, 'its own key is not worth a line');
+  assert.equal((await moving.call('GET', `${BOARD}/api/export?since=2026-11-01T00:00:00Z`, undefined, { bearer: 'the-desk-key' })).status, 200);
+  assert.ok(moving.said.some((m) => /export/.test(m) && /desk key/.test(m)), 'who still uses the desk key shows in the log, never the key');
+  assert.equal(moving.said.some((m) => m.includes('the-desk-key') || m.includes(TOKEN)), false);
+  const only = await start({ env: { DESK_PUSH_TOKEN: 'the-desk-key', TEAM_TOKEN_ONLY: '1' } }); t.after(() => only.srv.close());
+  assert.equal((await only.call('GET', `${BOARD}/api/export?since=2026-11-01T00:00:00Z`, undefined, { bearer: 'the-desk-key' })).status, 401);
+  assert.equal((await only.call('GET', `${BOARD}/api/export?since=2026-11-01T00:00:00Z`, undefined, { bearer: TOKEN })).status, 200);
+});

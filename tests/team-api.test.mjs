@@ -345,10 +345,15 @@ test('the module stays off until it is switched on by name, and keeps no secret 
   assert.equal(teamConfig({}), null);
   assert.equal(teamConfig(desk), null);                                  // a deploy for any other reason must not publish the board
   assert.equal(teamConfig({ ...desk, TEAM_ENABLED: '0' }), null);
-  assert.deepEqual(teamConfig({ TEAM_ENABLED: '1' }), { pushToken: '', origins: [], bootstrapOpen: false, guests: [] });
+  assert.deepEqual(teamConfig({ TEAM_ENABLED: '1' }), { keys: [], origins: [], bootstrapOpen: false, guests: [] });
+  // with no key of its own, the board takes the desk's, as before
   assert.deepEqual(teamConfig({ ...desk, TEAM_ENABLED: '1', ALLOWED_ORIGINS: 'https://www.mirentor.com, https://mirentor.onrender.com' }),
-    { pushToken: 'desk-token', origins: ['https://www.mirentor.com', 'https://mirentor.onrender.com'], bootstrapOpen: false, guests: [] });
-  assert.deepEqual(teamConfig({ ...desk, TEAM_ENABLED: 'true', TEAM_PUSH_TOKEN: 'own-token', TEAM_BOOTSTRAP: '1' }), { pushToken: 'own-token', origins: [], bootstrapOpen: true, guests: [] });
+    { keys: [{ as: 'desk', token: 'desk-token' }], origins: ['https://www.mirentor.com', 'https://mirentor.onrender.com'], bootstrapOpen: false, guests: [] });
+  // with its own, both open it while the callers move over; TEAM_TOKEN_ONLY ends that, and the desk's key opens nothing here
+  assert.deepEqual(teamConfig({ ...desk, TEAM_ENABLED: 'true', TEAM_PUSH_TOKEN: 'own-token', TEAM_BOOTSTRAP: '1' }),
+    { keys: [{ as: 'team', token: 'own-token' }, { as: 'desk', token: 'desk-token' }], origins: [], bootstrapOpen: true, guests: [] });
+  assert.deepEqual(teamConfig({ ...desk, TEAM_ENABLED: '1', TEAM_PUSH_TOKEN: 'own-token', TEAM_TOKEN_ONLY: '1' }).keys, [{ as: 'team', token: 'own-token' }]);
+  assert.deepEqual(teamConfig({ TEAM_ENABLED: '1', TEAM_TOKEN_ONLY: '1' }).keys, [], 'only its own, and it has none: nothing opens');
 });
 
 /** A data folder that already holds people, written the way a list or an older log would: straight to the file. */

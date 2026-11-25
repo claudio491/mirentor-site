@@ -31,7 +31,8 @@ Takes the waitlist form from the Mirentor site, keeps every sign-up on disk, and
 | `DESK_HOST` | `desk.mirentor.com`: on that host the desk sits at the root (`/`, `/login`, `/data.json`) |
 | `GOOGLE_SA_JSON` | the service account key, pasted whole. Share the sheet with its `client_email` as Editor. |
 | `TEAM_ENABLED` | `1` turns the sales team's board on inside the sales portal, at `/ventas/equipo`. Unset, it stays off whatever other keys exist. It needs the portal (`SALES_GOOGLE_CLIENT_ID` and `SALES_SESSION_SECRET`): people come in through its Google sign-in, so without the portal the board stays off and the service log says why |
-| `TEAM_PUSH_TOKEN` | optional bearer token for the nightly CRM routine and the first manager; unset, `DESK_PUSH_TOKEN` is used |
+| `TEAM_PUSH_TOKEN` | the board's own bearer token: the CRM bridge, the hours routine and the admin tool; unset, `DESK_PUSH_TOKEN` is used. While both are set, both open the board and every call made with the desk's is named in the log, so its caller can be moved |
+| `TEAM_TOKEN_ONLY` | `1`: only `TEAM_PUSH_TOKEN` opens the board's service routes; the desk's key opens nothing there |
 | `TEAM_BOOTSTRAP` | `1` opens `POST bootstrap` again once the team has an admin. Set it only for the minutes it takes to make another one (the only admin left, or was made with the wrong address), then remove it |
 
 ## Team Desk copy (`/desk`)
