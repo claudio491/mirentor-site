@@ -21,7 +21,7 @@ import { nudgeOf } from './report-steps.js';
 import { mateLine } from './sites-steps.js';
 import { shellFor } from './leader-steps.js';
 import { verdict, mine as waitingOf, requestTimeout } from './queue.js';
-import { sessionMove, HOME, LEAVE, toDoor, offDoor } from './door.js';
+import { sessionMove, HOME, LEAVE, toDoor, offDoor, tabOf } from './door.js';
 import { actingMode, readOnlyIn, repControls, withAs, logLocked, staleAs, practiceBarName } from './practice-steps.js';
 import { shortfall } from './paid.js';
 import { askTwice } from './taps.js';
@@ -1281,7 +1281,7 @@ async function start(as = undefined) {
   for (const dlg of document.querySelectorAll('dialog[open]')) closeSheet(dlg);
   reads.adopted();   // nothing read for the screens being left is adopted from now on (a quiet check still out, say)
   S.as = as === undefined ? url.searchParams.get('as') : as;
-  if (!S.tab && url.hash.length > 1) S.tab = decodeURIComponent(url.hash.slice(1));   // a reload lands on the tab in the address (enter() checks it is one)
+  if (!S.tab) S.tab = tabOf(url.hash, SCREENS);   // a reload lands on the tab in the address, when it names a screen (enter() checks this person has it)
   if (S.me && !S.lead && !S.mgr) renderNav();   // the log button goes at once while the screens read only
   try { S.gate = null; enter(await api('GET', S.as ? `me?as=${encodeURIComponent(S.as)}` : 'me')); }
   catch (e) {

@@ -64,3 +64,16 @@ test('a trip to the door carries its mark, keeps what the address said, and the 
   assert.equal(offDoor('https://www.mirentor.com/ventas/equipo/?as=r_1&door=1#week'), 'https://www.mirentor.com/ventas/equipo/?as=r_1#week');
   assert.equal(offDoor('https://www.mirentor.com/ventas/equipo/'), null, 'nothing to take off');
 });
+
+test('the tab in the address is read only when it names one of the screens: anything else is ignored, never thrown', async () => {
+  const { tabOf } = await import('../team/door.js');
+  const known = ['today', 'week', 'table'];
+  assert.equal(tabOf('#week', known), 'week');
+  assert.equal(tabOf('#%77eek', known), 'week', 'an escaped name still reads');
+  assert.equal(tabOf('', known), null);
+  assert.equal(tabOf('#', known), null);
+  assert.equal(tabOf('#%E0', known), null, 'a broken escape');
+  assert.equal(tabOf('#week%22', known), null, 'a quote that would break a selector');
+  assert.equal(tabOf('#nope', known), null);
+  assert.equal(tabOf('#constructor', known), null);
+});

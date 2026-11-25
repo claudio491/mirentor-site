@@ -22,6 +22,15 @@ export function offDoor(href) {
   return u.href;
 }
 
+/** The tab an address names after its #, when it is one of `known`; null for anything else (a broken escape, a name no
+ *  screen has). A link can say anything, and the name ends up in a selector: nothing else gets through. */
+export function tabOf(hash, known) {
+  if (typeof hash !== 'string' || hash.length < 2) return null;
+  let name;
+  try { name = decodeURIComponent(hash.slice(1)); } catch { return null; }
+  return known.includes(name) ? name : null;
+}
+
 /** What the app does when the server says this person cannot go on.
  *  'reload': the session ended, and loading the page again shows the sign-in.
  *  'gate:session': that was tried less than `wait` ms ago, or there is nowhere to remember the last try, so the screen
