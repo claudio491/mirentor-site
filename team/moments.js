@@ -36,6 +36,23 @@ export function nextStep(today, rules, minutes = 0) {
   return { code: 'close', habit: 3, pts: minutes < h * 60 + m ? P.dayClosedOnTime : 0, left: 1 };
 }
 
+/** Hoy's one button under the stop shown (`sel`, `done`: that stop is done), from the day and its next step: log this
+ *  stop ('log'), close the day on the last one ('close'), or go on once it is done ('next'). A closed day has none:
+ *  its report opens from the close card ("Ver y copiar el reporte"). Neither does a step with no habit, nor a person
+ *  only looking (no step). */
+export function stopCta({ today, step, sel, done = false }) {
+  if (!step || !today || today.closed || step.habit == null) return null;
+  if (done) return { step: 'next' };
+  return { step: sel === 3 ? 'close' : 'log' };
+}
+/** What follows a close of the day (`due`: the moments it brought). When it fills the finger, the day's moment is the
+ *  stop's answer: it plays as the close sheet goes (`now`) and the stop owes none (`owed`), so Hoy under it reads
+ *  closed. Otherwise the stop answers first and any moment waits for it, as before. */
+export function afterClose(due) {
+  const finger = Array.isArray(due) && due.some((m) => m && m.kind === 'finger');
+  return { owed: !finger, now: finger };
+}
+
 const fullFinger = (v) => !!v.today && v.today.isWork && v.today.habits.every(Boolean);
 const fullHand = (v) => !!v.week && v.week.workFingers > 0 && v.week.fullFingers === v.week.workFingers;
 const WEIGHT = { lead: 0, level: 1, badge: 2, hand: 3, finger: 4, step: 5 };
@@ -109,6 +126,40 @@ export function stake(view) {
   if (mine && mine.place != null) return { kind: 'place', place: mine.place, ranked: T.ranked, gap: T.gap ? { pts: T.gap.pts, name: T.gap.aheadOnPodium ? T.gap.aheadName : null } : null };
   if (view.me.isNew) return { kind: 'new', ...firstDays(view) };
   return { kind: T.ranked === 0 ? 'zero' : 'nopts' };
+}
+
+/** The gap to the place ahead, as the entrance and the table say it: a tie is "Empatas con {name}." (or with the next
+ *  place), never "A 0 puntos de"; a gap names the place ahead when it is on the podium (`name`), else the next place.
+ *  `gap` is { pts, name } (name null when the place ahead is not named). */
+export function gapLine(gap) {
+  if (!gap) return null;
+  if (gap.pts === 0) return gap.name ? { key: 'table.sup.tie', name: gap.name } : { key: 'table.sup.tie.next' };
+  return gap.name ? { key: 'table.sup.gap.named', pts: gap.pts, name: gap.name } : { key: 'table.sup.gap.next', pts: gap.pts };
+}
+
+/** The rep behind the one in first place, as the entrance and the table say it: a tie is "Empatas con {name}.", never
+ *  "{name} te sigue a 0 puntos.". `behind` is { name, pts }; null when nobody is behind. */
+export function behindLine(behind) {
+  if (!behind) return null;
+  if (behind.pts === 0) return { key: 'table.sup.tie', name: behind.name };
+  return { key: 'table.sup.behind', name: behind.name, pts: behind.pts };
+}
+
+/** How long a moment (fx.js celebrate) holds the app: a breath, shorter still with nothing moving. */
+export const CELEBRATE_HOLD = Object.freeze({ full: 1600, reduced: 1200 });
+
+/** The day's completion carries the report: shared where the browser can share text, else copied, each with its quiet
+ *  line under the control. */
+export const reportAction = (canShare) => (canShare ? { kind: 'share', key: 'dd.share', hint: 'dd.share.hint' } : { kind: 'copy', key: 'dd.copy', hint: 'dd.copy.hint' });
+/** How long "Listo." stays before the moment closes. */
+export const DONE_HOLD = 900;
+/** What an outcome does: 'ok' says "Listo." and closes; a share the rep cancels is not an error and leaves the moment
+ *  open; a share that fails otherwise copies instead (`then`); a copy that fails says so and stays. */
+export function reportOutcome(kind, result) {
+  if (result === 'ok') return { say: 'dd.done', close: true, then: null };
+  if (kind === 'share' && result === 'cancel') return { say: null, close: false, then: null };
+  if (kind === 'share') return { say: null, close: false, then: 'copy' };
+  return { say: 'close.copy.fail', close: false, then: null };
 }
 
 /** How far a score is along the race to the leader's, from 0 to 1. */

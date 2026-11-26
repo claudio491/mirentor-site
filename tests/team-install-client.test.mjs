@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanImei as serverImei } from '../lib/team/install.mjs';
-import { cleanImei, workerSteps, installCard, prepRows, newWorkerId, consentFailed, statusKey, workerOrder } from '../team/install-steps.js';
+import { cleanImei, workerSteps, installCard, prepRows, newWorkerId, consentFailed, statusKey, workerOrder, nextWorker } from '../team/install-steps.js';
 import { makeT } from '../team/i18n.js';
 
 const IMEI_A = '490154203237518', IMEI_B = '356938035643809';
@@ -148,18 +148,20 @@ test('the controls a screen offers: none at all when a manager looks through vie
   assert.deepEqual(on(controls({ readOnly: false, site: closed, worker: null })), ['addWorker', 'prep'], 'a closed install cannot close again; late workers still come in');
   // a worker: the consent always (a new photo replaces the old), the phone only with a consent, the return only with a
   // phone; the correction and the removal always (the server refuses a removal while a phone is held)
-  assert.deepEqual(on(controls({ readOnly: false, site, worker: w() })), ['addWorker', 'close', 'consent', 'edit', 'prep', 'remove']);
-  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' } }) })), ['addWorker', 'close', 'consent', 'edit', 'phone', 'prep', 'remove']);
-  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' }, imei: IMEI_A }) })), ['addWorker', 'clip', 'close', 'consent', 'edit', 'prep', 'remove', 'returnPhone']);
-  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' }, imei: IMEI_A, clip: 'x' }) })), ['addWorker', 'close', 'consent', 'edit', 'prep', 'remove', 'returnPhone']);
+  assert.deepEqual(on(controls({ readOnly: false, site, worker: w() })), ['addWorker', 'change', 'close', 'consent', 'edit', 'prep', 'remove']);
+  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' } }) })), ['addWorker', 'change', 'close', 'consent', 'edit', 'phone', 'prep', 'remove']);
+  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' }, imei: IMEI_A }) })), ['addWorker', 'change', 'clip', 'close', 'consent', 'edit', 'prep', 'remove', 'returnPhone']);
+  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' }, imei: IMEI_A, clip: 'x' }) })), ['addWorker', 'change', 'close', 'consent', 'edit', 'prep', 'remove', 'returnPhone']);
   // after a return the phone step is open again
   assert.equal(controls({ readOnly: false, site, worker: w({ consent: { v: 'v1' } }) }).phone, true);
   // a coworker who signs only never gets a phone control
-  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ phone: false, consent: { v: 'v1' } }) })), ['addWorker', 'close', 'consent', 'edit', 'prep', 'remove']);
+  assert.deepEqual(on(controls({ readOnly: false, site, worker: w({ phone: false, consent: { v: 'v1' } }) })), ['addWorker', 'change', 'close', 'consent', 'edit', 'prep', 'remove']);
   // a legacy site loads past consents only: people, their photo, a correction or a removal; no prep, phone, clip or close
   const legacy = { legacy: true, closed: null };
   assert.deepEqual(on(controls({ readOnly: false, site: legacy, worker: null })), ['addWorker']);
-  assert.deepEqual(on(controls({ readOnly: false, site: legacy, worker: w({ phone: false }) })), ['addWorker', 'consent', 'edit', 'remove']);
+  assert.deepEqual(on(controls({ readOnly: false, site: legacy, worker: w({ phone: false }) })), ['addWorker', 'change', 'consent', 'edit', 'remove']);
+  // fix round 1 (D6): "Cambiar" on a folded step is a worker's control: never for a read-only viewer
+  assert.equal(controls({ readOnly: true, site, worker: w({ consent: { v: 'v1' }, imei: IMEI_A }) }).change, false);
   assert.deepEqual(on(controls({ readOnly: true, site: legacy, worker: w({ phone: false }) })), []);
 });
 
@@ -178,6 +180,20 @@ test('a correction sends a clean name and email; the email may be empty only on 
   assert.throws(() => workerEditBody({ name: 'L', email: 'l@equipo.test' }), { code: 'fields' });
   assert.throws(() => workerEditBody({ name: 'Luz Paz', email: '' }), { code: 'email' });
   assert.deepEqual(workerEditBody({ name: 'Luz Paz', email: '' }, true), { name: 'Luz Paz', email: '' });
+});
+
+// Wave 2 (C7): a worker may have no email, but only by saying so ("No tiene correo").
+test('a worker with no email is added by saying so; an empty email without it is still refused', async () => {
+  const { workerAddBody, workerEditBody } = await import('../team/install-steps.js');
+  assert.deepEqual(workerAddBody({ name: 'Ana Ruiz', email: '', hasEmail: 'no', phone: 'yes' }, false), { name: 'Ana Ruiz', email: '', phone: true, noEmail: true });
+  assert.throws(() => workerAddBody({ name: 'Ana Ruiz', email: '', hasEmail: 'yes' }, false), { code: 'email' });
+  assert.deepEqual(workerAddBody({ name: ' Ana  Ruiz ', email: ' ANA@Equipo.test ', hasEmail: 'yes', phone: 'no' }, false), { name: 'Ana Ruiz', email: 'ana@equipo.test', phone: false });
+  assert.deepEqual(workerAddBody({ name: 'Ana Ruiz', email: 'ana@equipo.test', hasEmail: 'no', phone: 'yes' }, false), { name: 'Ana Ruiz', email: '', phone: true, noEmail: true }, '"No tiene correo" sends no email');
+  assert.throws(() => workerAddBody({ name: 'A', email: 'a@equipo.test', hasEmail: 'yes' }, false), { code: 'fields' });
+  assert.deepEqual(workerAddBody({ name: 'Ana Ruiz', email: '' }, true), { name: 'Ana Ruiz', email: '', phone: false }, 'a legacy site: the email may stay empty, and no phone');
+  // a correction may say the same
+  assert.deepEqual(workerEditBody({ name: 'Luz Paz', email: '', hasEmail: 'no' }), { name: 'Luz Paz', email: '', noEmail: true });
+  assert.throws(() => workerEditBody({ name: 'Luz Paz', email: '', hasEmail: 'yes' }), { code: 'email' });
 });
 
 test('a consent photo is decoded at the size it will be sent, never at the camera\'s full size', async () => {
@@ -205,4 +221,21 @@ test('a photo\'s size is read from its header, with no image element (the page\'
   assert.deepEqual(await headerSize(png), { width: 1200, height: 900 });
   // anything else (a HEIC, a broken file, a JPEG whose data starts before a frame header): unknown, decoded as before
   for (const bytes of [[0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70], [0xFF, 0xD8, 0xFF], [0xFF, 0xD8, 0xFF, 0xDA, 0, 8, 1, 2], []]) assert.equal(await headerSize(new Blob([new Uint8Array(bytes)])), null, JSON.stringify(bytes));
+});
+
+// 25 Nov (REPUX-13): a finished worker leaves the rep on "listo." with nowhere to go but "Lista". The screen offers the
+// next person of the site who is not ready.
+test('who is next after a worker: the next one of the site who is not ready, going round the list; none when all are', () => {
+  const w = (id, status) => ({ id, name: id.toUpperCase(), status });
+  const list = [w('a', 'ready'), w('b', 'no_phone'), w('c', 'ready'), w('d', 'no_consent'), w('e', 'consent_only')];
+  assert.equal(nextWorker(list, 'c').id, 'd');
+  assert.equal(nextWorker(list, 'a').id, 'b');
+  assert.equal(nextWorker(list, 'd').id, 'b', 'past the end it goes round to the start');
+  assert.equal(nextWorker(list, 'b').id, 'd', 'the person on screen is never their own next');
+  assert.equal(nextWorker([w('a', 'ready'), w('b', 'consent_only'), w('c', 'ready')], 'a'), null);
+  assert.equal(nextWorker([w('a', 'no_clip')], 'a'), null);
+  assert.equal(nextWorker([], 'a'), null);
+  assert.equal(nextWorker(undefined, 'a'), null);
+  // someone not in the list (removed meanwhile): the first one not ready
+  assert.equal(nextWorker(list, 'zz').id, 'b');
 });

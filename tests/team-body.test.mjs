@@ -41,8 +41,8 @@ test('a body over the limit is answered 413, and the phone reads it: never a cut
   const ok = await s.call('POST', `${API}/log`, logBody('small-log-001'), { cookie: m.cookie });
   assert.equal(ok.status, 200);
   assert.equal(s.lines().some((e) => e.id === 'big-log-0001'), false);
-  // the service token's lead list (4 MB) and a consent photo (1 MB) have their own limits, answered the same way
-  const leads = await fetch(`${s.url}${API}/leads`, { method: 'PUT', headers: { 'content-type': 'application/json', authorization: 'Bearer push-token' }, body: JSON.stringify([{ id: 'X', company: 'y'.repeat(5 * 1024 * 1024) }]) });
+  // the service token's lead list (12 MB) and a consent photo (1 MB) have their own limits, answered the same way
+  const leads = await fetch(`${s.url}${API}/leads`, { method: 'PUT', headers: { 'content-type': 'application/json', authorization: 'Bearer push-token' }, body: JSON.stringify([{ id: 'X', company: 'y'.repeat(13 * 1024 * 1024) }]) });
   assert.deepEqual([leads.status, (await leads.json()).error], [413, 'too_large']);
   await s.call('POST', `${API}/site`, { id: 's_body-site-001', rep: m.id, lead: { name: 'Taller Uno' } }, { cookie: a.cookie });
   await s.call('POST', `${API}/install/s_body-site-001/workers`, { id: 'w_body-wk-0001', name: 'Persona Uno', email: 'p1@equipo.test' }, { cookie: m.cookie });

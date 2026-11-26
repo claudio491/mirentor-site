@@ -1,7 +1,8 @@
 // The rule for a log that could not be sent, tested without a browser: it lives in team/queue.js, apart from the screens.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { verdict, fromServer, mine, requestTimeout } from '../team/queue.js';
+import { readFileSync } from 'node:fs';
+import { verdict, fromServer, mine, requestTimeout, sentNotes } from '../team/queue.js';
 import { sessionMove, HOME, LEAVE } from '../team/door.js';
 
 /** A refusal as the app's api() hands it over when the server itself said no: its own JSON, { ok: false, error }. */
@@ -108,4 +109,40 @@ test('logs that waited with no signal count for the day they reach the server; t
   assert.equal(madeEarlier([q('2026-11-24T22:00:00Z'), q('2026-11-25T09:00:00Z')], '2026-11-25', day), 1);
   assert.equal(madeEarlier([q('2026-11-25T09:00:00Z')], '2026-11-25', day), 0);
   assert.equal(madeEarlier([{ rep: 'r_a', body: {} }, null], '2026-11-25', day), 0, 'no time: nothing to say');
+});
+
+test('a queued log the server took as a repeat added nothing: it is not counted by the rule that picks the toast', async () => {
+  const { madeEarlier, landedNew } = await import('../team/queue.js');
+  const day = (iso) => iso.slice(0, 10);
+  const yesterday = { rep: 'r_a', body: { clientAt: '2026-11-24T22:00:00Z' } };
+  assert.equal(landedNew({ ok: true, repeat: true, updated: false }), false);
+  assert.equal(landedNew({ ok: true, repeat: true, updated: true }), false, 'a repeat that updated a detail still added no log');
+  assert.equal(landedNew({ ok: true, repeat: false, logId: 'g1' }), true);
+  // what app.js does with each answer: only a log that landed new goes into the count of the toast
+  const went = [[yesterday, { ok: true, repeat: true }]].filter(([, answer]) => landedNew(answer)).map(([item]) => item);
+  assert.equal(madeEarlier(went, '2026-11-25', day), 0);
+  // the flush in app.js needs a page to run: pinned here by its source. The count `sent` stays, the queue did empty.
+  const app = readFileSync(new URL('../team/app.js', import.meta.url), 'utf8');
+  const flush = app.slice(app.indexOf('async function flush()'), app.indexOf('// ---- session ----'));
+  assert.match(flush, /const answer = await api\('POST', 'log'[^\n]*sent \+= 1; if \(landedNew\(answer\)\) went\.push\(item\);/);
+});
+
+// Fix round 1 (B6): a log that waited without signal says what happened to it: a next step whose day had passed was not
+// kept, and the business may now be the rep's or another rep's.
+test('what the sent toast adds: whose it is now, and the next steps that were already past', async () => {
+  const T = '2026-11-25';
+  const item = (next, answer = {}, name = 'Taller Uno') => ({ body: { id: 'x', kind: 'talk', lead: { id: 'P1' }, ...(next === undefined ? {} : { next }) }, answer, name });
+  assert.deepEqual(sentNotes([item({ day: '2026-11-26', step: 'Volver' })], T), { words: [], late: [], more: 0 }, 'a next step still ahead: nothing to add');
+  assert.deepEqual(sentNotes([item({ day: '2026-11-24', step: 'Volver' })], T), { words: [], late: ['Taller Uno'], more: 0 });
+  assert.deepEqual(sentNotes([item({ day: T, step: 'Volver' })], T).late, [], 'today is not past');
+  assert.deepEqual(sentNotes([item(null), item(undefined)], T).late, [], 'none, or nothing said about it');
+  assert.deepEqual(sentNotes([item(undefined, { took: true })], T).words, [{ key: 'log.took' }]);
+  assert.deepEqual(sentNotes([item(undefined, { took: false, owned: { name: 'Omar' } }), item(undefined, { owned: { name: 'Omar' } })], T).words, [{ key: 'log.owned', name: 'Omar' }], 'said once');
+  const two = sentNotes([item({ day: '2026-11-20', step: 'a' }, {}, 'Uno'), item({ day: '2026-11-21', step: 'b' }, {}, 'Dos')], T);
+  assert.deepEqual([two.late, two.more], [['Uno', 'Dos'], 0], 'two lines at most');
+  const four = sentNotes(['Uno', 'Dos', 'Tres', 'Cuatro'].map((n) => item({ day: '2026-11-20', step: 'a' }, {}, n)), T);
+  assert.deepEqual([four.late, four.more], [['Uno'], 3], 'more than two: one line and "y 3 más"');
+  assert.deepEqual(sentNotes([item({ day: '2026-11-20', step: 'a' }, {}, null)], T), { words: [], late: [], more: 1 }, 'a business with no name known is counted, never shown by its id');
+  const { DICT } = await import('../team/i18n.js');
+  for (const k of ['toast.sent.late', 'toast.sent.late.more']) assert.ok(DICT.es[k] && DICT.en[k], k);
 });

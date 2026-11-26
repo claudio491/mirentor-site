@@ -5,6 +5,12 @@
 
 const refuse = (code) => { throw Object.assign(new Error(code), { code }); };
 const trim = (v) => String(v ?? '').trim();
+/** A count of phones, typed: digits only, from 1 to 500, else refused with 'phones_count'. */
+export function phoneCount(v) {
+  const s = trim(v);
+  if (!/^\d+$/.test(s) || Number(s) < 1 || Number(s) > 500) refuse('phones_count');
+  return Number(s);
+}
 
 /** What a stop says, as an i18n key, and the time it carries (the day it was done). Sending the contract points at
  *  the agreement below only when a document is hooked to the contract step (`agreement`); without one it says the
@@ -30,8 +36,10 @@ const PRACTICE = { 1: 'contract_sent', 2: 'contract_signed', 4: 'phones', 5: 'in
  *  done from here, only on the practice rep's own route and only on the stop that waits on a manager. */
 export function stopControls(route, i, mode) {
   const s = route.stops[i], current = i === route.at, write = mode !== 'view';
-  const out = { log: null, docs: false, openSite: false, install: null, practice: null };
+  const out = { log: null, docs: false, openSite: false, install: null, practice: null, request: false };
   if (!s) return out;
+  // "Cambiar pedido": how many phones the site needs, on the phones stop, while the site is not installed
+  out.request = write && i === 4 && !!route.site && !route.site.installed && !route.site.legacy;
   out.docs = current && (i === 1 || i === 2);
   // once confirmed, the install is only looked at
   if (i === 5 && route.site && s.status !== 'later') out.install = write && s.status !== 'done' ? 'open' : 'view';
@@ -60,8 +68,50 @@ export function routeCard(routes, mode) {
   return list.filter(open).sort((a, b) => b.at - a.at)[0] || null;
 }
 
+/** The phones stop in one line: how many were requested and how many came ("Pedidos 30 · llegaron 10"), either alone,
+ *  or null when neither is known. `site` is the route's site (requested, phones). */
+export function phonesLine(site) {
+  if (!site) return null;
+  const asked = Number.isFinite(site.requested) ? site.requested : null, came = Number.isFinite(site.phones) ? site.phones : null;
+  if (asked != null && came != null) return { key: 'route.phones.both', asked, came };
+  if (asked != null) return { key: 'route.phones.asked', asked };
+  if (came != null) return { key: 'route.phones.came', came };
+  return null;
+}
+
+/** A real calendar day, written yyyy-mm-dd. */
+const calendarDay = (v) => {
+  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const d = new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+};
+/** The advance of a site, as a manager marks it: the day it was requested and the day it was paid, each a real calendar
+ *  day not after `today` (the writer's), or null. Paid needs requested and is not before it; both null clears the mark.
+ *  `{ mark }`, or `{ error }`: 'day' for a day that does not hold, 'fields' for paid without requested or before it.
+ *  Nothing else is ever kept: no amount, no name, no bank detail. The server (lib/team/state.mjs, api.mjs) uses it. */
+export function checkAdvance(input, today) {
+  const o = input && typeof input === 'object' ? input : {};
+  const day = (v) => (v === undefined || v === null || v === '' ? null : calendarDay(v) && v <= today ? v : false);
+  const asked = day(o.asked), paid = day(o.paid);
+  if (asked === false || paid === false) return { error: 'day' };
+  if (paid && (!asked || paid < asked)) return { error: 'fields' };
+  return { mark: { asked, paid } };
+}
+
+/** The advance a manager marked on the site, as one line of the site stop: paid on a day, else requested on a day, else
+ *  nothing. `site` is the route's site. */
+export function advanceLine(site) {
+  const a = site && site.advance;
+  if (!a || !a.asked) return null;
+  return a.paid ? { key: 'route.advance.paid', date: a.paid } : { key: 'route.advance.asked', date: a.asked };
+}
+
+/** The body of POST route/request ("Cambiar pedido"): the count, from 1 to 500. */
+export const requestBody = (v) => ({ count: phoneCount(v.count) });
+
 /** The body of POST route/site. The name comes from the business on the server; only the facts that were typed go,
- *  each well formed: eligible is a whole number up to 5000, the coordinator goes with a name and a phone or not at all. */
+ *  each well formed: eligible is a whole number up to 5000, the coordinator goes with a name and a phone or not at all,
+ *  and how many phones it needs ("Teléfonos que necesita") is required, from 1 to 500. */
 export function openSiteBody(v, id, leadId) {
   const body = { id, lead: leadId };
   const city = trim(v.city);
@@ -76,5 +126,6 @@ export function openSiteBody(v, id, leadId) {
     if (cn.length < 2 || cp.length < 5) refuse('site_coordinator');
     body.coordinator = { name: cn, phone: cp };
   }
+  body.request = phoneCount(v.request);
   return body;
 }

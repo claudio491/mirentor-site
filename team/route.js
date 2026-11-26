@@ -5,11 +5,13 @@
 // The server computes every route (lib/team/route.mjs) and judges every write; route-steps.js decides what each stop
 // offers. Through view-as on a real rep nothing that writes shows, and no write leaves this module. Acting as the
 // practice rep, the stops that wait on a manager offer the manager's part, labeled practice.
-import { $, $$, h, s, put, t, num, stamp, countTo, recount, flipList, toast, src, once, ringAt, lock, reduce, isQuiet, quiet, formSheet, newId } from './ui.js';
+import { $, $$, h, s, put, t, num, stamp, countTo, recount, flipList, toast, toastErr, src, once, ringAt, lock, reduce, isQuiet, quiet, formSheet, newId, dayMonth } from './ui.js';
 import { reveal, stagger } from './fx.js';
-import { stopLine, stopControls, routeCard, openSiteBody, routeCount } from './route-steps.js';
+import { stopLine, stopControls, routeCard, openSiteBody, routeCount, phonesLine, requestBody, advanceLine } from './route-steps.js';
 import { actingMode, readOnlyIn } from './practice-steps.js';
 import { docsAt } from './docs-steps.js';
+import { paintArt } from './art-lead.js';
+import { leadArt } from './craft-steps.js';
 
 const DEAL = [0, 1, 2], SITE = [3, 4, 5];   // the contract's stops, then the site's
 
@@ -43,13 +45,12 @@ export function createRoute({ api, S, errText, adopt, renderAll, setTab, openLog
     if (!id) return;
     leadId = id; back = from || 'today';
     if (!routes().some((r) => r.lead.id === id)) {
-      try { fetched = (await api('GET', `route?lead=${encodeURIComponent(id)}`)).route; } catch (e) { toast(errText(e)); return; }
+      try { fetched = (await api('GET', `route?lead=${encodeURIComponent(id)}`)).route; } catch (e) { toastErr(errText(e)); return; }
     }
     for (const sel of ['#rtDeal', '#rtSite', '#rtMeter']) $(sel).replaceChildren();
     $('#rtGiant').replaceChildren();
     quiet(paint);
-    setTab('route');
-    setTimeout(arrive, reduce ? 0 : 90);
+    setTab('route', { onArrive: arrive });
   }
   /** The screen has just arrived: the headline rises, the meter fills again, the two zones and their stops come in. */
   function arrive() {
@@ -104,6 +105,7 @@ export function createRoute({ api, S, errText, adopt, renderAll, setTab, openLog
     paintRows($('#rtSite'), r, SITE);
     $('#rtDealCount').textContent = t('install.zone.count', { a: DEAL.filter((i) => r.stops[i].status === 'done').length, b: DEAL.length });
     $('#rtSiteCount').textContent = t('install.zone.count', { a: SITE.filter((i) => r.stops[i].status === 'done').length, b: SITE.length });
+    paintArt($('#rtArt'), leadArt('route', { at: r.at, complete: r.complete }));
   }
 
   function paintRows(list, r, idx) {
@@ -134,11 +136,18 @@ export function createRoute({ api, S, errText, adopt, renderAll, setTab, openLog
   /** What a stop offers: its own button, the practice control in the manager's place, or the way into the install. */
   function controls(r, i, ctl) {
     const out = [];
+    // the phones stop: how many were requested and how many came, then "Cambiar pedido"
+    const ph = i === 4 ? phonesLine(r.site) : null;
+    if (ph) out.push(h('p', { class: 'rt-phones num', text: t(ph.key, ph) }));
+    // the site stop: the advance a manager marked, requested or paid, in one line; nothing with no mark
+    const adv = i === 3 ? advanceLine(r.site) : null;
+    if (adv) out.push(h('p', { class: 'rt-phones rt-adv', text: t(adv.key, { date: dayMonth(adv.date) }) }));
+    if (ctl.request) out.push(h('button', { class: 'btn wide', type: 'button', text: t('route.btn.request'), onclick: () => requestForm(r) }));
     if (ctl.log) out.push(h('button', { class: 'btn primary wide', type: 'button', text: t(`route.btn.${ctl.log}`), onclick: () => openLog({ lead: r.lead, kind: ctl.log, from: 'route' }) }));
     if (ctl.openSite) out.push(h('button', { class: 'btn primary wide', type: 'button', text: t('route.btn.site'), onclick: () => siteForm(r) }));
     if (ctl.practice) out.push(h('button', { class: 'btn primary wide rt-prac', type: 'button', text: t(`route.btn.${ctl.practice}`), onclick: (e) => practiceMove(e.currentTarget, r, ctl.practice) }));
     if (ctl.install) out.push(h('button', { class: ctl.install === 'open' && r.stops[i].status === 'now' ? 'btn primary wide' : 'btn wide', type: 'button', text: t(ctl.install === 'open' ? 'route.btn.install' : 'route.btn.install.view'), onclick: () => openInstall(r.site.id, 'route') }));
-    if (out.length) out.push(h('p', { class: 'formerr', role: 'alert', hidden: true }));
+    if (out.length > (ph ? 1 : 0) + (adv ? 1 : 0)) out.push(h('p', { class: 'formerr', role: 'alert', hidden: true }));
     return out;
   }
 
@@ -163,7 +172,7 @@ export function createRoute({ api, S, errText, adopt, renderAll, setTab, openLog
       try {
         const res = what === 'installed' ? await write('POST', 'route/installed', { lead: r.lead.id }) : await write('POST', 'route/confirm', { lead: r.lead.id, what });
         took(res, 'route.prac.saved');   // practice: nothing of it counts, so no toast says points do
-      } catch (e) { if (err) { err.textContent = errText(e); err.hidden = false; } else toast(errText(e)); }
+      } catch (e) { if (err) { err.textContent = errText(e); err.hidden = false; } else toastErr(errText(e)); }
     });
   }
 
@@ -171,11 +180,25 @@ export function createRoute({ api, S, errText, adopt, renderAll, setTab, openLog
    *  The id is made when the form opens: sending it twice opens one site. */
   function siteForm(r) {
     const siteId = `s_${newId()}`;
-    formSheet({ title: t('route.site.title'), intro: t('route.site.p', { name: r.lead.name }), submit: t('route.btn.site'),
+    const dlg = formSheet({ title: t('route.site.title'), intro: t('route.site.p', { name: r.lead.name }), submit: t('route.btn.site'),
       fields: [{ name: 'city', label: t('site.form.city'), value: S.me.me.city || '', max: 60 },
         { name: 'eligible', type: 'number', label: t('site.form.eligible'), hint: t('site.form.eligible.hint') },
+        { name: 'request', type: 'number', label: t('site.form.request'), hint: t('site.form.request.hint') },
         { name: 'coordName', label: t('site.form.coord.name'), max: 80 }, { name: 'coordPhone', type: 'tel', label: t('site.form.coord.phone'), max: 30 }],
       onSubmit: async (v) => { took(await write('POST', 'route/site', openSiteBody(v, siteId, r.lead.id)), 'route.site.done'); } });
+    // "Teléfonos que necesita" follows the eligible workers typed (at most 500), until the rep types it
+    const eligible = $('[data-name="eligible"] input', dlg), request = $('[data-name="request"] input', dlg);
+    if (eligible && request) {
+      let typed = false;
+      request.addEventListener('input', () => { typed = true; });
+      eligible.addEventListener('input', () => { const n = Number(eligible.value); if (!typed && /^\d+$/.test(eligible.value.trim()) && n > 0) request.value = String(Math.min(500, n)); });
+    }
+  }
+  /** "Cambiar pedido": how many phones the site needs, from 1 to 500. */
+  function requestForm(r) {
+    formSheet({ title: t('site.act.request'), intro: r.lead.name, submit: t('site.phones.submit'),
+      fields: [{ name: 'count', type: 'number', label: t('site.form.request'), hint: t('site.form.request.hint'), value: r.site && r.site.requested ? String(r.site.requested) : '' }],
+      onSubmit: async (v) => { took(await write('POST', 'route/request', { lead: r.lead.id, ...requestBody(v) }), 'site.request.done'); } });
   }
 
   // ---- my sites on the way ----
@@ -183,8 +206,7 @@ export function createRoute({ api, S, errText, adopt, renderAll, setTab, openLog
     waysBack = from || 'today';
     $('#wyList').replaceChildren();
     quiet(paintWays);
-    setTab('ways');
-    if (!reduce) setTimeout(() => { reveal($('#wyGiant')); stagger($$('#wyList li'), { delay: 160, step: 45, y: 8 }); }, 90);
+    setTab('ways', { onArrive: () => { reveal($('#wyGiant')); stagger($$('#wyList li'), { delay: 160, step: 45, y: 8 }); } });
   }
   function paintWays() {
     const list = routes();
@@ -208,6 +230,7 @@ export function createRoute({ api, S, errText, adopt, renderAll, setTab, openLog
         $('.inst-hit', li).setAttribute('aria-label', t('route.row.aria', { lead: r.lead.name }));
       });
     $('#wyCount').textContent = t('ways.count', { n: list.length });
+    paintArt($('#wyArt'), leadArt('ways', { count: list.length, yours: list.filter((r) => !r.complete && r.stops[r.at].status === 'now').length }));
   }
 
   // ---- Hoy and the profile ----

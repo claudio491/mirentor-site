@@ -1,7 +1,7 @@
 // The daily site report's decisions on the phone: the starting values, the body sent, and when Hoy reminds.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { draftOf, bodyOf, hoursOf, countOf, nudgeOf, dayKey, forYesterday, GEAR } from '../team/report-steps.js';
+import { draftOf, bodyOf, hoursOf, countOf, nudgeOf, dayKey, forYesterday, GEAR, answerYes } from '../team/report-steps.js';
 import { readFileSync } from 'node:fs';
 import { DICT } from '../team/i18n.js';
 import { GEAR as SERVER_GEAR, checkReport } from '../lib/team/report.mjs';
@@ -72,4 +72,57 @@ test('a report for yesterday reads "ayer" where a label says "hoy", once the dic
     const y = `${k}.yesterday`;
     if (y in DICT.es) for (const [l, re] of [['es', /\bhoy\b|esta noche/i], ['en', /\btoday\b|tonight/i]]) assert.equal(re.test(DICT[l][y]), false, `${l} ${y} says today`);
   }
+});
+
+// 25 Nov (REPUX-01): "¿Se devolvió todo el equipo hoy y todo funciona?" comes first. "Sí" with an earlier report takes
+// that report's counts; with none it fills nothing. The body sent keeps its shape.
+const lastOf = (over = {}) => ({ day: '2026-11-15', report: checkReport({ people: 3, delivered: null, accepted: null,
+  phones: { out: 3, back: 3, broken: 0, working: 3 }, headsets: { out: 3, back: 2, broken: 1, working: 2 }, batteries: { out: 3, back: 3, broken: 0, working: 3 },
+  cords: { out: 3, back: 3, broken: 0, working: 3 }, surge: { working: 1, broken: 0 }, sets: 2, allOk: false, ...over }).report });
+
+test('"Sí" with an earlier report: each group takes what worked at its close as handed out, returned and working, none damaged', () => {
+  const d = draftOf({ people: 3, phones: 3 }, null);
+  const { draft, same } = answerYes(d, lastOf());
+  assert.equal(draft.allOk, true);
+  assert.deepEqual(draft.phones, { out: 3, back: 3, broken: 0, working: 3 });
+  assert.deepEqual(draft.headsets, { out: 2, back: 2, broken: 0, working: 2 });
+  assert.deepEqual(draft.surge, { working: 1, broken: 0 });
+  assert.deepEqual(same, { phones: 3, headsets: 2, batteries: 3, cords: 3, surge: 1 });
+  // people, hours, sets and the text stay as they were
+  assert.deepEqual([draft.people, draft.delivered, draft.accepted, draft.sets, draft.notes], [3, '', '', 0, '']);
+  // the draft given is never changed in place
+  assert.equal(d.allOk, null); assert.equal(d.headsets.working, 0);
+});
+
+test('"Sí" with no earlier report fills nothing: the groups stay open with what was there', () => {
+  const d = draftOf({ people: 3, phones: 3 }, null);
+  const { draft, same } = answerYes(d, null);
+  assert.equal(draft.allOk, true);
+  assert.deepEqual(same, {});
+  for (const g of GEAR) assert.deepEqual(draft[g], d[g], g);
+  assert.deepEqual(draft.surge, d.surge);
+  // a group the earlier report did not know stays open too, never guessed
+  const partial = answerYes(d, lastOf({ cords: { out: 3, back: 3, broken: 0, working: null }, surge: {} }));
+  assert.deepEqual(Object.keys(partial.same), ['phones', 'headsets', 'batteries']);
+  assert.deepEqual(partial.draft.cords, d.cords);
+  assert.deepEqual(partial.draft.surge, d.surge);
+});
+
+test('the body sent after "Sí" has the same shape as before and passes the server\'s checks', () => {
+  const d = draftOf({ people: 3, phones: 3 }, null);
+  const plain = bodyOf({ ...d, allOk: true }).body, filled = bodyOf(answerYes(d, lastOf()).draft).body;
+  const shape = (b) => JSON.stringify(Object.keys(b)) + GEAR.map((g) => Object.keys(b[g]).join()).join('|') + Object.keys(b.surge).join();
+  assert.equal(shape(filled), shape(plain));
+  assert.deepEqual([filled.delivered, filled.accepted], [null, null], 'empty hours stay empty');
+  assert.ok(checkReport(filled).report);
+});
+
+// Fix round 1 (D5): phones that arrived since the earlier report must not be under-reported.
+test('"Sí" takes the larger iPhone count: the earlier report\'s, or what the site is known to have today', () => {
+  const more = answerYes(draftOf({ people: 5, phones: 5 }, null), lastOf());   // the earlier report closed with 3
+  assert.deepEqual(more.draft.phones, { out: 5, back: 5, broken: 0, working: 5 });
+  assert.equal(more.same.phones, 5, 'the folded line says what will be sent');
+  const fewer = answerYes(draftOf({ people: 2, phones: 2 }, null), lastOf());
+  assert.deepEqual(fewer.draft.phones, { out: 3, back: 3, broken: 0, working: 3 }, 'never lower than the earlier close');
+  assert.deepEqual(more.draft.headsets, { out: 2, back: 2, broken: 0, working: 2 }, 'the other groups as before');
 });

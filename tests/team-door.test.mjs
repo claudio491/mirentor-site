@@ -198,3 +198,15 @@ test('the board\'s own key, and the desk\'s while the callers move over: the des
   assert.equal((await only.call('GET', `${BOARD}/api/export?since=2026-11-01T00:00:00Z`, undefined, { bearer: 'the-desk-key' })).status, 401);
   assert.equal((await only.call('GET', `${BOARD}/api/export?since=2026-11-01T00:00:00Z`, undefined, { bearer: TOKEN })).status, 200);
 });
+
+test('TEAM_TOKEN_ONLY with no TEAM_PUSH_TOKEN opens no service route: the desk\'s key gets what an unknown key gets', async (t) => {
+  const s = await start({ env: { TEAM_PUSH_TOKEN: '', DESK_PUSH_TOKEN: 'the-desk-key', TEAM_TOKEN_ONLY: '1' } }); t.after(() => s.srv.close());
+  const tries = [['GET', `${BOARD}/api/export?since=2026-11-01T00:00:00Z`, undefined], ['GET', `${BOARD}/api/sitereports?since=2026-11-01T00:00:00Z`, undefined],
+    ['POST', `${BOARD}/api/bootstrap`, { email: 'jefe@mirentor.com', name: 'Jefe Uno' }], ['PUT', `${BOARD}/api/leads`, [{ id: 'L1', company: 'Negocio Uno', city: 'Panama City' }]]];
+  for (const [method, p, body] of tries) {
+    const unknown = await s.call(method, p, body, { bearer: 'a-key-nobody-has' }), desk = await s.call(method, p, body, { bearer: 'the-desk-key' });
+    assert.equal(unknown.status, 401, p);
+    assert.deepEqual([desk.status, desk.json], [unknown.status, unknown.json], p);
+  }
+  assert.equal(s.said.some((m) => /desk key/.test(m)), false, 'a key that opens nothing is not named as a caller to move');
+});

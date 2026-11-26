@@ -70,3 +70,13 @@ export function climbFrames(at, steps, w, h, hop = 14) {
   });
   return frames;
 }
+
+/** The stage is never shorter than this: under it the illustration stops reading, and the page scrolls instead. */
+export const STAGE_MIN = 112;
+/** How tall Hoy's stage is on a phone: its natural height (the stylesheet's), less what the four stops and their names
+ *  run under the tab bar (`over`, negative when there is room to spare), never more than natural and never under
+ *  STAGE_MIN. `short` is what is still missing then: the page scrolls by that much. */
+export function stageFit({ natural, over }) {
+  const want = Math.floor(natural - Math.max(0, over));
+  return want >= STAGE_MIN ? { height: Math.min(Math.floor(natural), want), short: 0 } : { height: STAGE_MIN, short: STAGE_MIN - want };
+}

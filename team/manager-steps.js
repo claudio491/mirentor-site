@@ -2,6 +2,9 @@
 // it can be tested. Who the site form offers, what the site form sends, what the hours form sends, which controls a site offers, and which roles
 // the person form lists. The server stays the judge: a refusal here only says it sooner, in words.
 
+import { phoneCount } from './route-steps.js';
+import { docsAt, guionDocs } from './docs-steps.js';
+
 const refuse = (code) => { throw Object.assign(new Error(code), { code }); };
 const trim = (v) => String(v ?? '').trim();
 const KINDS = { normal: {}, practice: { practice: true }, legacy: { legacy: true } };
@@ -26,6 +29,7 @@ export function siteBody(v, id, leadId = null) {
     if (cn.length < 2 || cp.length < 5) refuse('site_coordinator');
     body.coordinator = { name: cn, phone: cp };
   }
+  if (trim(v.request)) body.request = phoneCount(v.request);   // how many phones it needs: optional for a manager
   return Object.assign(body, KINDS[v.kind || 'normal']);
 }
 
@@ -94,16 +98,26 @@ export function payBody(v) {
   return { cents, from: trim(v.from) };
 }
 
+/** The body of POST site/<id> for a shipment of phones that arrived ("Llegaron teléfonos"): it adds to what came. */
+export const arrivedBody = (v) => ({ what: 'arrived', count: phoneCount(v.count) });
+/** The body of "Corregir el total": the count that replaces the total of phones that arrived, checked as every
+ *  phone count is (1 to 500). */
+export const fixBody = (v) => ({ what: 'phones', count: phoneCount(v.count) });
+
 /** The controls a site offers a manager, in the order they show.
  *  install: open its install screens (on a legacy site, the screens that load the consents it already had);
- *  phones: "Llegaron teléfonos", until the install is closed;
+ *  request: "Cambiar pedido", how many phones it needs, until it is installed (never on a legacy site);
+ *  arrived: "Llegaron teléfonos", a shipment that adds, until the install is closed;
+ *  phones: "Corregir el total", the correction that sets how many came, once some came and until the install is closed;
  *  confirm: "Confirmar instalación" once the rep closed it;
  *  installed: the old way of marking, for a legacy site or one with nobody on it;
  *  first_hour, hours (accepted minutes per week, once installed), record (the audit file, once someone is on it), void: real sites only. A practice site is removed instead, and has no record. */
 export function siteActions(site) {
   const out = [], done = !!(site.steps && site.steps.installed), closed = site.state === 'closed' || (site.practice && !!site.closed);
   out.push('install');   // on a legacy site it loads the consents signed before the app, and nothing else
-  if (!site.legacy && !done && !closed) out.push('phones');
+  if (!site.legacy && !done) out.push('request');
+  if (!site.legacy && !done && !closed) out.push('arrived');
+  if (!site.legacy && !done && !closed && site.phones != null) out.push('phones');
   if (closed && !done) out.push('confirm');
   if (!site.practice && !done && (site.legacy || !site.workers)) out.push('installed');
   if (!site.practice && done && !(site.steps && site.steps.first_hour)) out.push('first_hour');
@@ -178,3 +192,73 @@ export const freshRead = ({ start, shown, writing = false }) => !writing && star
 
 /** The address of a site's record, relative to the page. */
 export const recordUrl = (siteId) => `api/site/${encodeURIComponent(siteId)}/record.csv`;
+
+/** The line under a business on its way to a site, as { key, params } for t(key, params). `params.stop` is the stop's
+ *  key: the page turns it into the stop's name. A wait the manager can still confirm waits on them; one that expired
+ *  is the rep's, who logs the contract again (the server refuses to confirm it, 409 expired); any other stop is the rep's. */
+export function wayLine(route, { repFirst = '' } = {}) {
+  const st = route.complete ? null : route.stops[route.at];
+  if (!st) return { key: 'needs.ways.done', params: {} };
+  if (st.status === 'wait' && st.expired) return { key: 'needs.ways.expired', params: { name: repFirst } };
+  if (st.status === 'wait') return { key: 'needs.ways.you', params: { stop: st.key } };
+  return { key: 'needs.ways.rep', params: { name: repFirst, stop: st.key } };
+}
+
+/** A rep's businesses on the team table: how many they hold (with how many have no next step under it) and how many
+ *  are overdue (with how many are due today under it). A line under a number shows only when it counts something. */
+export function bookCells(book) {
+  const b = book || {}, n = (v) => (Number.isFinite(v) ? v : 0);
+  return {
+    owned: { n: n(b.owned), sub: n(b.nonext) ? { key: 'mgr.book.nonext', n: n(b.nonext) } : null },
+    overdue: { n: n(b.overdue), sub: n(b.today) ? { key: 'mgr.book.today', n: n(b.today) } : null },
+  };
+}
+
+/** "Seguimientos vencidos" in Pendientes: one line per rep, in the server's order (the oldest overdue first). */
+export function overdueLines(needs) {
+  const list = needs && Array.isArray(needs.overdue) ? needs.overdue : [];
+  return list.map((x) => ({ rep: x.rep, name: x.name, key: 'needs.overdue.item', n: x.overdue, date: x.oldest }));
+}
+
+// ---- Pendientes: the week's meetings, what is stuck and the day's blockers (wave 2) ----
+/** A meeting of today or the coming six days, as its row: when, the business, and the rep with the contact when known.
+ *  `x` is GET team's needs.meetings[i]. */
+export function meetingRow(x) {
+  const contact = typeof x.contact === 'string' && x.contact.trim() ? x.contact.trim() : null;
+  return { day: x.when, time: x.time || null, lead: x.lead, who: contact ? { key: 'needs.meet.with', name: x.name, contact } : { text: x.name }, demo: !!x.demo, held: !!x.held };
+}
+/** What a stuck item says: a meeting that passed n days ago and nobody marked, or a contract out n days, unsigned. */
+/** What "No ocurrió" asks and answers: a meeting is rebooked, a contract is picked back up (the server writes the same). */
+export const missedKeys = (kind) => (kind === 'contract' ? { sure: 'needs.stall.missed.sure.contract', done: 'needs.stall.missed.done.contract' } : { sure: 'needs.stall.missed.sure', done: 'needs.stall.missed.done' });
+export const stalledLine = (x) => ({ key: x.kind === 'contract' ? 'needs.stall.contract' : 'needs.stall.meeting', n: x.days, lead: x.lead ? x.lead.name : '' });
+/** What the new groups add to the count of Pendientes: every stuck item and every blocker nobody has seen. The week's
+ *  meetings are a calendar, not something to act on, so they add nothing. */
+export const extraNeeds = (needs) => ((needs && Array.isArray(needs.stalled)) ? needs.stalled.length : 0)
+  + ((needs && Array.isArray(needs.blockers)) ? needs.blockers.filter((b) => !b.seen).length : 0)
+  + ((needs && Array.isArray(needs.advances)) ? needs.advances.length : 0);   // the advances requested and not paid
+
+/** The manager's "Adelanto" form as the body of POST site/<id>: the whole mark, an empty day as null; both empty clears
+ *  it. Paid without requested, or before it, is refused with the server's own code ('fields'); the server judges the days. */
+export function advanceBody(v) {
+  const asked = trim(v.asked) || null, paid = trim(v.paid) || null;
+  if (paid && (!asked || paid < asked)) refuse('fields');
+  return { what: 'advance', asked, paid };
+}
+/** Only a real site takes an advance: never a practice one. */
+export const canAdvance = (site) => !!site && !site.practice;
+/** The points cell of the manager's table: the number it ranks by (scaled to five working days), and the points before
+ *  scaling when they differ. */
+export function pointsCell(week) {
+  const raw = week ? week.points : 0, n = week && Number.isFinite(week.scaledPoints) ? week.scaledPoints : raw;
+  return { n, raw: n !== raw ? raw : null };
+}
+
+/** "Por cargar", the quiet end of Pendientes: what a rep's screens point at and is not in Documents. The agreement (no
+ *  document hooked to the contract step) and the script (the group "Para vender" empty), each with the group and step
+ *  the document form opens with. It never counts in the tab's number. */
+export function toLoad(docs) {
+  const out = [];
+  if (!docsAt(docs, 'contract').length) out.push({ key: 'needs.load.contract', group: 'contrato', step: 'contract' });
+  if (!guionDocs(docs).length) out.push({ key: 'needs.load.guion', group: 'vender', step: null });
+  return out;
+}

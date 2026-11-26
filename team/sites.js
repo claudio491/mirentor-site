@@ -3,12 +3,13 @@
 // earned, with the way to add a worker, give or return a phone (the install's own screens, with the same lock). And a
 // teammate's card, opened from their row on Equipo: their active sites by name, workers counted, hours and earnings.
 // Every amount comes as cents from the server and becomes words in sites-steps.js; none is computed here.
-import { $, $$, h, put, t, num, giant, toast, src, formSheet, reduce, quiet, dayMonth, clock } from './ui.js';
+import { $, $$, h, put, t, num, giant, toast, src, formSheet, quiet, dayMonth, clock } from './ui.js';
 import { reveal, stagger } from './fx.js';
-import { money, paySource, mateCard, siteRows, hasSites, goneLine } from './sites-steps.js';
+import { money, paySource, mateCard, siteRows, hasSites, goneLine, sitesHead } from './sites-steps.js';
 import { siteHoursBody, recentMondays } from './manager-steps.js';
 import { actingMode, readOnlyIn } from './practice-steps.js';
-import { hm } from './leader-steps.js';
+import { paintArt } from './art-lead.js';
+import { leadArt } from './craft-steps.js';
 
 export function createSites({ api, S, errText, adopt, renderAll, setTab, openInstall, openReport }) {
   let back = 'today';
@@ -19,25 +20,26 @@ export function createSites({ api, S, errText, adopt, renderAll, setTab, openIns
     back = from;
     $('#stList').replaceChildren();
     quiet(render);
-    setTab('sites');
-    if (!reduce) setTimeout(() => { if (S.tab !== 'sites') return; reveal($('#stGiant')); stagger($$('#stList .inst-zone'), { delay: 140, step: 90, y: 12 }); }, 90);
+    setTab('sites', { onArrive: () => { reveal($('#stGiant')); stagger($$('#stList .inst-zone'), { delay: 140, step: 90, y: 12 }); } });
   }
 
   function render() {
     if (!S.me || !S.me.earn) return;
     const { earn, active } = S.me, rows = siteRows(active, t, num);
     $('#stCount').textContent = t('u.sites', { n: rows.length });
-    // the headline: what the sites made this week, to the cent, opening into hours times rate; or "monto por definir"
-    const g = $('#stGiant'), words = money(earn.week.cents, t), none = earn.week.cents == null;
-    const amount = src(h('button', { class: 'src', type: 'button', text: words }), () => t('c.source'), () => paySource(earn.week.minutes, earn.rate, t, num));
+    // the headline: what the sites made this week, to the cent, opening into hours times rate; with no pay rate, the
+    // week's accepted hours, opening into why there is no amount yet
+    const g = $('#stGiant'), head = sitesHead(earn, t, num);
+    const amount = src(h('button', { class: 'src', type: 'button', text: head.words }), () => t('c.source'), () => paySource(earn.week.minutes, earn.rate, t, num));
     put(g, amount);   // an amount ends in its cents: no closing mark after it
-    g.classList.toggle('word', none); g.classList.toggle('long', none);
-    $('#stSupport').textContent = t('sites.support', { h: hm(earn.week.minutes || 0, num), l: hm(earn.last.minutes || 0, num) });
+    g.classList.toggle('word', head.hours); g.classList.toggle('long', head.hours);
+    $('#stSupport').textContent = head.support;
     $('#stRO').hidden = !readOnly();
     $('#stEmpty').hidden = rows.length > 0;
     // a site voided this week still brings what was recorded for it: its own line, so the rows add up to the headline
     const gone = goneLine(earn.week.gone, t, num);
     put($('#stList'), [...rows.map((r, i) => zone(r, i)), gone ? h('p', { class: 'note sa-gone', text: gone }) : null].filter(Boolean));
+    paintArt($('#stArt'), leadArt('sites', { count: rows.length, minutes: earn.week.minutes }));
   }
 
   function zone(r, i) {
@@ -100,9 +102,12 @@ export function createSites({ api, S, errText, adopt, renderAll, setTab, openIns
     put(node, h('span', { class: 'sa-dot', 'aria-hidden': 'true' }), h('span', { text: t('sites.card') }), h('span', { class: 'label num', text: money(S.me.earn.week.cents, t) }));
   }
 
+  /** The profile keeps the way in, once a site is live. */
+  const profileButtons = () => (S.me && hasSites(S.me) ? [h('button', { class: 'btn', type: 'button', onclick: () => open('profile') }, t('sites.chip'), h('span', { class: 'num lad-of', text: ` · ${num((S.me.active || []).length)}` }))] : []);
+
   function wire() {
     $('#stBack').addEventListener('click', () => setTab(back));
   }
 
-  return { open, render, mate, entry, wire };
+  return { open, render, mate, entry, profileButtons, wire };
 }

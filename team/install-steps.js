@@ -62,6 +62,17 @@ export function workerOrder(workers) {
 }
 export const isDone = (status) => DONE.has(status);
 
+/** Who a finished worker's screen offers next: the next person of the site, in the list's order and going round, who
+ *  is not ready yet. Never the person on screen; null when everyone else is ready. */
+export function nextWorker(workers, currentId) {
+  const all = workers || [], at = all.findIndex((w) => w.id === currentId);
+  for (let i = 1; i <= all.length; i += 1) {
+    const w = all[(at + i) % all.length];   // from the one after the person on screen; from the first when they are gone
+    if (w && w.id !== currentId && !DONE.has(w.status)) return w;
+  }
+  return null;
+}
+
 /** The words of a worker's state, as an i18n key. */
 export const statusKey = (status) => `install.st.${status}`;
 
@@ -122,24 +133,34 @@ export function closeState(view) {
  *  practice site, and only there, the consent step also offers an example photo while no consent is on file, so the lock
  *  can be opened without a camera. */
 export function controls({ readOnly, site, worker }) {
-  const none = { prep: false, addWorker: false, close: false, consent: false, example: false, phone: false, returnPhone: false, clip: false, edit: false, remove: false };
+  const none = { prep: false, addWorker: false, close: false, consent: false, example: false, phone: false, returnPhone: false, clip: false, edit: false, remove: false, change: false };
   if (readOnly) return none;
   // A legacy site (signed before the app) only loads the consents it already has: people and their photos, nothing else.
-  if (site && site.legacy) return worker ? { ...none, addWorker: true, consent: true, edit: true, remove: true } : { ...none, addWorker: true };
+  if (site && site.legacy) return worker ? { ...none, addWorker: true, consent: true, edit: true, remove: true, change: true } : { ...none, addWorker: true };
   const out = { ...none, prep: true, addWorker: true, close: !(site && site.closed) };
   if (!worker) return out;
   const records = worker.phone !== false;
   // A name or an email typed wrong is corrected; someone who should not be there is removed (a phone comes back first).
-  return { ...out, consent: true, example: !!(site && site.practice) && !worker.consent, phone: records && !!worker.consent && !worker.imei, returnPhone: records && !!worker.imei, clip: records && !!worker.imei && !worker.clip, edit: true, remove: true };
+  // change: "Cambiar" opens a folded step again, to redo it
+  return { ...out, change: true, consent: true, example: !!(site && site.practice) && !worker.consent, phone: records && !!worker.consent && !worker.imei, returnPhone: records && !!worker.imei, clip: records && !!worker.imei && !worker.clip, edit: true, remove: true };
 }
 
 /** The body of POST worker/<id>/edit, or a refusal in words before the server says it: a name of two letters or more,
  *  and an email, which a legacy site may leave empty. */
 export function workerEditBody(v, legacy = false) {
-  const name = String(v.name ?? '').replace(/\s+/g, ' ').trim(), email = String(v.email ?? '').trim().toLowerCase();
+  const name = String(v.name ?? '').replace(/\s+/g, ' ').trim(), none = v.hasEmail === 'no', email = none ? '' : String(v.email ?? '').trim().toLowerCase();
   if (name.length < 2) throw Object.assign(new Error('fields'), { code: 'fields' });
+  if (none) return { name, email: '', noEmail: true };   // "No tiene correo": said, never an email left empty by mistake
   if (!email && !legacy) throw Object.assign(new Error('email'), { code: 'email' });
   return { name, email };
+}
+
+/** The body of POST install/<id>/workers: a name of two letters or more, an email, or "No tiene correo" said on purpose
+ *  (`hasEmail` 'no' sends noEmail and no email); whether they get a phone. A legacy site's past consent may leave the
+ *  email empty and gets no phone. */
+export function workerAddBody(v, legacy = false) {
+  const body = workerEditBody(v, legacy);
+  return { ...body, phone: legacy ? false : v.phone !== 'no' };
 }
 
 /** A consent photo is kept for "Reintentar con la misma foto" only when the signal or the server failed, or the answer

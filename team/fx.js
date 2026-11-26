@@ -3,7 +3,7 @@
 // screens underneath say the same thing without it.
 import { $, h, giant, reduce, EASE, lock, buzz, isQuiet, holdToast, releaseToast } from './ui.js';
 import { portrait, setPortrait } from './hand.js';
-import { changedChars } from './moments.js';
+import { changedChars, CELEBRATE_HOLD } from './moments.js';
 
 /** While a full-screen moment is on, the app behind it takes no focus and no tap: Tab cannot slip behind the moment, and
  *  Enter cannot reach a button there. Moments can follow one another, so it counts. A toast waits out of sight meanwhile
@@ -165,7 +165,7 @@ export function celebrate({ n = '', glyph = null, face = null, a, b, sub = '', l
     $('#loN').textContent = ''; $('#loG').replaceChildren(lens, ...(pin ? [pin] : []));
     timers.push(setTimeout(() => setPortrait(lens, face.to), reduce ? 0 : 520));
     // The lens keeps answering while the moment holds.
-    for (const ms of [1250, 2050]) timers.push(setTimeout(() => { if (lens.isConnected && !reduce) ring(lens); }, ms));
+    timers.push(setTimeout(() => { if (lens.isConnected && !reduce) ring(lens); }, 1250));
   } else { $('#loN').textContent = n; $('#loG').replaceChildren(...(glyph ? [glyph] : [])); }
   $('#loA').textContent = a; $('#loB').textContent = b; $('#loS').textContent = sub;
   box.setAttribute('aria-label', label || `${a} ${b}`);
@@ -182,7 +182,8 @@ export function celebrate({ n = '', glyph = null, face = null, a, b, sub = '', l
     shield(true); box.classList.add('on'); box.setAttribute('aria-hidden', 'false'); box.tabIndex = 0; box.focus({ preventScroll: true });
     buzz([14, 60, 22]);
     box.addEventListener('click', off); document.addEventListener('keydown', onKey);
-    timer = setTimeout(off, 2900);
+    // It holds the app for a breath, not for a pause in the rep's work: shorter still with nothing moving.
+    timer = setTimeout(off, reduce ? CELEBRATE_HOLD.reduced : CELEBRATE_HOLD.full);
   });
 }
 /** A ring leaves the edge of a lens. */
@@ -197,10 +198,14 @@ function ring(el) {
 }
 
 // ---- the day is complete: the four habits are done, and the screen says so before the week does ----
+let ddClose = null;
+/** Close the moment from outside (the phone's Back): the rep stays on Hoy. Answers whether it was open. */
+export function closeDayDone() { if (!ddClose) return false; ddClose(false); return true; }
 /** Closes in from where the last habit was logged (`from`), shows `glyph` (the hand, with today's finger about to
- *  light) and the title. Resolves true when the person asks for their week (a tap, Enter), false when it leaves by
- *  itself or by Escape. */
-export function dayDone({ title, sub = '', glyph = null, from = null, label = '' }) {
+ *  light) and the title. It stays until the rep acts. `report`: the main control ({ label, hint, run }), where `run`
+ *  answers whether it is done (then "Listo." shows for DONE_HOLD and it closes) or the moment stays. "Ver mi semana"
+ *  resolves true; a tap anywhere else, Escape or Back resolves false (the rep stays on Hoy). */
+export function dayDone({ title, sub = '', glyph = null, from = null, label = '', report = null, done = '', hold = 900 }) {
   const box = $('#dayDone');
   if (!box) return Promise.resolve(false);
   const back = document.activeElement, r = from && from.getBoundingClientRect();
@@ -208,19 +213,33 @@ export function dayDone({ title, sub = '', glyph = null, from = null, label = ''
   box.style.setProperty('--my', `${r && r.width ? Math.round(r.top + r.height / 2) : Math.round(innerHeight * 0.7)}px`);
   giant($('#ddGiant'), title); $('#ddSub').textContent = sub; $('#ddHand').replaceChildren(...(glyph ? [glyph] : []));
   box.setAttribute('aria-label', label || title);
+  const main = $('#ddMain'), hint = $('#ddHint'), week = $('#ddWeek');
+  main.hidden = !report; hint.hidden = !report;
+  if (report) { main.textContent = report.label; main.disabled = false; hint.textContent = report.hint; }
   return new Promise((resolve) => {
-    let timer;
+    let timer = 0, gone = false;
     const off = (go) => {
+      if (gone) return;
+      gone = true; ddClose = null;
       shield(false); clearTimeout(timer); box.classList.remove('on'); box.setAttribute('aria-hidden', 'true'); box.tabIndex = -1;
       box.removeEventListener('click', onClick); document.removeEventListener('keydown', onKey);
       if (back && back.focus) back.focus({ preventScroll: true });
       setTimeout(() => resolve(go), reduce ? 0 : 420);
     };
-    const onClick = () => off(true);
-    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); off(false); } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); off(true); } };
+    const onClick = async (e) => {
+      if (e.target.closest('#ddWeek')) { off(true); return; }
+      if (!e.target.closest('#ddMain')) { if (!e.target.closest('.dd-acts')) off(false); return; }
+      if (!report || main.disabled) return;
+      main.disabled = true;
+      let ok = false;
+      try { ok = await report.run(); } catch { ok = false; }
+      if (gone) return;
+      if (ok) { main.textContent = done; timer = setTimeout(() => off(false), hold); } else main.disabled = false;
+    };
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); off(false); } };
+    ddClose = off;
     shield(true); box.classList.add('on'); box.setAttribute('aria-hidden', 'false'); box.tabIndex = 0; box.focus({ preventScroll: true });
     buzz([14, 60, 22, 60, 30]);
     box.addEventListener('click', onClick); document.addEventListener('keydown', onKey);
-    timer = setTimeout(() => off(false), 8000);
   });
 }

@@ -4,7 +4,7 @@
 // city is its own band: its sites on porcelain, its reps on deep graphite, as on the install screens.
 // A leader lands here and has nothing else; a manager or admin opens it from the team view. Nothing here writes.
 // Every number opens into where it comes from.
-import { $, h, s, put, t, num, dayMonth, upper, cityName, countTo, src, toast, quiet, formSheet, reduce, EASE } from './ui.js';
+import { $, h, s, put, t, num, dayMonth, upper, cityName, countTo, src, toast, toastErr, quiet, formSheet, reduce, EASE } from './ui.js';
 import { portrait, drawIn } from './hand.js';
 import { reveal, stagger, lockIn } from './fx.js';
 import { hm, siteCard, practiceNote, hoursModel, cityFacts, repFacts, SOURCES } from './leader-steps.js';
@@ -15,12 +15,11 @@ const R = 40, C = 2 * Math.PI * R;
 const LABELS = { visits: 'col.visits', conversations: 'col.convs', meetings: 'col.meetings', contracts: 'col.contracts', sites: 'lead.rep.sites' };
 const MAX_CELLS = 40;   // a site's meter draws one cell per eligible worker, up to this many
 
-export function createLeader({ api, S, errText, setTab }) {
+export function createLeader({ api, S, errText, setTab, scorecard = null }) {
   let view = null;
   let watch = null;   // the one observer that puts a city band together when it comes into view, reused on every visit
   const H = (m) => hm(m, num);
   const pct = (p) => t('lead.pct.n', { pct: p });
-  const share = (x) => Math.round(x * 1000) / 10;   // a fraction as a percentage with one decimal
   const weekSrc = (w) => t(w.source === 'scorecard' ? 'lead.src.scorecard' : 'lead.src.manual', { date: dayMonth(w.week) });
   /** A counter keeps how it writes its number (hours, a percentage), so running it again from zero writes it the same way. */
   const shows = new WeakMap();
@@ -40,7 +39,11 @@ export function createLeader({ api, S, errText, setTab }) {
     return t(key, marks).split('\u0001').map((part, i) => (i % 2 ? nodes[part] : part));
   };
 
-  async function load() { view = await api('GET', 'lead'); }
+  /** The view, and beside it the Scorecard's week (a Scorecard that cannot be read leaves its block out). */
+  async function load() {
+    const [lead] = await Promise.all([api('GET', 'lead'), scorecard ? scorecard.load().catch(() => false) : null]);
+    view = lead;
+  }
   /** A manager's way in, from the team view: the numbers are read first, then the page opens already drawn. */
   const open = async () => { await load(); quiet(render); setTab('lead'); };
 
@@ -84,7 +87,8 @@ export function createLeader({ api, S, errText, setTab }) {
           h('span', { class: 'ld-gper' }, sentence('lead.goal.per', { goal: goalNode }))),
         h('div', { class: 'ld-track', role: 'img', 'aria-label': t('lead.goal.aria', { a: H(L.accepted), goal: H(m.goal) }) }, del, acc, h('i', { class: 'ld-ref' })),
         h('div', { class: 'ld-gfoot' },
-          h('span', { class: 'ld-key acc' }, h('i'), sentence('lead.goal.of', { share: srcNum('', share(m.ofGoal), () => t('lead.goal.src'), (x) => pct(x)) })),
+          // the week's accepted hours, said as hours: the goal states no period, so no share of it is written
+          h('span', { class: 'ld-key acc' }, h('i'), sentence('lead.acc.week', { h: srcNum('', L.accepted, () => weekSrc(L), H), date: dayMonth(L.week) })),
           h('span', { class: 'ld-key del' }, h('i'), t('lead.delivered'))));
     }
 
@@ -153,6 +157,7 @@ export function createLeader({ api, S, errText, setTab }) {
     $('#ldHoursBtn').hidden = !S.mgr;   // a manager types a week by hand; a leader reads only
     $('#ldChip').textContent = t(S.mgr ? 'lead.open' : 'lead.chip');   // "read only" is said to the one who only reads
     renderHours();
+    if (scorecard) scorecard.block($('#ldScore'));   // the Scorecard, the same table the manager's tab draws
     put($('#ldCities'), view.cities.map(cityNode));
     $('#ldNone').hidden = view.cities.length > 0;
     const note = practiceNote(view, t);
@@ -208,7 +213,7 @@ export function createLeader({ api, S, errText, setTab }) {
   }
   function wire() {
     $('#ldHoursBtn').addEventListener('click', typeHours);
-    $('#leadBtn').addEventListener('click', () => open().catch((e) => toast(errText(e))));
+    $('#leadBtn').addEventListener('click', () => open().catch((e) => toastErr(errText(e))));
     $('#ldBack').addEventListener('click', () => setTab('team'));
   }
   return { load, open, render, arrive, wire, loaded: () => !!view };

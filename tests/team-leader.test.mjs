@@ -64,8 +64,8 @@ test('a leader reads the view and can write nothing', async (t) => {
   }
   const up = await fetch(`${s.url}${API}/worker/${W1}/consent`, { method: 'PUT', headers: { 'content-type': 'image/jpeg', cookie: lia.cookie }, body: JPG });
   assert.deepEqual([up.status, (await up.json()).error], [403, 'read_only']);
-  // reads outside the allow-list are closed too: the install screen, the team table, the CRM search, a made-up route
-  for (const p of [`install/${siteId}`, 'team', 'leads', 'zones', 'export', 'worker/x/consent']) {
+  // reads outside the allow-list are closed too: the install screen, the team table, a made-up route
+  for (const p of [`install/${siteId}`, 'team', 'zones', 'export', 'worker/x/consent']) {
     const r = await s.call('GET', `${API}/${p}`, undefined, { cookie: lia.cookie });
     assert.equal(r.status === 403 || r.status === 404 || r.status === 401, true, p);
     assert.notEqual(r.status, 200, p);
@@ -75,6 +75,8 @@ test('a leader reads the view and can write nothing', async (t) => {
 
   // what a leader may do
   assert.equal((await s.call('GET', `${API}/lead`, undefined, { cookie: lia.cookie })).status, 200);
+  assert.equal((await s.call('GET', `${API}/scorecard`, undefined, { cookie: lia.cookie })).status, 200);
+  assert.equal((await s.call('GET', `${API}/leads?q=taller`, undefined, { cookie: lia.cookie })).status, 200);
   const consent = await fetch(`${s.url}${API}/consent/${W1}`, { headers: { cookie: lia.cookie } });
   assert.equal(consent.status, 200);
   assert.deepEqual(Buffer.from(await consent.arrayBuffer()), JPG);

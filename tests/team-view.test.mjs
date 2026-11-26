@@ -220,3 +220,19 @@ test('weekPlace answers the place the week table gives, alone: ranked, unranked,
   }
   assert.deepEqual(['ana', 'dani', 'nuevo', 'cero', 'prac'].map((id) => weekPlace(st, id, ctx())), [1, 4, null, null, 1]);
 });
+
+test('the feed shows no points for a second "sent" on a business whose sending was already paid', () => {
+  const first = log('ana', MON, '10:00', 'contract', 'X'), again = log('ana', '2026-12-17', '10:00', 'contract', 'X');
+  const sent = (logId, day) => ({ type: 'confirm', t: at(day, '18:00'), logId, what: 'contract_sent', by: 'boss' });
+  const s = build([rep('ana'), rep('boss', { role: 'manager' }), first, sent(first.id, MON), again, sent(again.id, '2026-12-17')]);
+  const lines = feedOf(s, 'boss', ctx('20:00', '2026-12-17')).filter((f) => f.code === 'contract_sent');
+  assert.deepEqual(lines.map((f) => [f.id, f.pts]), [[`${again.id}:contract_sent`, 0], [`${first.id}:contract_sent`, 10]]);
+});
+
+test('a meeting still waiting from an earlier day keeps its hour in pending, and a log with none says null', () => {
+  const events = [rep('ana'), log('ana', '2026-11-12', '09:00', 'meeting', 'MT1', { when: '2026-11-13', time: '15:30' }), log('ana', '2026-11-12', '09:30', 'meeting', 'MT2')];
+  const v = repView(build(events), 'ana', ctx());
+  const byLead = Object.fromEntries(v.pending.filter((p) => p.code === 'meeting_held').map((p) => [p.lead.id, p.time]));
+  assert.deepEqual(byLead, { MT1: '15:30', MT2: null });
+  for (const p of v.pending) assert.equal('time' in p, true);
+});

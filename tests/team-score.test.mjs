@@ -116,6 +116,34 @@ test('a contract pays 10 when the manager confirms it was sent and 20 at signatu
   assert.equal(weekOf(s, 'a', MON, ctx('2026-11-20')).counts.contracts, 1);
 });
 
+test('a contract logged again after its signature wait expired pays "sent" once: the earliest confirmed log earns it', () => {
+  const sent = (logId, day) => ({ type: 'confirm', t: at(day, '18:00'), logId, what: 'contract_sent', by: 'boss' });
+  const first = log('a', MON, '10:00', 'contract', 'X');
+  const again = log('a', '2026-12-17', '10:00', 'contract', 'X');   // more than RULES.pendingSignDays (30) after the sending
+  const s = build([rep('a'), first, sent(first.id, MON), again]);
+  // the second log, not yet confirmed, shows no pending "sent" either
+  assert.deepEqual(ledger(s, 'a', ctx('2026-12-17')).filter((e) => e.code === 'contract_sent').map((e) => [e.logId, e.status]), [[first.id, 'earned']]);
+  applyEvent(s, sent(again.id, '2026-12-17'));
+  let l = ledger(s, 'a', ctx('2026-12-17'));
+  assert.deepEqual(l.filter((e) => e.code === 'contract_signed').map((e) => [e.logId, e.status]), [[first.id, 'expired'], [again.id, 'pending']]);
+  applyEvent(s, { type: 'confirm', t: at('2026-12-18', '09:00'), logId: again.id, what: 'contract_signed', by: 'boss' });
+  l = ledger(s, 'a', ctx('2026-12-18'));
+  const of = (code, status) => l.filter((e) => e.code === code && e.status === status);
+  assert.deepEqual(of('contract_sent', 'earned').map((e) => [e.logId, e.pts]), [[first.id, 10]]);
+  assert.deepEqual(of('contract_signed', 'earned').map((e) => [e.logId, e.pts]), [[again.id, 20]]);
+  assert.equal(of('contract_sent', 'pending').length, 0);
+});
+
+test('two businesses still pay "sent" once each, and a voided first contract does not block the next one', () => {
+  const sent = (logId) => ({ type: 'confirm', t: at(MON, '18:00'), logId, what: 'contract_sent', by: 'boss' });
+  const x = log('a', MON, '10:00', 'contract', 'X'), y = log('a', MON, '11:00', 'contract', 'Y');
+  const two = build([rep('a'), x, y, sent(x.id), sent(y.id)]);
+  assert.equal(ledger(two, 'a', ctx()).filter((e) => e.code === 'contract_sent' && e.status === 'earned').length, 2);
+  const v1 = log('a', MON, '10:00', 'contract', 'Z'), v2 = log('a', '2026-11-17', '10:00', 'contract', 'Z');
+  const voided = build([rep('a'), v1, sent(v1.id), { type: 'log.void', t: at(MON, '19:00'), logId: v1.id, by: 'boss', reason: 'duplicado' }, v2, { ...sent(v2.id), t: at('2026-11-17', '18:00') }]);
+  assert.deepEqual(ledger(voided, 'a', ctx('2026-11-17')).filter((e) => e.code === 'contract_sent').map((e) => [e.logId, e.status]), [[v2.id, 'earned']]);
+});
+
 test('a signed site pays 40, then 30 at install and 30 at the first approved hour', () => {
   const s = build([rep('a'), { type: 'site', t: at(MON, '10:00'), id: 's1', rep: 'a', lead: { id: 'L1', name: 'L1' }, by: 'boss' }]);
   assert.deepEqual([earned(ledger(s, 'a', ctx())), pending(ledger(s, 'a', ctx()))], [40, 60]);

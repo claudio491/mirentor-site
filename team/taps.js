@@ -44,6 +44,11 @@ export function twiceStep(armedAt, { now = 0, detail = 0 } = {}, { pause = PAUSE
   return 'run';
 }
 
+/** Whether a screen change runs its screen's own arrival: only the last change asked for (`ask` is its number,
+ *  `latest` the newest), and only when the screen shown (`open`) is the one it asked for (`name`). A second tap while
+ *  the first transition runs makes the first one stand down, so a screen never arrives twice. */
+export const arrives = (ask, latest, open, name) => ask === latest && open === name;
+
 const timers = new WeakMap();
 /** Take the arming off a button: its mark (data-armed, which the screens draw its words from), its look and its timer. */
 export function disarm(btn) {

@@ -4,9 +4,12 @@
 // A manager opens the same screens for their own account as a preview of what a new rep sees, and says so on screen.
 // Through view-as (a manager reading a rep's screens) nothing that writes shows, and no write leaves this module.
 // The look is the install's: porcelain for what the rep does, graphite for what the app reads from the day.
-import { $, $$, h, s, put, t, num, cityName, joinList, giant, countTo, recount, flipList, toast, src, once, ringAt, lock, reduce, isQuiet, quiet, showErr } from './ui.js';
+import { $, $$, h, s, put, t, num, cityName, joinList, giant, countTo, recount, flipList, toast, toastErr, src, once, ringAt, lock, reduce, isQuiet, quiet, showErr } from './ui.js';
 import { reveal, stagger } from './fx.js';
-import { nextStep, ladderCount, ladderOnHoy, stepVideo, learnRows, ladderControls, postSeen, pickZone, zonesReady, rowZones, whoKey, offeredFor } from './ladder-steps.js';
+import { paintArt } from './art-lead.js';
+import { leadArt } from './craft-steps.js';
+import { ladderCount, ladderOnHoy, stepVideo, learnShown, ladderControls, postSeen, pickZone, zonesReady, rowZones, whoKey, offeredFor, waitsForVideo, openNow, focusStep, earnButton } from './ladder-steps.js';
+import { ladderHook, docsState } from './docs-steps.js';
 import { actingMode, readOnlyIn } from './practice-steps.js';
 
 const START = ['video', 'kit', 'whatsapp', 'zones'];   // the rep's own steps: the porcelain zone
@@ -23,7 +26,7 @@ function setTick(node, on, now = false) {
 /** A small picture of a video: the play mark when it can be opened, an empty dashed frame while it has no address. */
 const thumb = (playable) => h('span', { class: `lrn-thumb${playable ? '' : ' none'}`, 'aria-hidden': 'true' }, playable ? h('i') : null);
 
-export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLog, hooks = () => {} }) {
+export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLog, hooks = () => {}, openDocs = () => {} }) {
   // `offered` is the only thing kept between screens: the zones of the city, tagged with the identity that fetched
   // them, and asked again each time the picker opens. What a person picked always comes from their own answer (S.me.zones).
   let back = 'today', learnBack = 'ladder', offered = null, picked = [];
@@ -43,8 +46,7 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
     if (!has()) return;
     back = from || (S.mgr ? 'team' : 'today');
     quiet(() => render(false));
-    setTab('ladder');
-    setTimeout(arrive, reduce ? 0 : 90);
+    setTab('ladder', { onArrive: arrive });
   }
   /** The screen has just arrived: the headline rises, the meter fills again, the zones and their rows come in. */
   function arrive() {
@@ -67,7 +69,8 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
   }
 
   function paint() {
-    const steps = ladder(), next = nextStep(steps), c = ladderCount(steps);
+    // the step pointed at is the first one that can be done: a step whose video does not exist yet waits, and blocks nothing
+    const steps = ladder(), next = focusStep(steps, S.me.videos), c = ladderCount(steps);
     for (const id of ['#ladPreview', '#ladPreviewNote']) $(id).hidden = !preview();
     $('#ladRO').hidden = !readOnly();
     $('#ladLead').textContent = t(c.done === c.of ? 'ladder.lead.done' : 'ladder.lead');
@@ -93,32 +96,40 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
     $('#ladMeterT').textContent = t('ladder.meter', { n: c.done, b: c.of });
 
     const start = steps.filter((x) => START.includes(x.step)), street = steps.filter((x) => !START.includes(x.step));
-    paintRows($('#ladStart'), start, next);
-    paintRows($('#ladStreet'), street, next);
+    const open = new Set(openNow(steps, S.me.videos, { readOnly: readOnly(), canLog: canLog() }));
+    paintRows($('#ladStart'), start, next, open);
+    paintRows($('#ladStreet'), street, next, open);
     $('#ladStartCount').textContent = t('install.zone.count', { a: start.filter((x) => x.done).length, b: start.length });
     $('#ladStreetCount').textContent = t('install.zone.count', { a: street.filter((x) => x.done).length, b: street.length });
-    const lr = learnRows(S.me.videos, S.me.seen);
-    $('#ladLearnN').textContent = t('learn.count', { n: lr.length });
+    $('#ladLearnN').textContent = t('learn.count', { n: learnShown(S.me.videos, S.me.seen).rows.length });   // the videos that exist
   }
 
   /** The small line of a step that is not the next one: who ticks it, or what it holds once done. */
   function byLine(x) {
     const names = rowZones(x, S.me);
     if (x.done) return names ? joinList(names) : t('ladder.done');
+    if (waitsForVideo(x, S.me.videos)) return t('ladder.novideo');
     return t(`ladder.by.${x.by}`);
   }
 
-  function paintRows(list, steps, next) {
+  function paintRows(list, steps, next, open) {
     flipList(list, steps, (x) => x.step,
       () => h('li', { class: 'inst-row lad-row' }, tickNode(), h('span', { class: 'inst-n' }, h('b'), h('small')), h('span', { class: 'inst-act' }), h('div', { class: 'lad-more' }), h('div', { class: 'doc-hooks lad-docs', hidden: true })),
       (li, x) => {
-        const now = !!next && next.step === x.step, was = li.classList.contains('lad-now'), c = ladderControls({ readOnly: readOnly(), step: x, canLog: canLog() });
+        const waits = waitsForVideo(x, S.me.videos), now = !!next && next.step === x.step && !waits, was = li.classList.contains('lad-now'), c = ladderControls({ readOnly: readOnly(), step: x, canLog: canLog(), videos: S.me.videos });
         setTick($('.inst-tick', li), x.done, now);
         li.classList.toggle('lad-now', now); li.classList.toggle('done', x.done);
         $('b', li).textContent = t(`ladder.step.${x.step}`);
         $('small', li).textContent = now ? t(`ladder.s.${x.step}`) : byLine(x);
-        // a step that is done keeps one control: the zones can be changed again
-        put($('.inst-act', li), x.done && c.zones ? h('button', { class: 'mini-btn', type: 'button', text: t('c.change'), 'aria-label': t('zones.change.aria'), onclick: () => openZones() }) : null);
+        // a step that is done keeps one control: the zones can be changed again. A step of the rep's own that is open
+        // and not the one pointed at has its own button too, so the first days can be done in any order.
+        const label = t(`ladder.step.${x.step}`);
+        let act = null;
+        if (x.done && c.zones) act = h('button', { class: 'mini-btn', type: 'button', text: t('c.change'), 'aria-label': t('zones.change.aria'), onclick: () => openZones() });
+        else if (!now && open.has(x.step) && c.zones) act = h('button', { class: 'mini-btn', type: 'button', text: t('ladder.btn.pick'), 'aria-label': t('ladder.btn.pick.aria'), onclick: () => openZones() });
+        else if (!now && open.has(x.step) && c.tick) act = h('button', { class: 'mini-btn', type: 'button', text: t('ladder.btn.mark'), 'aria-label': t('ladder.btn.mark.aria', { what: label }), onclick: (e) => tick(e.currentTarget, x.step) });
+        else if (!now && earnButton(x, S.me.videos)) act = earnBtn('mini-btn');   // the welcome with no video: how you earn, in the rules
+        put($('.inst-act', li), act);
         const more = $('.lad-more', li);
         more.hidden = !now;
         if (now) {
@@ -126,9 +137,11 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
           // the step that is next now opens: what it asks for arrives, and its ring answers
           if (!was && li.dataset.painted && !isQuiet()) { stagger([more], { y: 10, delay: 220 }); ringAt($('.inst-tick', li)); }
         } else put(more);
-        // the first conversation keeps the documents for the pitch at hand, open or done
-        const docsBox = $('.lad-docs', li);
-        if (x.step === 'talk') hooks(docsBox, 'pitch'); else docsBox.hidden = true;
+        // a step with documents keeps them at hand, open or done: the kit, the first conversation, the meeting, the
+        // contract and the install (docs-steps ladderHook; the kit lists the Guion when nothing is hooked to it); a card
+        // opens in the card sheet
+        const docsBox = $('.lad-docs', li), hook = ladderHook(x.step);
+        if (hook) hooks(docsBox, hook); else docsBox.hidden = true;
         li.dataset.painted = '1';
       });
   }
@@ -138,6 +151,7 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
     const out = [h('p', { text: t(`ladder.how.${x.step}`) })];
     const v = stepVideo(x, S.me.videos);
     if (v.kind === 'missing') out.push(h('p', { class: 'lad-novid', text: t('learn.none') }));
+    if (earnButton(x, S.me.videos)) out.push(earnBtn('btn wide'));
     if (v.kind === 'play') out.push(videoLink(v, t('ladder.watch', { title: t(`video.${v.key}`) }), 'lad-play'));
     let btn = null;
     if (c.tick) btn = h('button', { class: 'btn primary wide', type: 'button', text: t('ladder.btn.tick'), onclick: (e) => tick(e.currentTarget, x.step) });
@@ -147,10 +161,12 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
     if (btn) out.push(btn, h('p', { class: 'formerr', role: 'alert', hidden: true }));
     return out;
   }
+  /** "Ver cómo se gana": the rules sheet the profile opens, in place of a welcome video that does not exist yet. */
+  const earnBtn = (cls) => h('button', { class: cls, type: 'button', text: t('ladder.earn'), 'data-open': 'rulesSheet' });
   const tick = (btn, step) => once(btn, async () => {
     const err = btn.nextElementSibling;
     if (err) err.hidden = true;
-    try { took(await write('POST', 'ladder', { step }), 'ladder.saved'); } catch (e) { if (err) showErr(err, errText(e)); else toast(errText(e)); }
+    try { took(await write('POST', 'ladder', { step }), 'ladder.saved'); } catch (e) { if (err) showErr(err, errText(e)); else toastErr(errText(e)); }
   });
 
   /** A link that opens a video in a new tab and tells the server the first time, except through view-as. */
@@ -170,15 +186,14 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
     const key = whoKey(S);
     offered = null;
     let got;
-    try { got = await api('GET', 'zones'); } catch (e) { toast(errText(e)); return; }
+    try { got = await api('GET', 'zones'); } catch (e) { toastErr(errText(e)); return; }
     if (whoKey(S) !== key || readOnly()) return;
     offered = { key, zones: got.zones };
     picked = [...(Array.isArray(S.me.zones) ? S.me.zones : [])];
     $('#znErr').hidden = true;
     $('#znList').replaceChildren();
     quiet(paintZones);
-    setTab('zones');
-    if (!reduce) setTimeout(() => { reveal($('#znGiant')); stagger($$('#znList li'), { delay: 160, step: 30, y: 6 }); }, 90);
+    setTab('zones', { onArrive: () => { reveal($('#znGiant')); stagger($$('#znList li'), { delay: 160, step: 30, y: 6 }); } });
   }
   function paintZones() {
     const zones = offeredFor(offered, whoKey(S));
@@ -229,16 +244,20 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
     learnBack = from || (S.tab === 'ladder' ? 'ladder' : S.mgr ? 'team' : 'profile');
     $('#lrnList').replaceChildren();
     quiet(paintLearn);
-    setTab('learn');
-    if (!reduce) setTimeout(() => { reveal($('#lrnGiant')); stagger($$('#lrnList li'), { delay: 160, step: 50, y: 8 }); }, 90);
+    setTab('learn', { onArrive: () => { reveal($('#lrnGiant')); stagger($$('#lrnList li'), { delay: 160, step: 50, y: 8 }); } });
   }
+  /** Aprender: only the videos that exist (no empty frame). With none, one line says so, and a button leads to
+   *  Documentos when it holds something to read. */
   function paintLearn() {
-    const rows = learnRows(S.me.videos, S.me.seen), playable = rows.filter((r) => r.kind === 'play');
+    const { rows, empty } = learnShown(S.me.videos, S.me.seen);
     $('#lrnPreview').hidden = !preview();
     $('#lrnRO').hidden = !readOnly();
     $('#lrnCount').textContent = t('learn.count', { n: rows.length });
     giant($('#lrnGiant'), t('learn.giant'));
-    $('#lrnSupport').textContent = playable.length ? t('learn.support', { a: playable.filter((r) => r.seen).length, b: playable.length }) : t('learn.support.none');
+    $('#lrnSupport').textContent = empty ? t('learn.empty') : t('learn.support', { a: rows.filter((r) => r.seen).length, b: rows.length });
+    $('#lrnZones').hidden = empty;
+    $('#lrnDocs').hidden = !empty || docsState(S.docs) !== 'list';
+    paintArt($('#lrnArt'), leadArt('learn', { shown: rows.length, seen: rows.filter((r) => r.seen).length }));
     flipList($('#lrnList'), rows, (r) => r.key,
       () => h('li', { class: 'inst-row lrn-row' }, h('span', { class: 'lrn-slot' }), h('span', { class: 'inst-n' }, h('b'), h('small'), h('span', { class: 'lad-novid' })), h('span', { class: 'inst-tag' }), h('span', { class: 'lrn-link' })),
       (li, r) => {
@@ -261,7 +280,7 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
   function card(slot) {
     const steps = ladder();
     if (!has() || S.mgr || !ladderOnHoy(steps)) { slot.hidden = true; slot.replaceChildren(); return; }
-    const next = nextStep(steps), c = ladderCount(steps);
+    const next = focusStep(steps, S.me.videos), c = ladderCount(steps);
     slot.hidden = false;
     const meter = $('.inst-meter', slot) || h('div', { class: 'inst-meter', 'aria-hidden': 'true' });
     if (meter.childElementCount !== c.of) meter.replaceChildren(...steps.map(() => h('i')));
@@ -284,6 +303,7 @@ export function createLadder({ api, S, errText, adopt, renderAll, setTab, openLo
     $('#ladBack').addEventListener('click', () => setTab(back));
     $('#ladLearn').addEventListener('click', () => openLearn('ladder'));
     $('#lrnBack').addEventListener('click', () => setTab(learnBack));
+    $('#lrnDocs').addEventListener('click', () => openDocs('learn'));
     $('#znBack').addEventListener('click', () => setTab('ladder'));
     $('#znSave').addEventListener('click', (e) => saveZones(e.currentTarget));
   }

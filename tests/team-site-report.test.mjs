@@ -231,3 +231,19 @@ test('after midnight the report can still be for yesterday, until noon; it never
   assert.equal((await send({ ...full(), day: '2026-11-16' })).json.error, 'day');
   assert.equal((await send({ ...full(), day: '2026-11-20' })).json.error, 'day');
 });
+
+// 25 Nov (REPUX-01): the form's one-tap "all OK" takes the counts of the last report from an earlier day; the server
+// hands that report to the form. Today's own report is never the "last" one, and a site with none answers null.
+test('the form gets the newest report of the site from an earlier day, or null', async (t) => {
+  const { s, send, read } = await setup(t);
+  assert.equal((await read()).json.last, null);
+  await send(full());
+  assert.equal((await read()).json.last, null, 'today\'s report is today\'s, not the last one');
+  s.time.now = MON_10 + 86400000;
+  await send(full({ notes: 'martes' }));
+  s.time.now = MON_10 + 3 * 86400000;
+  const r = (await read()).json;
+  assert.equal(r.last.day, '2026-11-17');
+  assert.equal(r.last.report.notes, 'martes');
+  assert.deepEqual(r.last.report.phones, { out: 2, back: 2, broken: 0, working: 2 });
+});

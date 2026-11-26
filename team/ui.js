@@ -4,6 +4,7 @@ import { DICT, LANGS, LOCALE, makeT } from './i18n.js';
 import { countFrame, dayOnly } from './moments.js';
 import { follow, speed, release } from './sheet-drag.js';
 import { enterPlan, numberAttrs } from './keys.js';
+import { toastTime, toastEdge, toastFollows } from './toast-steps.js';
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -11,7 +12,7 @@ const reduceQuery = matchMedia('(prefers-reduced-motion: reduce)');
 /** Read where it is used, so a change of the setting while the app is open is followed (the stylesheet follows it too). */
 export let reduce = reduceQuery.matches;
 reduceQuery.addEventListener('change', (e) => { reduce = e.matches; });
-export const EASE = { lock: 'cubic-bezier(.34,1.56,.64,1)', track: 'cubic-bezier(.2,.8,.2,1)', move: 'cubic-bezier(.77,0,.175,1)', out: 'cubic-bezier(.23,1,.32,1)' };
+export const EASE = { lock: 'cubic-bezier(.34,1.56,.64,1)', track: 'cubic-bezier(.2,.8,.2,1)', move: 'cubic-bezier(.77,0,.175,1)', out: 'cubic-bezier(.23,1,.32,1)', reveal: 'cubic-bezier(.16,1,.3,1)', drawer: 'cubic-bezier(.32,.72,0,1)' };
 const SVG = 'http://www.w3.org/2000/svg';
 
 function fill(node, attrs, kids) {
@@ -207,17 +208,46 @@ export function scan(box) {
 }
 
 // ---- toast ----
-let toastTimer, toastMs = 0, toastHeld = false;
-export function toast(text, strong = '') {
+let toastTimer, toastMs = 0, toastHeld = false, toastAt = 0;
+export function toast(text, strong = '', { error = false } = {}) {
   const box = $('#toast');
   $('#toastP').textContent = strong; $('#toastP').hidden = !strong; $('#toastT').textContent = text;
   // Shown in the top layer each time, so it is drawn over a sheet opened before or after it (where popovers exist).
+  // Its edge is decided when it shows and kept while it is on screen (toast-steps.js): under the top bar on Hoy,
+  // Pendientes and Vendedores, whose buttons sit where a bottom toast lands; from the top with a sheet open, whose buttons
+  // sit at the bottom; else, on a phone, from the bottom, over the bar (never over the points chip). A sheet that
+  // closes while it is on screen does not move it.
+  const screen = document.querySelector('section.screen:not([hidden])');
+  if (!box.classList.contains('on') || !box.dataset.edge) box.dataset.edge = toastEdge(screen ? screen.id.replace(/^s-/, '') : '', { sheet: !!document.querySelector('dialog.sheet[open]') });
   if (box.showPopover) { try { if (box.matches(':popover-open')) box.hidePopover(); box.showPopover(); } catch { /* drawn in place, as before */ } }
-  box.classList.add('on');
+  box.classList.toggle('err', error);   // an error stays until it is tapped, or 6 s
+  box.classList.add('on'); toastAt = Date.now();
   clearTimeout(toastTimer);
-  toastMs = Math.min(7000, 2400 + text.length * 35);
+  toastMs = toastTime(text, { error });
   if (document.body.classList.contains('moment')) { toastHeld = true; return; }   // it waits for the moment to end
-  toastTimer = setTimeout(() => box.classList.remove('on'), toastMs);
+  toastTimer = setTimeout(hideToast, toastMs);
+}
+/** A toast that tells what failed: it stays until it is tapped, or 6 s. */
+export function toastErr(text) { toast(text, '', { error: true }); }
+/** The toast leaves, and the ones queued behind it with it: it was tapped, or the person went to another tab or screen
+ *  (it never follows them). Its time running out only hides it (hideToast). */
+export function dropToast() { toastChain += 1; hideToast(); }
+/** The person goes to another tab or screen: the toast stays behind, unless it is the news of that change (toast-steps.js). */
+export function leaveToast() { if (!toastFollows(Date.now() - toastAt)) dropToast(); }
+function hideToast() {
+  const box = $('#toast');
+  clearTimeout(toastTimer); toastHeld = false;
+  if (box) box.classList.remove('on', 'err');
+}
+/** Several toasts, one after another, each for its own time. A newer list replaces what is left of an older one. */
+let toastChain = 0;
+export function toasts(list) {
+  const mine = ++toastChain;
+  let at = 0;
+  for (const text of list.filter(Boolean)) {
+    setTimeout(() => { if (mine === toastChain) toast(text); }, at);
+    at += toastTime(text) + 300;
+  }
 }
 /** A full-screen moment starts (fx.js): a toast on screen waits out of sight (app.css), its time stopped. */
 export function holdToast() {
@@ -228,7 +258,7 @@ export function holdToast() {
 export function releaseToast() {
   if (!toastHeld) return;
   toastHeld = false; clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => $('#toast').classList.remove('on'), toastMs);
+  toastTimer = setTimeout(hideToast, toastMs);
 }
 
 // ---- the source popover: every number opens into where it comes from ----
@@ -268,8 +298,12 @@ export function src(node, label, text) {
 /** Whatever a drag left on a sheet: where it stood and how much of the page it let through. */
 function settle(dlg) { dlg.classList.remove('dragging'); dlg.style.removeProperty('transform'); dlg.style.removeProperty('--fade'); }
 const leaving = new WeakMap();   // the timer that closes a sheet once it has left the screen
+/** Who is told a sheet opened (app.js: an open sheet owns one entry of the browser's history, so Back closes it). */
+let sheetHook = null;
+export const onSheetOpen = (fn) => { sheetHook = fn; };
 export function openSheet(dlg) {
   hidePop(); settle(dlg);
+  if (sheetHook) sheetHook(dlg);
   clearTimeout(leaving.get(dlg)); leaving.delete(dlg);   // opened again while it was leaving: it stays
   dlg.classList.remove('closing'); if (!dlg.open) dlg.showModal(); dlg.scrollTop = 0;
   const title = $('h2', dlg); if (title) title.focus({ preventScroll: true });
@@ -380,12 +414,15 @@ function fieldNode(f) {
   }
   let input;
   if (f.type === 'select') input = h('select', { id, name: f.name, 'aria-label': f.label }, f.options.map((o) => h('option', { value: o.value, selected: String(o.value) === String(f.value ?? ''), text: o.label })));
-  else if (f.type === 'textarea') { input = h('textarea', { id, name: f.name, 'aria-label': f.label, rows: 3, maxlength: f.max || 280, placeholder: f.placeholder }); input.value = f.value || ''; }
+  else if (f.type === 'textarea') { input = h('textarea', { id, name: f.name, 'aria-label': f.label, rows: f.rows || 3, maxlength: f.max || 280, placeholder: f.placeholder }); input.value = f.value || ''; }
   else {
     const num = f.type === 'number' ? numberAttrs() : { type: f.type || 'text' };   // a whole number takes the digit pad, never type=number
     input = h('input', { id, name: f.name, 'aria-label': f.label, ...num, maxlength: f.max || (num.inputmode ? 7 : 120), placeholder: f.placeholder, autocomplete: 'off', autocapitalize: f.lower ? 'none' : null, spellcheck: f.lower ? 'false' : null }); input.value = f.value || '';
   }
-  return h('label', { class: 'field', 'data-name': f.name, 'data-type': f.type || 'text' }, h('span', { class: 'label', text: f.label }), input, f.hint ? h('span', { class: 'hint', text: f.hint }) : null);
+  // count: how many characters are left, said under the field as it is typed
+  const left = f.count ? h('span', { class: 'hint num' }) : null;
+  if (left) { const say = () => { left.textContent = T('fs.left', { n: Math.max(0, (f.max || 280) - input.value.length) }); }; input.addEventListener('input', say); say(); }
+  return h('label', { class: 'field', 'data-name': f.name, 'data-type': f.type || 'text' }, h('span', { class: 'label', text: f.label }), input, f.hint ? h('span', { class: 'hint', text: f.hint }) : null, left);
 }
 /** On a phone the return key says what it does (keys.js): "next" moves to the next field shown, "done" on the last one
  *  sends the form it belongs to, or puts the keyboard away when there is no form. The labels are set again on focus,

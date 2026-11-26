@@ -1,15 +1,19 @@
 // manager.js: what a manager sees. Every rep in one view, the things that wait for a decision, and the people who have access.
 // The headline of the team view is a live number (days closed today), and the rows that need attention are framed.
-import { $, h, put, t, lang, num, ord, wdShort, dayMonth, upper, isoWeek, addDays, dayOf, clock, stamp, ago, cityName, countTo, flipList, toast, src, once, copyText, formSheet, quiet, newId, sameText, face, putFace, giant } from './ui.js';
+import { $, $$, h, put, t, lang, reduce, EASE, num, openSheet, closeSheet, ord, wdShort, dayMonth, upper, isoWeek, addDays, dayOf, clock, stamp, ago, cityName, countTo, flipList, toast, toastErr, src, once, copyText, formSheet, quiet, newId, sameText, face, putFace, giant } from './ui.js';
 import { miniHand, lens, setLens, portrait, setPortrait } from './hand.js';
 import { STOPS } from './stops.js';
 import { shortNames } from './moments.js';
-import { siteBody, siteActions, roleOptions, recordUrl, siteReps, siteLeadId, siteHoursBody, recentMondays, payWeeks, payBody, newRepBody, readAgainIn, readNow, freshRead, REFRESH_MS, countryOptions, teamCountries, countryLabel } from './manager-steps.js';
+import { toLoad, advanceBody, canAdvance, meetingRow, stalledLine, extraNeeds, pointsCell, siteBody, arrivedBody, fixBody, siteActions, roleOptions, recordUrl, siteReps, siteLeadId, siteHoursBody, recentMondays, payWeeks, payBody, newRepBody, readAgainIn, readNow, freshRead, REFRESH_MS, countryOptions, teamCountries, countryLabel, wayLine, bookCells, overdueLines, missedKeys } from './manager-steps.js';
 import { DICT, LOCALE } from './i18n.js';
 import { usd } from './sites-steps.js';
 import { siteStateKey } from './leader-steps.js';
+import { phonesLine, phoneCount, advanceLine } from './route-steps.js';
 import { practiceActions, exampleActions } from './practice-steps.js';
 import { askTwice, guardList } from './taps.js';
+import { restArt, fitArt } from './art-lead.js';
+import { goneRows, ROW_OUT, repActions, countRolls } from './craft-steps.js';
+import { roll } from './fx.js';
 
 const MONDAY = '2026-11-16';   // any Monday: only used to name the days of the week
 const dayName = (n) => wdShort(addDays(MONDAY, n - 1));
@@ -19,7 +23,7 @@ const countryText = (code) => countryLabel(code, {
   own: (c) => (`country.${c}` in DICT.es ? t(`country.${c}`) : null),
   region: (c) => { try { return new Intl.DisplayNames([LOCALE[lang()]], { type: 'region' }).of(c) || null; } catch { return null; } } });
 
-export function createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs, openInstall, openReport }) {
+export function createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs, openInstall, openReport, openBiz = () => {}, docForm = () => {} }) {
   let team = null, city = 'all';
   const tzOf = (rep) => (rep && rep.tz) || S.me.me.tz;
   const repById = (id) => team.reps.find((r) => r.id === id) || team.others.find((r) => r.id === id) || (team.practice && team.practice.id === id ? { ...team.practice, name: t('reps.practice.name') } : null) || (team.example || []).find((r) => r.id === id) || null;
@@ -73,11 +77,14 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
    *  so in the words of the app's own error screen, with the reason and a way to try again now. */
   function renderMissing() {
     for (const id of ['#dayoffBtn', '#addRepBtn']) $(id).disabled = true;   // both need the team: who, which cities, which day
-    if (!failed) return;
-    const why = errText(failed), day = dayOf(S.me.serverTime, S.me.me.tz);
+    // the chips row is the person's own (the day, a sample): drawn at once, so it holds its place while the team is read
+    const day = dayOf(S.me.serverTime, S.me.me.tz);
     $('#teamDateChip').textContent = `${upper(wdShort(day))} ${upper(dayMonth(day))} · ${upper(t('time.week', { n: isoWeek(day) }))}`;
+    $('#teamSampleChip').hidden = !S.me.sample;
+    if (!failed) return;
+    const why = errText(failed);
     const tryNow = () => h('p', { class: 'gate-acts' }, h('button', { class: 'btn primary wide', type: 'button', 'data-act': 'retry', text: t('gate.retry'),
-      onclick: (e) => once(e.currentTarget, async () => { await retry(); if (!team) toast(errText(failed)); }) }));
+      onclick: (e) => once(e.currentTarget, async () => { await retry(); if (!team) toastErr(errText(failed)); }) }));
     for (const id of ['#teamGiant', '#needsGiant', '#repsGiant']) { giant($(id), t('gate.error.title')); $(id).classList.remove('word'); }
     $('#teamSupport').textContent = why;
     let box = $('#teamRetry');
@@ -86,11 +93,12 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     put($('#needsBody'), h('div', {}, h('p', { class: 'support', text: why }), tryNow()));
     put($('#repsBody'), h('p', { class: 'support', text: why }), tryNow());
   }
-  const needsCount = () => (team ? team.needs.confirm.length + team.needs.silent.length + team.needs.late.length + team.needs.pace.length : 0);
+  const needsCount = () => (team ? team.needs.confirm.length + team.needs.silent.length + team.needs.late.length + team.needs.pace.length + (team.needs.overdue || []).length + extraNeeds(team.needs) : 0);
   /** Run a manager action: the answer is the new team view. The feed and the tables follow from a fresh read. */
-  const act = (btn, call, okKey) => once(btn, async () => {
-    try { await wrote(call); renderAll(false); if (okKey) toast(t(okKey)); refresh(false); }
-    catch (e) { toast(errText(e)); if (e && (e.status === 409 || e.status === 404)) retry(); }   // out of date (expired, gone): read the team again
+  /** It answers true once the action went through. `said`: where a failure is said (a sheet's own line); else a toast. */
+  const act = (btn, call, okKey, said = null) => once(btn, async () => {
+    try { await wrote(call); renderAll(false); if (okKey) toast(t(okKey)); refresh(false); return true; }
+    catch (e) { if (said) said(errText(e)); else toastErr(errText(e)); if (e && (e.status === 409 || e.status === 404)) retry(); return false; }   // out of date (expired, gone): read the team again
   });
 
   /** A step that is hard to take back asks twice (taps.js): the first tap arms the button and says what will happen (a
@@ -115,9 +123,10 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     if (n.pace.some((x) => x.rep === rep.id)) out.push(t('mgr.flag.pace'));
     if (c) out.push(t('mgr.flag.confirm', { n: c }));
     if (n.late.some((x) => x.rep === rep.id)) out.push(t('mgr.flag.late'));
+    if (rep.book && rep.book.overdue) out.push(t('mgr.flag.overdue', { n: rep.book.overdue }));
     return out;
   }
-  const COLS = ['visits', 'convs', 'meetings', 'contracts', 'points', 'streak', 'report', 'last'];
+  const COLS = ['visits', 'convs', 'meetings', 'contracts', 'owned', 'overdue', 'points', 'streak', 'report', 'last'];
   function newRow() {
     return h('li', { class: 'brow' }, h('span', { class: 'pos num' }),
       h('span', { class: 'who' }, h('span', { class: 'fc' }), h('span', { class: 'wt' }, h('b'), h('small'), h('span', { class: 'flags' }))), h('span', { class: 'h' }),
@@ -141,7 +150,14 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     set('convs', t('col.convs'), frac(w.conversations, g.conversations));
     set('meetings', t('col.meetings'), frac(w.meetings, g.meetings));
     set('contracts', t('col.contracts'), frac(w.contracts, g.contracts));
-    const pcell = $('.c-points', row); $('.cell-l', pcell).textContent = t('col.points'); $('.cv', pcell).classList.add('pts'); countTo($('.cv', pcell), r.week.points);
+    // the businesses each rep holds, and how many are overdue, with what is under each number when it counts
+    const bk = bookCells(r.book), withSub = (cell) => [num(cell.n), cell.sub ? h('small', { class: 'bk-sub', text: t(cell.sub.key, { n: cell.sub.n }) }) : null].filter(Boolean);
+    set('owned', t('col.owned'), withSub(bk.owned));
+    set('overdue', t('col.overdue'), withSub(bk.overdue)); $('.c-overdue .cv', row).classList.toggle('late', bk.overdue.n > 0);
+    // the points it ranks by (scaled to five working days), and the points before scaling under them when they differ
+    const pcell = $('.c-points', row), pts = pointsCell(r.week); $('.cell-l', pcell).textContent = t('col.points'); $('.cv', pcell).classList.add('pts'); countTo($('.cv', pcell), pts.n);
+    let rawNode = $('small.bk-sub', pcell);
+    if (pts.raw != null) { if (!rawNode) { rawNode = h('small', { class: 'bk-sub' }); pcell.append(rawNode); } rawNode.textContent = t('col.points.raw', { n: num(pts.raw) }); } else if (rawNode) rawNode.remove();
     set('streak', t('col.streak'), t('u.days', { n: r.streak.current }));
     const rep = r.today.isWork ? (r.today.closed ? t('mgr.report.closed', { time: clock(r.today.closedAt, zone) }) : t('mgr.report.open')) : t('mgr.report.rest');
     set('report', t('col.report'), rep); $('.c-report .cv', row).classList.toggle('ok', !!r.today.closed);
@@ -200,7 +216,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
   // ---- needs me ----
   /** A date typed in a date field, as a person reads it: jue 19 nov. Anything else is shown as typed. */
   const niceDay = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? `${wdShort(v)} ${dayMonth(v)}` : v);
-  const group = (titleKey, items, emptyKey, extra = null, counted = true) => h('section', { class: 'group' },
+  const group = (titleKey, items, emptyKey, extra = null, counted = true) => h('section', { class: 'group', 'data-group': titleKey },
     h('h2', {}, t(titleKey), counted && items.length ? [' ', h('span', { class: 'count num', text: String(items.length) })] : null),
     items.length ? h('ul', { class: 'items' }, items) : h('p', { class: 'note', text: t(emptyKey) }), extra);
   const copyBtn = (text) => h('button', { class: 'mini-btn', type: 'button', text: t('needs.msg.copy'), onclick: async () => toast(t((await copyText(text)) ? 'c.copied' : 'close.copy.fail')) });
@@ -214,47 +230,150 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
       fields: [{ name: 'text', type: 'textarea', label: t('reps.badge.text'), placeholder: t('reps.badge.ph'), max: 140 }],
       onSubmit: async (v) => { await wrote(() => api('POST', 'badge', { rep: rep.id, text: v.text })); toast(t('reps.badge.done')); await refresh(false); } });
   }
+  /** A rep's overdue businesses, read on the manager's own account (as= names whose), each one opening its card on the
+   *  manager's account, where it can be released or given (view-as writes nothing). */
+  async function overdueSheet(x) {
+    let res;
+    try { res = await api('GET', `leads?list=due&as=${encodeURIComponent(x.rep)}`); } catch (e) { toastErr(errText(e)); return; }
+    const today = dayOf(team.serverTime, tzOf(repById(x.rep)));
+    const rows = (res.leads || []).filter((r) => r.next && r.next.day < today);
+    const body = h('ul', { class: 'inst-rows bk-sheet' }, rows.map((r) => h('li', { class: 'inst-row two tap' },
+      h('span', { class: 'inst-n' }, h('b', { text: r.name }), h('small', { text: `${niceDay(r.next.day)} · ${r.next.step}` })),
+      h('button', { class: 'inst-hit', type: 'button', 'aria-label': t('bk.row.aria', { name: r.name }), onclick: (e) => { const hit = e.currentTarget; closeSheet($('#formSheet')); openBiz(r.id, 'needs', hit); } }))));
+    formSheet({ title: x.name, intro: t(x.key, { n: x.n, date: niceDay(x.date) }), body, submit: t('c.close'), onSubmit: async () => false });
+  }
   function renderNeeds() {
     const n = team.needs, total = needsCount(), head = $('#needsGiant');
     if (total) head.replaceChildren(num(total), h('em', { text: '.' })); else head.replaceChildren(t('needs.zero').slice(0, -1), h('em', { text: '.' }));
     head.classList.toggle('word', !total);
-    const confirm = n.confirm.map((x) => h('li', {},
+    // nothing waits: the rest picture and one line, above the groups that each say they are empty
+    put($('#needsNone'), total ? null : [restArt(), h('p', { class: 'note', text: t('needs.none') })]);
+    $('#needsNone').hidden = !!total;
+    const confirm = n.confirm.map((x) => h('li', { 'data-key': `c:${x.logId}:${x.what}` },
       h('span', {}, h('b', { text: t(`needs.what.${x.what}`, { lead: x.lead.name }) }), h('small', { text: `${x.name} · ${stamp(x.at, tzOf(repById(x.rep)))}` }),
         x.held ? h('small', { text: t('needs.held') }) : null, x.when ? h('small', { text: t('needs.when', { when: niceDay(x.when) }) }) : null, x.contact ? h('small', { text: t('needs.contact', { contact: x.contact }) }) : null),
       h('span', { class: 'acts' },
         h('button', { class: 'mini-btn primary', type: 'button', text: t(`needs.btn.${x.what}`), onclick: (e) => act(e.currentTarget, () => api('POST', 'confirm', { logId: x.logId, what: x.what }), 'needs.confirmed') }),
         h('button', { class: 'mini-btn', type: 'button', text: t('needs.btn.void'), onclick: () => voidLog(x.logId) }))));
-    const silent = n.silent.map((x) => { const msg = t('needs.msg.silent', { name: x.name.split(' ')[0] }); return h('li', {},
+    const silent = n.silent.map((x) => { const msg = t('needs.msg.silent', { name: x.name.split(' ')[0] }); return h('li', { 'data-key': `s:${x.rep}` },
       h('span', {}, h('b', { text: x.name }), h('small', { text: x.lastLogAt ? t('needs.silent.last', { when: ago(x.lastLogAt, team.serverTime, tzOf(repById(x.rep))) }) : t('needs.silent.never') })),
       h('span', { class: 'acts' }, copyBtn(msg)), h('p', { class: 'msg', lang: 'es', text: msg })); });
-    const late = n.late.map((x) => { const zone = tzOf(repById(x.rep)); return h('li', {},
+    const late = n.late.map((x) => { const zone = tzOf(repById(x.rep)); return h('li', { 'data-key': `l:${x.logId}` },
       h('span', {}, h('b', { text: `${x.name} · ${t(`kind.${x.kind}`)}` }), h('small', { text: x.lead.name }), h('small', { text: t('needs.late.meta', { server: stamp(x.at, zone), client: x.clientAt ? stamp(x.clientAt, zone) : '?' }) })),
       h('span', { class: 'acts' }, h('button', { class: 'mini-btn', type: 'button', text: t('needs.btn.void'), onclick: () => voidLog(x.logId) }))); });
-    const pace = n.pace.map((x) => { const msg = t('needs.msg.pace', { name: x.name.split(' ')[0], a: x.marks, b: x.possible }); return h('li', {},
+    const pace = n.pace.map((x) => { const msg = t('needs.msg.pace', { name: x.name.split(' ')[0], a: x.marks, b: x.possible }); return h('li', { 'data-key': `p:${x.rep}` },
       h('span', {}, h('b', { text: x.name }), h('small', { text: t('needs.pace.item', { a: x.marks, b: x.possible }) })),
       h('span', { class: 'acts' }, copyBtn(msg)), h('p', { class: 'msg', lang: 'es', text: msg })); });
+    const overdue = overdueLines(n).map((x) => h('li', { 'data-key': `o:${x.rep}` },
+      h('span', {}, h('b', { text: x.name }), h('small', { text: t(x.key, { n: x.n, date: niceDay(x.date) }) })),
+      h('span', { class: 'acts' },
+        h('button', { class: 'mini-btn primary', type: 'button', text: t('col.overdue'), onclick: () => overdueSheet(x) }),
+        h('a', { class: 'mini-btn', href: `?as=${encodeURIComponent(x.rep)}`, 'data-as': x.rep, text: t('mgr.viewas.row'), 'aria-label': t('mgr.viewas.row.aria', { name: x.name }), onclick: openAs }))));
     const sites = team.sites.map(siteItem);
+    // the advances requested and not paid, oldest first, with the days waiting; "Adelanto" opens the form to mark it paid
+    const advances = (n.advances || []).map((x) => { const rep = repById(x.rep), site = team.sites.find((y) => y.id === x.siteId); return h('li', { 'data-key': `a:${x.siteId}` },
+      h('span', {}, h('b', { text: x.name }), h('small', { text: t('needs.adv.days', { date: dayMonth(x.asked), n: x.days }) }), rep ? h('small', { text: rep.name }) : null),
+      h('span', { class: 'acts' }, site ? h('button', { class: 'mini-btn primary', type: 'button', text: t('site.advance'), onclick: () => advanceForm(site) }) : null)); });
+    // wave 2, first: the meetings of today and the coming six days, what is stuck, and the day's blockers
+    const dayWords = (d) => (d === dayOf(team.serverTime, S.me.me.tz) ? t('nav.today') : niceDay(d));
+    const meetings = (n.meetings || []).map((x) => { const m = meetingRow(x); return h('li', {},
+      h('span', {}, h('b', { text: m.lead ? m.lead.name : '' }), h('small', { text: [dayWords(m.day), m.time].filter(Boolean).join(' · ') }),
+        h('small', { text: m.who.key ? t(m.who.key, m.who) : m.who.text }), m.held ? h('small', { text: t('needs.meet.held') }) : null),
+      h('span', { class: 'acts' }, m.demo ? h('span', { class: 'chip', text: t('needs.meet.demo') }) : null)); });
+    const stalled = (n.stalled || []).map((x) => { const l = stalledLine(x); return h('li', { 'data-key': `st:${x.logId}` },
+      h('span', {}, h('b', { text: t(l.key, l) }), h('small', { text: x.name })),
+      h('span', { class: 'acts' },
+        h('button', { class: 'mini-btn primary', type: 'button', text: t('needs.stall.missed'), onclick: (e) => { const b = e.currentTarget; const k = missedKeys(x.kind); twice(e, k.sure, () => act(b, () => api('POST', 'stalled', { logId: x.logId, what: 'missed' }), k.done)); } }),
+        h('button', { class: 'mini-btn', type: 'button', text: t('needs.stall.alive'), onclick: (e) => act(e.currentTarget, () => api('POST', 'stalled', { logId: x.logId, what: 'alive' }), 'needs.stall.alive.done') }))); });
+    const blockers = (n.blockers || []).map((x) => { const old = x.day < dayOf(team.serverTime, tzOf(repById(x.rep))); return h('li', { 'data-key': `b:${x.rep}:${x.day}` },
+      h('span', {}, h('b', { text: x.text }), h('small', { text: [x.name, old ? t('needs.block.yesterday') : null, x.seen ? t('needs.block.seen') : null].filter(Boolean).join(' · ') })),
+      h('span', { class: 'acts' }, x.seen ? null : h('button', { class: 'mini-btn', type: 'button', text: t('needs.block.mark'), onclick: (e) => act(e.currentTarget, () => api('POST', 'blocker', { rep: x.rep, day: x.day }), null) }))); });
     // every business of every rep on its way to a site, what waits on a manager first (the server orders it)
     const ways = (team.routes || []).map((r) => {
       const rep = repById(r.rep), st = r.complete ? null : r.stops[r.at], stop = st ? t(`route.stop.${st.key}`) : '';
-      const line = !st ? t('needs.ways.done') : st.status === 'wait' ? t('needs.ways.you', { stop }) : t('needs.ways.rep', { name: rep ? rep.first : '', stop });
-      return h('li', {}, h('span', {}, h('b', { text: r.lead.name }), h('small', { text: st ? `${rep ? rep.name : ''} · ${t('ways.stop', { n: r.at + 1, b: r.stops.length, stop })}` : (rep ? rep.name : '') }), h('small', { text: line })));
+      const way = wayLine(r, { repFirst: rep ? rep.first : '' }), line = t(way.key, { ...way.params, stop });
+      return h('li', { 'data-key': `w:${r.lead.id}` }, h('span', {}, h('b', { text: r.lead.name }), h('small', { text: st ? `${rep ? rep.name : ''} · ${t('ways.stop', { n: r.at + 1, b: r.stops.length, stop })}` : (rep ? rep.name : '') }), h('small', { text: line })));
     });
+    const was = listKeys();   // what each list showed, so a row that left can go out where it was
     const addSite = h('button', { class: 'btn', type: 'button', id: 'addSiteBtn', text: t('needs.sites.add'), disabled: !siteReps(team, S.me.viewer.id).options.length, onclick: siteForm });
     $('#needsBody').replaceChildren(
-      h('div', {}, group('needs.confirm.title', confirm, 'needs.confirm.empty'), group('needs.late.title', late, 'needs.late.empty'), group('needs.sites.title', sites, 'needs.sites.empty', h('p', { class: 'note' }, addSite), false), group('needs.ways.title', ways, 'needs.ways.empty')),
-      h('div', {}, group('needs.silent.title', silent, 'needs.silent.empty'), group('needs.pace.title', pace, 'needs.pace.empty'), (silent.length || pace.length) ? h('p', { class: 'note', text: t('needs.msg.note') }) : null));
+      h('div', {}, group('needs.meet.title', meetings, 'needs.meet.empty'), group('needs.stall.title', stalled, 'needs.stall.empty'), group('needs.block.title', blockers, 'needs.block.empty'),
+        group('needs.overdue.title', overdue, 'needs.overdue.empty'), group('needs.adv.title', advances, 'needs.adv.empty'), group('needs.confirm.title', confirm, 'needs.confirm.empty'), group('needs.late.title', late, 'needs.late.empty'), group('needs.sites.title', sites, 'needs.sites.empty', h('p', { class: 'note' }, addSite), false), group('needs.ways.title', ways, 'needs.ways.empty')),
+      h('div', {}, group('needs.silent.title', silent, 'needs.silent.empty'), group('needs.pace.title', pace, 'needs.pace.empty'), (silent.length || pace.length) ? h('p', { class: 'note', text: t('needs.msg.note') }) : null,
+        loadGroup()));
+    leaveRows(was);
+    fitArt($('#s-needs'));   // its rest picture takes only the room the first action leaves
+  }
+  /** Each list of Pendientes by its group, with its rows (their keys and the rows themselves), as drawn now. */
+  const listKeys = () => new Map($$('#needsBody [data-group]').map((g) => [g.dataset.group, $$('li[data-key]', g).map((li) => ({ key: li.dataset.key, li }))]));
+  /** A row that left a list (confirmed, voided, settled, paid) goes out where it was: it fades and slides right, then its
+   *  height closes and the rows below move up into its place (craft-steps.js ROW_OUT). With reduced motion it is simply
+   *  gone. The list itself was already drawn again: the row is put back only for as long as it leaves. */
+  function leaveRows(was) {
+    if (reduce) return;
+    // a group's own count rolls with its row: it keeps the old number while the row fades, then rolls as the height closes
+    const now = new Map($$('#needsBody [data-group]').map((g) => [g.dataset.group, $$('li[data-key]', g).length]));
+    for (const { group: key, from, to } of countRolls(new Map([...was].map(([k, rows]) => [k, rows.length])), now)) {
+      const head = $$('#needsBody [data-group]').map((g) => $('h2', g)).find((x) => x && x.parentElement.dataset.group === key);
+      if (!head) continue;
+      let count = $('.count', head);
+      if (!count) { count = h('span', { class: 'count num' }); head.append(' ', count); }   // emptied: the old number stays until the row has gone
+      count.textContent = String(from); count.dataset.roll = String(from);
+      setTimeout(() => { if (!count.isConnected) return; if (to) roll(count, String(to)); else { count.previousSibling?.remove(); count.remove(); } }, ROW_OUT.fade);
+    }
+    for (const [groupKey, rows] of was) {
+      const group = $$('#needsBody [data-group]').find((g) => g.dataset.group === groupKey);
+      if (!group) continue;
+      const now = $$('li[data-key]', group).map((li) => li.dataset.key);
+      for (const { key, after } of goneRows(rows.map((r) => r.key), now)) {
+        const row = rows.find((r) => r.key === key).li, prev = after ? $$('li[data-key]', group).find((li) => li.dataset.key === after) : null;
+        let list = $('ul.items', group);
+        if (!list) { list = h('ul', { class: 'items' }); $('h2', group).after(list); }   // the list emptied: its line waits under the leaving row
+        if (prev) prev.after(row); else list.prepend(row);
+        row.inert = true;
+        const out = row.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `translateX(${ROW_OUT.x}px)` }], { duration: ROW_OUT.fade, easing: EASE.out, fill: 'forwards' });
+        out.onfinish = () => {
+          const cs = getComputedStyle(row), from = { height: `${row.getBoundingClientRect().height}px`, paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, opacity: 0 };
+          const shut = row.animate([from, { height: '0px', paddingTop: '0px', paddingBottom: '0px', opacity: 0 }], { duration: ROW_OUT.close, easing: EASE.out, fill: 'forwards' });
+          shut.onfinish = () => { row.replaceWith(); if (list.isConnected && !list.children.length) list.replaceWith(); };
+        };
+      }
+    }
+  }
+  /** "Por cargar": the quiet end of Pendientes, only when something a rep's screens point at is missing in Documents.
+   *  "Cargar" opens the document form with its group and step chosen. It never counts in the tab's number. */
+  function loadGroup() {
+    const items = toLoad(S.docs);
+    if (!items.length) return null;
+    return group('needs.load.title', items.map((x) => h('li', {}, h('span', {}, h('b', { text: t(x.key) })),
+      h('span', { class: 'acts' }, h('button', { class: 'mini-btn', type: 'button', text: t('needs.load.btn'), onclick: () => docForm({ group: x.group, step: x.step }) })))), null, null, false);
   }
 
   // ---- sites: each one with the controls its state allows (manager-steps.js decides which) ----
   const siteCall = (id, body) => api('POST', `site/${encodeURIComponent(id)}`, body);
-  function phonesArrived(s) {
-    formSheet({ title: t('site.phones.title'), intro: t('site.phones.intro', { name: s.lead.name }), submit: t('site.phones.submit'),
-      fields: [{ name: 'count', type: 'number', label: t('site.phones.count'), value: s.phones ? String(s.phones) : '' }],
+  /** "Llegaron teléfonos": a shipment, added to what already came. */
+  function shipment(s) {
+    formSheet({ title: t('site.arrived.title'), intro: t('site.arrived.intro', { name: s.lead.name }), submit: t('site.phones.submit'),
+      fields: [{ name: 'count', type: 'number', label: t('site.arrived.count') }],
       onSubmit: async (v) => {
-        const count = Number(v.count);
-        if (!/^\d+$/.test(v.count) || count < 1 || count > 500) throw { code: 'fields' };
-        await wrote(() => siteCall(s.id, { what: 'phones', count })); toast(t('site.phones.done')); await refresh(false);
+        const body = arrivedBody(v), res = await wrote(() => siteCall(s.id, body));
+        const now = res && res.sites ? res.sites.find((x) => x.id === s.id) : null;
+        toast(t('site.arrived.done', { n: now && now.phones != null ? now.phones : (s.phones || 0) + body.count })); await refresh(false);
+      } });
+  }
+  /** "Cambiar pedido": how many phones the site needs. */
+  function phonesRequest(s) {
+    formSheet({ title: t('site.act.request'), intro: s.lead.name, submit: t('site.phones.submit'),
+      fields: [{ name: 'count', type: 'number', label: t('site.form.request'), hint: t('site.form.request.hint'), value: s.requested ? String(s.requested) : '' }],
+      onSubmit: async (v) => { const count = phoneCount(v.count); await wrote(() => siteCall(s.id, { what: 'request', count })); toast(t('site.request.done')); await refresh(false); } });
+  }
+  /** "Corregir el total": the correction that replaces how many phones came (a shipment, "Llegaron teléfonos", adds). */
+  function phonesArrived(s) {
+    formSheet({ title: t('site.act.fix'), intro: t('site.fix.intro', { name: s.lead.name }), submit: t('site.phones.submit'),
+      fields: [{ name: 'count', type: 'number', label: t('site.fix.count'), value: s.phones ? String(s.phones) : '' }],
+      onSubmit: async (v) => {
+        const body = fixBody(v);
+        await wrote(() => siteCall(s.id, body)); toast(t('site.fix.done', { n: body.count })); await refresh(false);
       } });
   }
   /** A live site's accepted hours for one week, as the buyers' report gives them. A later value replaces the earlier. */
@@ -268,7 +387,9 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
   function siteButton(kind, s) {
     const btn = (key, cls, run) => h('button', { class: cls ? `mini-btn ${cls}` : 'mini-btn', type: 'button', 'data-act': kind, text: t(key), onclick: run });
     if (kind === 'install') return btn(s.legacy ? 'site.act.consents' : 'site.act.install', '', () => openInstall(s.id));   // a legacy site loads its past consents there
-    if (kind === 'phones') return btn('site.act.phones', '', () => phonesArrived(s));
+    if (kind === 'arrived') return btn('site.act.arrived', '', () => shipment(s));
+    if (kind === 'request') return btn('site.act.request', '', () => phonesRequest(s));
+    if (kind === 'phones') return btn('site.act.fix', '', () => phonesArrived(s));
     if (kind === 'confirm') return btn('site.act.confirm', 'primary', (e) => act(e.currentTarget, () => siteCall(s.id, { what: 'installed' }), s.practice ? 'route.prac.saved' : 'site.confirmed'));   // a practice site counts in no total
     if (kind === 'installed' || kind === 'first_hour') return btn(`needs.sites.mark.${kind}`, '', (e) => act(e.currentTarget, () => siteCall(s.id, { what: kind }), 'needs.sites.done'));
     if (kind === 'hours') return btn('site.act.hours', '', () => siteHours(s));
@@ -276,21 +397,38 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     if (kind === 'remove') return btn('site.act.remove', '', (e) => { const b = e.currentTarget; twice(e, 'site.act.remove.confirm', () => act(b, () => siteCall(s.id, { what: 'remove' }), 'site.removed')); });
     return btn('needs.sites.void', '', (e) => { const b = e.currentTarget; twice(e, 'needs.sites.void.confirm', () => act(b, () => siteCall(s.id, { what: 'void' }), 'needs.sites.voided')); });
   }
+  /** "Adelanto": when the business's advance was requested and when it was paid, or the mark taken off. The rep sees
+   *  it on the route's site stop. No amount, no name, no bank detail is asked. */
+  function advanceForm(s) {
+    const a = s.advance || {};
+    const clear = h('button', { class: 'mini-btn', type: 'button', text: t('site.advance.clear'), hidden: !a.asked, onclick: (e) => once(e.currentTarget, async () => {
+      try { await wrote(() => siteCall(s.id, { what: 'advance', asked: null, paid: null })); closeSheet($('#formSheet')); toast(t('site.advance.cleared')); await refresh(false); } catch (err) { toastErr(errText(err)); }
+    }) });
+    formSheet({ title: t('site.advance.title'), intro: t('site.advance.p', { name: s.lead.name }), submit: t('docs.form.submit'), body: h('div', { class: 'bz-acts' }, clear),
+      fields: [{ name: 'asked', type: 'date', label: t('site.advance.asked'), value: a.asked || '' }, { name: 'paid', type: 'date', label: t('site.advance.paid'), value: a.paid || '' }],
+      onSubmit: async (v) => { const body = advanceBody(v); await wrote(() => siteCall(s.id, body)); toast(t(body.asked ? 'site.advance.done' : 'site.advance.cleared')); await refresh(false); } });
+  }
+  /** The advance's line on a site: paid on a day, else requested on a day. */
+  const advanceText = (s) => { const l = advanceLine(s); return l ? t(l.key, { date: dayMonth(l.date) }) : null; };
   /** A live site's daily report: open it, or once sent today, when, opening it to read or edit. */
   function reportButton(s, zone) {
     return h('button', { class: `mini-btn rpt-act${s.report ? ' sent' : ''}`, type: 'button', 'data-act': 'report', text: s.report ? t('report.sent', { time: clock(s.report, zone) }) : t('report.open'), onclick: () => openReport(s.id, zone) });
   }
+  const phonesText = (s) => { const l = phonesLine(s); return l ? t(l.key, l) : null; };
   function siteItem(s) {
     const rep = repById(s.rep), zone = tzOf(rep), key = s.practice ? null : siteStateKey(s);
     // a legacy site counts the consents loaded against the workers it has: "3 de 40 consentimientos"
     const facts = (s.legacy ? [key ? t(`lead.state.${key}`) : null, s.city ? cityName(s.city) : null, s.eligible != null ? t('site.meta.consents', { a: s.consents || 0, b: s.eligible }) : t('site.meta.consents.n', { n: s.consents || 0 })]
       : [key ? t(`lead.state.${key}`) : null, s.city ? cityName(s.city) : null, s.eligible != null ? t('site.meta.eligible', { n: s.eligible }) : null,
-        s.workers ? t('site.meta.workers', { n: s.workers }) : null, s.phones != null ? t('site.meta.phones', { n: s.phones }) : null]).filter(Boolean).join(' · ');
-    return h('li', { class: 'site-li', 'data-site': s.id },
+        s.workers ? t('site.meta.workers', { n: s.workers }) : null, phonesText(s)]).filter(Boolean).join(' · ');
+    return h('li', { class: 'site-li', 'data-site': s.id, 'data-key': `site:${s.id}` },
       h('span', {}, h('b', {}, s.lead.name, s.practice ? [' ', h('span', { class: 'chip inst-prac', text: t('install.practice') })] : null), h('small', { text: `${rep ? rep.name : ''} · ${stamp(s.at, zone)}` }),
         facts ? h('small', { text: facts }) : null,
-        ['installed', 'first_hour'].filter((k) => s.steps[k]).map((k) => h('small', { text: `${t(`needs.sites.${k}`)}: ${stamp(s.steps[k], zone)}` }))),
-      h('span', { class: 'acts' }, s.reportable ? reportButton(s, zone) : null, siteActions(s).map((k) => siteButton(k, s))));
+        ['installed', 'first_hour'].filter((k) => s.steps[k]).map((k) => h('small', { text: `${t(`needs.sites.${k}`)}: ${stamp(s.steps[k], zone)}` })),
+        advanceText(s) ? h('small', { text: advanceText(s) }) : null),
+      h('span', { class: 'acts' }, s.reportable ? reportButton(s, zone) : null, siteActions(s).filter((k) => k !== 'void').map((k) => siteButton(k, s)),
+        canAdvance(s) ? h('button', { class: 'mini-btn', type: 'button', 'data-act': 'advance', text: t('site.advance'), onclick: () => advanceForm(s) }) : null,
+        siteActions(s).includes('void') ? siteButton('void', s) : null));
   }
   /** A new site. The id is made when the form opens: sending the form twice records one site. */
   function siteForm() {
@@ -301,6 +439,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
         known.length ? { name: 'city', type: 'pick', label: t('site.form.city'), value: city, max: 60, other: t('reps.form.city.other'), otherLabel: t('reps.form.city.other.label'),
           options: [...known, ...(city && !known.includes(city) ? [city] : [])].map((c) => ({ value: c, label: cityName(c) })) } : { name: 'city', label: t('site.form.city'), value: city, max: 60 },
         { name: 'eligible', type: 'number', label: t('site.form.eligible'), hint: t('site.form.eligible.hint') },
+        { name: 'request', type: 'number', label: t('site.form.request'), hint: t('site.form.request.hint') },
         { name: 'coordName', label: t('site.form.coord.name'), max: 80 }, { name: 'coordPhone', type: 'tel', label: t('site.form.coord.phone'), max: 30 },
         { name: 'kind', type: 'select', label: t('site.form.kind'), value: 'normal', options: ['normal', 'practice', 'legacy'].map((k) => ({ value: k, label: t(`site.kind.${k}`) })) }],
       onSubmit: async (v) => { const body = siteBody(v, siteId, siteLeadId(team, v.rep, v.name)); await wrote(() => api('POST', 'site', body)); toast(t('needs.sites.added')); await refresh(false); } });
@@ -357,23 +496,39 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     // Without an address nobody can come in as this person: the list says so until a manager adds it.
     const status = !r.active ? h('small', { text: t('reps.inactive') }) : null;
     const days = r.workdays.map(dayName).join(' ');
-    const canTouch = isPlayer || isAdmin(), self = r.id === S.me.viewer.id;
+    const self = r.id === S.me.viewer.id;
     // How many businesses of the list this rep can pick. None means the city is written another way than in the list.
     const leads = !isPlayer || !team.leadCount || !r.active ? null : r.leadsInCity ? h('small', { text: t('reps.leads', { n: r.leadsInCity }) }) : h('small', { class: 'warn', text: t('reps.leads.none') });
-    // the first days, and the one step a manager ticks: the first approved hour, with its undo
+    // the first days, and the one step a manager ticks (in the sheet): the first approved hour, with its undo
     const ladder = isPlayer && r.ladderDone != null ? h('small', { class: 'rep-lad', text: t('reps.ladder', { n: r.ladderDone }) }) : null;
-    const hour = isPlayer && r.active && r.ladderDone != null ? h('button', { class: 'mini-btn', type: 'button', 'data-act': r.hourDone ? 'hour-undo' : 'hour', text: t(r.hourDone ? 'reps.ladder.hour.undo' : 'reps.ladder.hour'),
-      'aria-label': t(r.hourDone ? 'reps.ladder.hour.undo.aria' : 'reps.ladder.hour.aria', { name: r.name }),
-      onclick: (e) => act(e.currentTarget, () => api('POST', 'ladder', { step: 'hour', rep: r.id, ...(r.hourDone ? { undo: true } : {}) }), r.hourDone ? 'reps.ladder.hour.undone' : 'reps.ladder.hour.done') }) : null;
-    return h('li', {},
+    const can = repActions({ isPlayer, admin: isAdmin(), self, active: r.active, role: r.role, ladder: isPlayer && r.ladderDone != null, hourDone: !!r.hourDone });
+    return h('li', { 'data-rep': r.id },
       h('span', { class: 'pers' }, face(r), h('span', { class: 'pt' }, h('b', { text: r.name }), r.email ? h('small', { class: 'mail', text: r.email }) : h('span', { class: 'chip ghost noacc', text: t('reps.noaccess') }), h('small', { text: `${isPlayer ? '' : `${t(`role.${r.role}`)} · `}${cityName(r.city)} · ${t('reps.start', { date: dayMonth(r.startDate) })} · ${days}` }), status, leads, ladder)),
-      h('span', { class: 'acts' }, hour,
-        isPlayer ? h('a', { class: 'mini-btn', href: `?as=${encodeURIComponent(r.id)}`, 'data-as': r.id, onclick: openAs, text: t('mgr.viewas', { name: r.first }) }) : null,
-        // A rep is edited by any manager; a manager or an admin, by an admin, and never by themselves.
-        canTouch && (r.role === 'rep' || !self) ? h('button', { class: 'mini-btn', type: 'button', text: t('reps.edit'), onclick: () => repForm(r) }) : null,
-        // switching someone off locks them out and takes them off the table: it asks twice; switching them back on does not
-        canTouch && !self && r.active ? h('button', { class: 'mini-btn', type: 'button', 'data-act': 'deactivate', text: t('reps.deactivate'), onclick: (e) => { const b = e.currentTarget; twice(e, () => toast(r.name, t('reps.deactivate')), () => act(b, () => api('POST', `reps/${encodeURIComponent(r.id)}`, { patch: { active: false } }), 'reps.saved')); } }) : null,
-        canTouch && !self && !r.active ? h('button', { class: 'mini-btn', type: 'button', 'data-act': 'activate', text: t('reps.activate'), onclick: (e) => act(e.currentTarget, () => api('POST', `reps/${encodeURIComponent(r.id)}`, { patch: { active: true } }), 'reps.saved') }) : null));
+      // one action on the row; the others in a sheet, opened by "Más", outlined like every secondary action (craft-steps.js repActions)
+      h('span', { class: 'acts' },
+        can.shown.includes('viewas') ? h('a', { class: 'mini-btn', href: `?as=${encodeURIComponent(r.id)}`, 'data-as': r.id, onclick: openAs, text: t('mgr.viewas', { name: r.first }) }) : null,
+        can.more.length ? h('button', { class: 'mini-btn', type: 'button', 'data-act': 'more', text: t('reps.more'), 'aria-label': t('reps.more.aria', { name: r.name }), 'aria-haspopup': 'dialog', onclick: () => moreSheet(r, can.more) }) : null));
+  }
+  /** "Más": a rep's other actions, one full-width row each, switching them off last and in signal ink. A step that is
+   *  hard to take back asks twice there as it did on the row; the sheet closes once an action is done, and stays open with
+   *  the reason on its own line when one fails. */
+  function moreSheet(r, keys) {
+    const dlg = $('#moreSheet');
+    const err = $('#moreErr'), said = (text) => { err.textContent = text; err.hidden = false; };
+    err.hidden = true;
+    const done = (run) => async (e) => { const b = e.currentTarget; err.hidden = true; if ((await run(b)) === true && dlg.open) closeSheet(dlg); };
+    const row = (key, text, run, cls = '', aria = null) => h('button', { class: `more-act${cls ? ` ${cls}` : ''}`, type: 'button', 'data-act': key, text, 'aria-label': aria, onclick: run });
+    const hit = {
+      hour: () => row('hour', t('reps.ladder.hour'), done((b) => act(b, () => api('POST', 'ladder', { step: 'hour', rep: r.id }), 'reps.ladder.hour.done', said)), '', t('reps.ladder.hour.aria', { name: r.name })),
+      'hour-undo': () => row('hour-undo', t('reps.ladder.hour.undo'), done((b) => act(b, () => api('POST', 'ladder', { step: 'hour', rep: r.id, undo: true }), 'reps.ladder.hour.undone', said)), '', t('reps.ladder.hour.undo.aria', { name: r.name })),
+      edit: () => row('edit', t('reps.edit'), () => { closeSheet(dlg); repForm(r); }),
+      deactivate: () => row('deactivate', t('reps.deactivate'), (e) => { const b = e.currentTarget; twice(e, () => toast(r.name, t('reps.deactivate')), () => act(b, () => api('POST', `reps/${encodeURIComponent(r.id)}`, { patch: { active: false } }), 'reps.saved', said).then((ok) => { if (ok === true && dlg.open) closeSheet(dlg); })); }, 'danger'),
+      activate: () => row('activate', t('reps.activate'), done((b) => act(b, () => api('POST', `reps/${encodeURIComponent(r.id)}`, { patch: { active: true } }), 'reps.saved', said))),
+    };
+    $('#moreH').textContent = r.name;
+    $('#moreP').textContent = `${cityName(r.city)} · ${t('reps.start', { date: dayMonth(r.startDate) })}`;
+    put($('#moreActs'), keys.map((k) => hit[k]()));
+    openSheet(dlg);
   }
   /** The practice rep: one control to create it, then a way into its screens (writes allowed) and a remove in two taps. */
   function practiceGroup() {
@@ -439,5 +594,7 @@ export function createManager({ api, S, errText, refresh, renderAll, renderFeed,
     $('#dayoffBtn').onclick = dayOff; $('#addRepBtn').onclick = () => repForm();
     for (const id of ['#dayoffBtn', '#addRepBtn']) $(id).disabled = false;
   }
-  return { load, render, needsCount, voidLog, giveBadge, undoConfirm, reopenDay };
+  /** The active reps, for a business's card: who a manager can give a business to. */
+  const reps = () => (team ? team.reps.map((r) => ({ id: r.id, name: r.name, city: r.city })) : []);
+  return { load, render, needsCount, voidLog, giveBadge, undoConfirm, reopenDay, reps };
 }

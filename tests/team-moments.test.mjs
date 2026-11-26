@@ -1,7 +1,8 @@
 // What deserves a moment on screen is decided in team/moments.js, apart from the screens, so it is tested without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, changedChars, countFrame, tableNote, firstDays, untouched, anyLog, shortNames, closeCard, crewOf, historyRows } from '../team/moments.js';
+import { readFileSync } from 'node:fs';
+import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, changedChars, countFrame, tableNote, firstDays, untouched, anyLog, shortNames, closeCard, crewOf, historyRows, gapLine, behindLine, CELEBRATE_HOLD, stopCta, afterClose } from '../team/moments.js';
 
 const RULES = { points: { visit: 3, conversation: 5, followup: 2, dayClosedOnTime: 2 }, habits: { visits: 1, conversations: 2, followups: 1 }, closeBy: '19:00' };
 const today = (over = {}) => ({ day: '2026-11-17', isWork: true, habits: [false, false, false, false], visits: 0, conversations: 0, followups: 0, closed: false, ...over });
@@ -195,4 +196,91 @@ test('a counter ends on its exact value, a percentage with a decimal included; t
   assert.equal(countFrame(3, 12, 1), 12, 'whole numbers end where they always did');
   assert.equal(countFrame(12, 3, 1), 3);
   assert.equal(countFrame(0, 4144, 1), 4144);
+});
+
+// Fix round 1 (D1): the entrance said "A 0 puntos de Omar." on a tie. The gap line is decided once, for the entrance
+// and the table: a tie reads "Empatas con {name}."
+test('the gap to the place ahead: a tie is a tie, by name or not, and a gap names the place ahead when it can', () => {
+  assert.deepEqual(gapLine({ pts: 0, name: 'Omar' }), { key: 'table.sup.tie', name: 'Omar' });
+  assert.deepEqual(gapLine({ pts: 0, name: null }), { key: 'table.sup.tie.next' });
+  assert.deepEqual(gapLine({ pts: 6, name: 'Omar' }), { key: 'table.sup.gap.named', pts: 6, name: 'Omar' });
+  assert.deepEqual(gapLine({ pts: 6, name: null }), { key: 'table.sup.gap.next', pts: 6 });
+  assert.equal(gapLine(null), null);
+  const app = readFileSync(new URL('../team/app.js', import.meta.url), 'utf8');
+  const welcome = app.slice(app.indexOf('function welcome('), app.indexOf('async function poll('));
+  assert.match(welcome, /gapLine\(st\.gap\)/, 'the entrance words its gap with gapLine');
+  assert.equal(/table\.sup\.gap\.named/.test(welcome), false, 'and never words a gap of its own');
+});
+
+// Final round (N6): tied for first, the table and the entrance said "{name} te sigue a 0 puntos." The line about the rep
+// behind is decided once too: a tie is a tie.
+test('tied for first reads as a tie, in the table and in the entrance', () => {
+  const view = { today: { isWork: true }, me: {}, table: { week: { me: { place: 1, score: 40 }, behind: { name: 'Camila', pts: 0 }, ranked: 4 } } };
+  assert.deepEqual(behindLine(stake(view).behind), { key: 'table.sup.tie', name: 'Camila' });
+  assert.deepEqual(behindLine({ name: 'Camila', pts: 7 }), { key: 'table.sup.behind', name: 'Camila', pts: 7 });
+  assert.equal(behindLine(null), null);
+  const app = readFileSync(new URL('../team/app.js', import.meta.url), 'utf8');
+  assert.equal((app.match(/behindLine\(/g) || []).length, 2, 'the table and the entrance both word it with behindLine');
+  assert.equal(/t\('table\.sup\.behind'/.test(app), false, 'and never word it on their own');
+});
+
+// Fix round 1 (D3): a moment holds the app for a breath; pinned so nobody lengthens it by accident.
+test('a moment holds 1,600 ms, and 1,200 ms with reduced motion', () => {
+  assert.deepEqual(CELEBRATE_HOLD, { full: 1600, reduced: 1200 });
+  const fx = readFileSync(new URL('../team/fx.js', import.meta.url), 'utf8');
+  const celebrate = fx.slice(fx.indexOf('export function celebrate('), fx.indexOf('\n}\n', fx.indexOf('export function celebrate(')));
+  assert.match(celebrate, /setTimeout\(off, reduce \? CELEBRATE_HOLD\.reduced : CELEBRATE_HOLD\.full\)/);
+  assert.equal(/for \(const ms of \[/.test(celebrate), false, 'no leftover one-item loop');
+});
+
+// Track F, F4: the day's completion comes before its paperwork. The moment carries the report: shared where the
+// browser can share text, else copied; a share the rep cancels is not an error and leaves the moment open.
+import { reportAction, reportOutcome, DONE_HOLD } from '../team/moments.js';
+import { backStep } from '../team/back-steps.js';
+import { DICT as F4 } from '../team/i18n.js';
+test('the moment shares the report where the browser can, else copies it, each with its quiet line', () => {
+  assert.deepEqual(reportAction(true), { kind: 'share', key: 'dd.share', hint: 'dd.share.hint' });
+  assert.deepEqual(reportAction(false), { kind: 'copy', key: 'dd.copy', hint: 'dd.copy.hint' });
+  assert.equal(F4.es['dd.share'], 'Compartir el reporte'); assert.equal(F4.en['dd.share'], 'Share the report');
+  assert.equal(F4.es['dd.copy'], 'Copiar el reporte'); assert.equal(F4.en['dd.copy'], 'Copy the report');
+  assert.equal(F4.es['dd.share.hint'], 'Elige Slack y el canal del equipo.'); assert.equal(F4.en['dd.share.hint'], "Pick Slack and the team's channel.");
+  assert.equal(F4.es['dd.copy.hint'], 'Pégalo en el canal del equipo en Slack.');
+  assert.equal(F4.es['dd.done'], 'Listo.');
+});
+test('what each outcome does: done says Listo and closes after 900 ms; a cancelled share stays; a failed share copies; a failed copy says so', () => {
+  assert.equal(DONE_HOLD, 900);
+  assert.deepEqual(reportOutcome('share', 'ok'), { say: 'dd.done', close: true, then: null });
+  assert.deepEqual(reportOutcome('copy', 'ok'), { say: 'dd.done', close: true, then: null });
+  assert.deepEqual(reportOutcome('share', 'cancel'), { say: null, close: false, then: null });
+  assert.deepEqual(reportOutcome('share', 'fail'), { say: null, close: false, then: 'copy' });
+  assert.deepEqual(reportOutcome('copy', 'fail'), { say: 'close.copy.fail', close: false, then: null });
+});
+test('Back closes the moment first, before any sheet or screen', () => {
+  assert.equal(backStep({ moment: true, sheets: 1, deep: true, away: true }), 'moment');
+  assert.equal(backStep({ skip: 1, moment: true }), 'skip');
+});
+
+test('Hoy\'s stop for a closed day: no "Cerrar el día" button, whatever the stop shown; an open day keeps its button', () => {
+  const closed = today({ habits: [true, true, true, true], visits: 1, conversations: 2, followups: 1, closed: true });
+  const step = nextStep(closed, RULES, 15 * 60);
+  for (const sel of [0, 1, 2, 3]) assert.equal(stopCta({ today: closed, step, sel, done: true }), null);
+  // closed with a habit still open: still none
+  const part = today({ habits: [true, false, false, true], visits: 1, closed: true });
+  assert.equal(stopCta({ today: part, step: nextStep(part, RULES, 15 * 60), sel: 3, done: true }), null);
+  // an open day: log the stop, go on once it is done, close on the last one; a manager looking has none
+  const open = today({ habits: [true, true, true, false], visits: 1, conversations: 2, followups: 1 });
+  const s3 = nextStep(open, RULES, 15 * 60);
+  assert.deepEqual(stopCta({ today: open, step: s3, sel: 3, done: false }), { step: 'close' });
+  assert.deepEqual(stopCta({ today: open, step: s3, sel: 0, done: true }), { step: 'next' });
+  assert.deepEqual(stopCta({ today: today(), step: nextStep(today(), RULES, 0), sel: 0, done: false }), { step: 'log' });
+  assert.equal(stopCta({ today: open, step: null, sel: 3, done: false }), null);
+});
+
+test('closing the day that fills the finger: the moment plays at once and the stop owes no answer; any other close as before', () => {
+  assert.deepEqual(afterClose([{ kind: 'finger' }]), { owed: false, now: true });
+  assert.deepEqual(afterClose([{ kind: 'level' }, { kind: 'finger' }]), { owed: false, now: true });
+  // no finger moment (the four not complete, or the hand's own moment): the stop answers first, then any moment
+  assert.deepEqual(afterClose([]), { owed: true, now: false });
+  assert.deepEqual(afterClose([{ kind: 'hand' }]), { owed: true, now: false });
+  assert.deepEqual(afterClose(undefined), { owed: true, now: false });
 });

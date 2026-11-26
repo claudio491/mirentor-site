@@ -91,3 +91,15 @@ test('the climb starts on the ground, hops between steps and ends where the team
   const y = (k) => Number(k.translate.split(' ')[1].replace('px', ''));
   assert.ok(y(f[1]) < (y(f[0]) + y(f[2])) / 2, 'between two steps it hops up');
 });
+
+// Fix round 1 (A2): the stage gives up height so the four stops clear the tab bar with 6 px of air; never under 112 px
+// (the page scrolls by what is missing then), and never more than it must.
+test('the stage gives up only the height it must, and never goes under 112 px', async () => {
+  const { stageFit, STAGE_MIN } = await import('../team/stops.js');
+  assert.equal(STAGE_MIN, 112);
+  assert.deepEqual(stageFit({ natural: 303, over: 22 }), { height: 281, short: 0 });
+  assert.deepEqual(stageFit({ natural: 303, over: -40 }), { height: 303, short: 0 }, 'room to spare: it keeps its size, it does not grow');
+  assert.deepEqual(stageFit({ natural: 200, over: 106 }), { height: 112, short: 18 }, 'under 112 the page scrolls by what is missing');
+  assert.deepEqual(stageFit({ natural: 303, over: 0 }), { height: 303, short: 0 });
+  assert.deepEqual(stageFit({ natural: 303, over: 22.4 }), { height: 280, short: 0 }, 'whole pixels, rounded toward clearing the bar');
+});

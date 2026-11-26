@@ -42,20 +42,50 @@ export function learnRows(videos, seen) {
   return Object.keys(videos || {}).map((key) => ({ ...videoOf(key, videos), seen: opened.has(key) }));
 }
 
+/** What Aprender draws: only the videos that exist (a slot with no address, or one that does not hold, is left out), and
+ *  whether none does, so the screen says it once instead of drawing empty frames. */
+export function learnShown(videos, seen) {
+  const rows = learnRows(videos, seen).filter((r) => r.kind === 'play');
+  return { rows, empty: !rows.length };
+}
+/** The welcome step while its video does not exist: "Ver cómo se gana" opens the rules instead. */
+export const earnButton = (step, videos) => !!step && !step.done && step.step === 'video' && stepVideo(step, videos).kind === 'missing';
+
+/** A step the rep ticks after watching its video, while that video has no address: nobody can honestly do it yet, so it
+ *  waits with a plain line and no button, and blocks nothing. It is still not done. */
+export const waitsForVideo = (step, videos) => !!step && !step.done && step.by === 'rep' && stepVideo(step, videos).kind === 'missing';
+
 const LOGGED = new Set(['talk', 'meeting', 'contract']);
 /** Which controls a step offers. Through view-as (a manager reading a rep's screens) none: nothing that writes shows.
- *  The rep ticks their three own steps while open; the zones can be picked and changed again; the steps the app ticks
- *  point at what ticks them (logging, closing the day) only for someone who logs, so not in a manager's preview.
- *  The install and the first approved hour have no control here. */
-export function ladderControls({ readOnly, step, canLog }) {
+ *  The rep ticks their three own steps while open (not one that waits for its video, when `videos` is given); the zones
+ *  can be picked and changed again; the steps the app ticks point at what ticks them (logging, closing the day) only
+ *  for someone who logs, so not in a manager's preview. The install and the first approved hour have no control here. */
+export function ladderControls({ readOnly, step, canLog, videos }) {
   const out = { tick: false, zones: false, log: false, close: false };
   if (readOnly || !step) return out;
   if (step.step === 'zones') return { ...out, zones: true };
   if (step.done) return out;
+  if (videos !== undefined && waitsForVideo(step, videos)) return out;
   if (step.by === 'rep') return { ...out, tick: true };
   if (LOGGED.has(step.step)) return { ...out, log: !!canLog };
   if (step.step === 'report') return { ...out, close: !!canLog };
   return out;
+}
+
+/** The step the screen points at ("Sigue: …", the ring, the Hoy card): the first one not done that can be done now, or
+ *  the first one not done when only waiting steps are left. */
+export const focusStep = (ladder, videos) => (ladder || []).find((s) => !s.done && !waitsForVideo(s, videos)) || nextStep(ladder);
+
+/** The steps that show their own button now, in the ladder's order: every step the rep ticks or picks by hand that is
+ *  open and not waiting (so they can be done in any order), and the step the screen points at. */
+export function openNow(ladder, videos, { readOnly, canLog }) {
+  const focus = focusStep(ladder, videos);
+  return (ladder || []).filter((s) => {
+    if (s.done) return false;
+    const c = ladderControls({ readOnly, step: s, canLog, videos });
+    if (!c.tick && !c.zones && !c.log && !c.close) return false;
+    return s.by === 'rep' || (!!focus && focus.step === s.step);
+  }).map((s) => s.step);
 }
 
 /** Opening a video tells the server the first time: never for a row with no address, never through view-as. */

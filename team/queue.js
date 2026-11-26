@@ -37,6 +37,29 @@ export const langDone = (kept, who) => !!kept && (typeof kept !== 'object' || ke
 export const madeEarlier = (items, today, dayOf) =>
   items.filter((q) => q && q.body && typeof q.body.clientAt === 'string' && dayOf(q.body.clientAt) < today).length;
 
+/** Whether a sent log added something. The server answers `repeat` for a business and result already logged today:
+ *  that log added nothing, so no toast announces it as counting for today. */
+export const landedNew = (answer) => !(answer && answer.repeat);
+
+/** What the toast after sending waiting logs adds. `items` are the logs that reached the server, each with the
+ *  server's `answer` and the business's `name` (null when the phone does not know it). `words`: whose the business is
+ *  now, said once each ('log.took', or 'log.owned' with the holder's name), as a live save says it. `late`: the
+ *  businesses whose next step's day had passed before the log reached the server (the server keeps the log and drops
+ *  that next step), two at most; more than two keep the first and count the rest in `more`, as does a business with
+ *  no name known. */
+export function sentNotes(items, today) {
+  const words = [], late = [];
+  for (const it of Array.isArray(items) ? items : []) {
+    const a = (it && it.answer) || {};
+    if (a.took) { if (!words.some((w) => w.key === 'log.took')) words.push({ key: 'log.took' }); }
+    else if (a.owned && a.owned.name && !words.some((w) => w.key === 'log.owned' && w.name === a.owned.name)) words.push({ key: 'log.owned', name: a.owned.name });
+    const next = it && it.body ? it.body.next : null;
+    if (next && typeof next.day === 'string' && next.day < today) late.push(it.name || null);
+  }
+  const named = late.filter(Boolean), shown = late.length > 2 ? named.slice(0, 1) : named.slice(0, 2);
+  return { words, late: shown, more: late.length - shown.length };
+}
+
 /** How long a request may hang before it counts as no signal. A photo goes as its own bytes and can take long on a weak
  *  signal, so it gets ninety seconds; everything else, fifteen. */
 export const requestTimeout = (body) => (typeof Blob !== 'undefined' && body instanceof Blob ? 90000 : 15000);

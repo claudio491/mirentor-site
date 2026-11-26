@@ -26,6 +26,26 @@ export function draftOf(prefill, report) {
     surge: Object.fromEntries(SURGE_COUNTS.map((k) => [k, 0])), sets: 0, allOk: null, missing: '', need: '', notes: '' };
 }
 
+/** The answer "Sí, todo volvió y funciona", given first. With an earlier report of the site (`last`, from the server),
+ *  each group whose count that report knew takes what worked at its close (the iPhones: the larger of that and what the
+ *  site is known to have today) as handed out, returned and working today,
+ *  none damaged; `same` says those counts, for the one line the folded groups show. A group the report did not know,
+ *  and every group when there is no earlier report, keeps what it had: the app never fills a count it does not know.
+ *  The draft given is not changed. */
+export function answerYes(d, last) {
+  const r = last && last.report, draft = { ...d, allOk: true }, same = {};
+  const known = (v) => Number.isInteger(v) && v >= 0;
+  for (const g of GEAR) {
+    // phones that arrived since the earlier report are not under-reported: the larger of its count and today's
+    const before = r && r[g] ? r[g].working : null, now = d[g] ? d[g].working : null;
+    const n = g === 'phones' && known(before) && known(now) ? Math.max(before, now) : before;
+    if (known(n)) { draft[g] = { out: n, back: n, broken: 0, working: n }; same[g] = n; }
+  }
+  const s = r && r.surge ? r.surge.working : null;
+  if (known(s)) { draft.surge = { working: s, broken: 0 }; same.surge = s; }
+  return { draft, same };
+}
+
 /** Hours as a person types them: "7,5" and "7.5" are the same; empty is unknown (null). NaN when it is not a number. */
 export function hoursOf(text) {
   const v = String(text ?? '').trim().replace(',', '.');

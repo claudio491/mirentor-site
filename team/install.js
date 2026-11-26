@@ -3,10 +3,12 @@
 // on graphite; one worker, whose consent photo opens the phone step and whose phone opens the clip step; and the close,
 // with the site's record. Every screen labels a practice site "Práctica".
 // The server answers every action with the whole install; the screen draws the difference and moves only what changed.
-import { $, $$, h, s, put, t, lang, num, cityName, stamp, dayMonth, giant, countTo, recount, flipList, toast, src, once, formSheet, ringAt, lock, buzz, reduce, isQuiet, quiet, showErr, EASE } from './ui.js';
+import { $, $$, h, s, put, t, lang, num, cityName, stamp, dayMonth, giant, countTo, recount, flipList, toast, toastErr, src, once, formSheet, ringAt, lock, buzz, reduce, isQuiet, quiet, showErr, EASE } from './ui.js';
 import { reveal, stagger } from './fx.js';
+import { paintArt } from './art-lead.js';
+import { leadArt, shotState } from './craft-steps.js';
 import { lens, setLens, drawIn } from './hand.js';
-import { workerOrder, workerSteps, prepRows, statusKey, newWorkerId, isDone, installCard, imeiFor, imeiFromScan, stepNow, recordRows, closeState, consentFailed, controls, keepForRetry, workerEditBody } from './install-steps.js';
+import { workerOrder, workerSteps, prepRows, statusKey, newWorkerId, isDone, installCard, imeiFor, imeiFromScan, stepNow, recordRows, closeState, consentFailed, controls, keepForRetry, workerEditBody, workerAddBody, nextWorker } from './install-steps.js';
 import { shrink, examplePage } from './shrink.js';
 import { actingMode, readOnlyIn } from './practice-steps.js';
 import { askTwice, disarm } from './taps.js';
@@ -39,12 +41,11 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     siteId = id; back = from || 'today';
     try {
       view = await api('GET', `install/${encodeURIComponent(id)}`);
-    } catch (e) { toast(errText(e)); return; }
+    } catch (e) { toastErr(errText(e)); return; }
     reset();
     quiet(() => render(false));
     if (to === 'iclose') { openClose(); return; }
-    setTab('install');
-    setTimeout(arrive, reduce ? 0 : 90);
+    setTab('install', { onArrive: arrive });
     // from "Mis sitios activos": the site, and its add-a-worker sheet over it (the same sheet and the same lock)
     if (to === 'add') setTimeout(addWorker, reduce ? 0 : 320);
   }
@@ -75,7 +76,7 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
    *  A refusal is said in `errNode` when there is one (next to the button), or in a toast. */
   const act = (btn, call, okKey, errNode = null) => once(btn, async () => {
     if (errNode) errNode.hidden = true;
-    try { view = await call(); render(true); if (okKey) toast(t(okKey)); refresh(false); return true; } catch (e) { if (errNode) showErr(errNode, why(e)); else toast(why(e)); return false; }
+    try { view = await call(); render(true); if (okKey) toast(t(okKey)); refresh(false); return true; } catch (e) { if (errNode) showErr(errNode, why(e)); else toastErr(why(e)); return false; }
   });
 
   /** Draw whichever install screen is open, and the site screen under it, so going back finds it current. */
@@ -127,6 +128,7 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     go.hidden = cs.kind === 'nobody';
     go.textContent = t(cs.kind === 'closed' || readOnly() ? 'install.c.view' : 'install.c.go');
     go.classList.toggle('primary', cs.kind !== 'closed' && !readOnly());   // only looking is never the call to action
+    paintArt($('#instArt'), leadArt('install', { ready: progress.ready, of: den }));
   }
 
   /** What an install shows that a legacy site does not: the prep zone, the phone lens, the meter and the close. */
@@ -140,7 +142,7 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
    *  against the workers the site said it has; there are no phones, no clips and no close here. */
   function paintLegacy() {
     const { site, workers, progress } = view, den = site.eligible || progress.total || 0;
-    showParts(false);
+    showParts(false); paintArt($('#instArt'), null);
     $('#instSite').textContent = site.name;
     $('#instPractice').hidden = true; $('#instPracticeNote').hidden = true; $('#instAdv').hidden = true;
     $('#instCity').textContent = cityName(site.city); $('#instCity').hidden = !site.city;
@@ -160,7 +162,7 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
         const done = !!w.consent;
         setTick($('.inst-tick', li), done, false);
         $('b', li).textContent = w.name;
-        $('small', li).textContent = [done ? t('install.legacy.d.ok') : t('install.d.no_consent'), w.email].filter(Boolean).join(' · ');
+        $('small', li).textContent = [done ? t('install.legacy.d.ok') : t('install.d.no_consent'), w.email || (w.noEmail ? t('install.noemail') : null)].filter(Boolean).join(' · ');
         const tag = $('.inst-tag', li); tag.textContent = done ? t('install.legacy.st.ok') : t('install.st.no_consent'); tag.classList.toggle('ok', done); tag.classList.toggle('miss', !done);
         $('.inst-hit', li).setAttribute('aria-label', t('install.w.open.aria', { name: w.name, state: tag.textContent }));
       });
@@ -224,7 +226,7 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
         const done = isDone(w.status), was = li.dataset.st;
         setTick($('.inst-tick', li), done, w.id === nowId);
         $('b', li).textContent = w.name;
-        $('small', li).textContent = t(`install.d.${w.status}`, { imei: tail(w.imei) });
+        $('small', li).textContent = [t(`install.d.${w.status}`, { imei: tail(w.imei) }), w.noEmail ? t('install.noemail') : null].filter(Boolean).join(' · ');   // "Sin correo" where the email would be
         const tag = $('.inst-tag', li);
         tag.textContent = t(statusKey(w.status)); tag.classList.toggle('ok', done); tag.classList.toggle('miss', !done);
         if (was && was !== w.status && !isQuiet()) lock(tag);
@@ -239,6 +241,15 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     $('#instCrewCount').textContent = t('install.zone.count', { a: workers.filter((w) => isDone(w.status)).length, b: workers.length });
   }
 
+  /** "¿Tiene correo?": "No tiene correo" is said on purpose, and hides the email field. */
+  const hasEmailField = (value) => ({ name: 'hasEmail', type: 'select', label: t('install.add.hasemail'), value, options: [{ value: 'yes', label: t('install.add.hasemail.yes') }, { value: 'no', label: t('install.add.hasemail.no') }] });
+  /** In the form just opened, the email field shows only while "¿Tiene correo?" says yes. */
+  function emailFollows(dlg) {
+    const pick = $('[data-name="hasEmail"] select', dlg), field = $('[data-name="email"]', dlg);
+    if (!pick || !field) return;
+    const sync = () => { field.hidden = pick.value === 'no'; };
+    pick.addEventListener('change', sync); sync();
+  }
   function addWorker() {
     if (!ctl().addWorker) return;
     const id = newWorkerId();   // made once per sheet: a second tap after a bad connection sends the same person
@@ -252,20 +263,27 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
         } });
       return;
     }
-    formSheet({ title: t('install.add.title'), intro: t('install.add.p'), submit: t('install.add.submit'),
-      fields: [{ name: 'name', label: t('install.add.name'), max: 80 }, { name: 'email', type: 'email', label: t('install.add.email'), lower: true, max: 120 },
+    const dlg = formSheet({ title: t('install.add.title'), intro: t('install.add.p'), submit: t('install.add.submit'),
+      fields: [{ name: 'name', label: t('install.add.name'), max: 80 }, hasEmailField('yes'), { name: 'email', type: 'email', label: t('install.add.email'), lower: true, max: 120 },
         { name: 'phone', type: 'select', label: t('install.add.phone'), value: 'yes', options: [{ value: 'yes', label: t('install.add.phone.yes') }, { value: 'no', label: t('install.add.phone.no') }] }],
       onSubmit: async (v) => {
-        view = await write('POST', `install/${encodeURIComponent(siteId)}/workers`, { id, name: v.name, email: v.email, phone: v.phone !== 'no' });
+        view = await write('POST', `install/${encodeURIComponent(siteId)}/workers`, { id, ...workerAddBody(v, false) });
         render(true); toast(t('install.add.done', { name: v.name })); refresh(false);
         setTimeout(() => openWorker(id), reduce ? 0 : 260);   // the sheet leaves, then their own screen: the consent is next
       } });
+    emailFollows(dlg);
   }
 
   // ---- one worker ----
   const worker = () => (view && view.workers.find((w) => w.id === wid)) || null;
+  // A finished step folds to one line (the consent with a 64 px thumbnail) with "Cambiar"; the steps opened again
+  // with "Cambiar" stay open while this worker is on screen.
+  const unfolded = new Set();
+  let wasAll = false;
   function openWorker(id) {
     wid = id;
+    unfolded.clear();
+    wasAll = false;
     for (const n of ['#wkErr1', '#wkErr2', '#wkErr3', '#wkErr4']) $(n).hidden = true;
     disarm($('#wkRemove'));
     $('#wkImei').value = ''; $('#wkShot').replaceChildren(); delete $('#wkGiant').dataset.k; delete $('#wkGiant').dataset.words;
@@ -274,9 +292,28 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     disarm($('#wkReturn'));
     $('#wkShot').dataset.k = '';
     quiet(paintWorker);
-    setTab('worker');
-    if (reduce) return;
-    setTimeout(() => { reveal($('#wkGiant')); stagger($$('#s-worker .inst-step'), { delay: 140, step: 110, y: 14 }); }, 90);
+    setTab('worker', { onArrive: () => { reveal($('#wkGiant')); stagger($$('#s-worker .inst-step'), { delay: 140, step: 110, y: 14 }); toNow(); } });
+  }
+  /** The step to do comes into view, clear of the tab bar; or, once the worker is done, what comes next. */
+  function toNow() {
+    const w = worker();
+    if (!w) return;
+    const at = workerSteps(w).findIndex((x) => !x.done);
+    // after the change has put the page back at its top
+    requestAnimationFrame(() => into(at < 0 ? $('#wkNext') : $(`#wkS${at + 1}`)));
+  }
+  function into(el) {
+    if (!el || el.hidden) return;
+    const r = el.getBoundingClientRect(), nav = $('#nav'), room = innerHeight - (nav ? nav.offsetHeight : 0) - 12;
+    const by = Math.min(r.bottom - room, r.top - 72);   // its foot above the tab bar, its head never under the top bar
+    if (by > 0) scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
+  }
+  /** The one line a finished step folds to: what it holds, and "Cambiar" to open it again. */
+  function fold(step, key, kids, aria) {
+    let line = $('.inst-fold', step);
+    if (!line) { line = h('div', { class: 'inst-fold' }); $('.inst-zh', step).after(line); }
+    put(line, ...kids, ctl(worker()).change ? h('button', { class: 'mini-btn', type: 'button', text: t('c.change'), 'aria-label': aria, onclick: () => { unfolded.add(key); quiet(paintWorker); } }) : null);   // a read-only viewer folds, never changes
+    return line;
   }
   function paintWorker() {
     const w = worker();
@@ -308,13 +345,29 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     setTick($('#wkS1 .inst-tick'), !!w.consent, !w.consent);
     s1.classList.toggle('done', !!w.consent);
     const shot = $('#wkShot');
-    shot.classList.toggle('has', !!w.consent);
     const key1 = w.consent ? `${w.id}:${w.consent.v}` : `${w.id}:none`;
+    // the photo on its way is a graphite frame with the scan's sweep; one that cannot load says so, and a tap asks again
+    const mark = (st) => { shot.dataset.state = st; shot.classList.toggle('has', st === 'shown' || st === 'loading'); };
     if (shot.dataset.k !== key1) {
       shot.dataset.k = key1;
-      put(shot, w.consent ? h('img', { src: `api/consent/${encodeURIComponent(w.id)}?v=${encodeURIComponent(w.consent.v)}`, alt: '', decoding: 'async' })
-        : [h('span', { class: 'inst-doc', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'), h('i'), h('i')), h('span', { class: 'inst-shot-t' })]);
+      if (w.consent) {
+        const address = `api/consent/${encodeURIComponent(w.id)}?v=${encodeURIComponent(w.consent.v)}`;
+        const img = h('img', { alt: '', decoding: 'async' });
+        img.onload = () => { if (shot.dataset.k === key1) mark(shotState({ consent: true, loaded: true })); };
+        img.onerror = () => { if (shot.dataset.k === key1) mark(shotState({ consent: true, failed: true })); };
+        let tries = 0;
+        const again = h('button', { class: 'inst-shot-retry', type: 'button', text: t('install.w.photo.failed'),
+          onclick: () => { tries += 1; mark(shotState({ consent: true })); img.src = `${address}&r=${tries}`; } });
+        put(shot, img, again);
+        mark(shotState({ consent: true }));
+        img.src = address;
+      } else {
+        put(shot, h('span', { class: 'inst-doc', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'), h('i'), h('i')), h('span', { class: 'inst-shot-t' }));
+        mark(shotState({ consent: false }));
+      }
     }
+    const retryShot = $('.inst-shot-retry', shot);
+    if (retryShot) retryShot.textContent = t('install.w.photo.failed');
     // the photo is kept while it is the same; its words follow the language and the name on every paint
     const photo = $('img', shot), hint = $('.inst-shot-t', shot);
     if (photo) photo.alt = t('install.w.photo.alt', { name: w.name });
@@ -328,6 +381,15 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     $('#wkRetry').hidden = !retry || !c.consent;
     $('#wkRetry').classList.toggle('primary', retry);
     $('#wkExample').hidden = !c.example;   // a practice site only: a drawn page instead of a camera
+    const fold1 = !!w.consent && !retry && !unfolded.has(`${w.id}:consent`);
+    s1.classList.toggle('folded', fold1);
+    if (fold1) {
+      fold(s1, `${w.id}:consent`, [h('img', { class: 'inst-thumb', src: `api/consent/${encodeURIComponent(w.id)}?v=${encodeURIComponent(w.consent.v)}`, alt: t('install.w.photo.alt', { name: w.name }), decoding: 'async', onerror: (e) => e.currentTarget.classList.add('failed') }),
+        h('span', { class: 'inst-meta', text: t('install.w.saved', { form: w.consent.form, when: stamp(w.consent.t, tz()) }) })], t('install.w.fold.consent'));
+    }
+    for (const n of [shot, $('#wkMeta'), $('#wkDocs'), $('#wkFileBtn'), $('#wkRetry'), $('#wkExample')]) if (fold1) n.hidden = true;
+    if ($('.inst-fold', s1)) $('.inst-fold', s1).hidden = !fold1;
+    shot.hidden = fold1;
 
     // 2 · the phone: locked until the consent is on file. A coworker who signs only has no phone step.
     const only = w.phone === false, open2 = !only && steps[1].open, s2 = $('#wkS2');
@@ -343,6 +405,11 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     ret.classList.toggle('armed', !!ret.dataset.armed);
     ret.textContent = t(ret.dataset.armed ? 'install.w.return.again' : 'install.w.return');
     if (w.imei) $('#wkImeiShown').textContent = t('install.w.imei.shown', { imei: `···${tail(w.imei)}` });
+    const fold2 = !only && steps[1].done && !unfolded.has(`${w.id}:phone`);
+    s2.classList.toggle('folded', fold2);
+    if (fold2) fold(s2, `${w.id}:phone`, [h('span', { class: 'inst-imei num', text: t('install.w.imei.shown', { imei: `···${tail(w.imei)}` }) })], t('install.w.fold.phone'));
+    if ($('.inst-fold', s2)) $('.inst-fold', s2).hidden = !fold2;
+    if (fold2) $('#wkPhoneDone').hidden = true;
     $('#wkScanBtn').hidden = !('BarcodeDetector' in window);
     imeiHint();
     // a step that has just opened says so: its lock gives way and what it asks for arrives
@@ -358,6 +425,18 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     $('#wkClipBody').hidden = !c.clip;
     $('#wkClipDone').hidden = !(steps[2] && steps[2].done);
     opened(s3, c.clip, $('#wkClipBody'));
+
+    // done: the next person of the site who is not ready is the main button, the list the second
+    let box = $('#wkNext');
+    if (!box) { box = h('div', { class: 'wk-next', id: 'wkNext' }); s3.after(box); }
+    const next = all ? nextWorker(view.workers, w.id) : null;
+    box.hidden = !all;
+    put(box, all ? [
+      next ? h('button', { class: 'btn primary wide', type: 'button', text: t('install.w.next', { name: next.name }), onclick: () => openWorker(next.id) }) : null,
+      h('button', { class: next ? 'btn wide' : 'btn primary wide', type: 'button', text: t('install.w.back'), onclick: () => setTab('install') })] : []);
+    // the worker has just become ready on screen: what comes next comes into view
+    if (all && !wasAll && !isQuiet()) requestAnimationFrame(() => into(box));
+    wasAll = all;
   }
   /** The IMEI as it is typed: how many digits are there, and whether the check digit holds. On a practice site any
    *  IMEI-shaped text will do, and the hint says so. */
@@ -431,9 +510,7 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     for (const tk of $$('#s-iclose .inst-tick')) { tk.classList.remove('on', 'now'); delete tk.dataset.seen; }
     $('#clsGiant').replaceChildren();
     quiet(paintClose);
-    setTab('iclose');
-    if (reduce) return;
-    setTimeout(() => { reveal($('#clsGiant')); const n = $('#clsGiant .num'); if (n) recount(n); stagger($$('#s-iclose .inst-zone'), { delay: 160, step: 120, y: 14 }); stagger($$('#clsTable tr'), { delay: 320, step: 45, y: 6 }); }, 90);
+    setTab('iclose', { onArrive: () => { if (reduce) return; reveal($('#clsGiant')); const n = $('#clsGiant .num'); if (n) recount(n); stagger($$('#s-iclose .inst-zone'), { delay: 160, step: 120, y: 14 }); stagger($$('#clsTable tr'), { delay: 320, step: 45, y: 6 }); } });
   }
   const recordTable = (rows) => h('table', { class: 'inst-tbl' },
     h('thead', {}, h('tr', {}, h('th', { text: t('install.c.col.worker') }), h('th', { text: t('install.c.col.signed') }), h('th', { text: t('install.c.col.phone') }))),
@@ -497,9 +574,11 @@ export function createInstall({ api, S, errText, refresh, setTab, hooks = () => 
     const w = worker();
     if (!w || !ctl(w).edit) return;
     const legacy = !!view.site.legacy;
-    formSheet({ title: t('install.w.edit.title'), intro: t('install.w.edit.p'), submit: t('install.w.edit.submit'),
-      fields: [{ name: 'name', label: t('install.add.name'), value: w.name, max: 80 }, { name: 'email', type: 'email', label: t(legacy ? 'install.add.email.opt' : 'install.add.email'), value: w.email || '', lower: true, max: 120 }],
+    const dlg = formSheet({ title: t('install.w.edit.title'), intro: t('install.w.edit.p'), submit: t('install.w.edit.submit'),
+      fields: [{ name: 'name', label: t('install.add.name'), value: w.name, max: 80 }, legacy ? null : hasEmailField(w.noEmail ? 'no' : 'yes'),
+        { name: 'email', type: 'email', label: t(legacy ? 'install.add.email.opt' : 'install.add.email'), value: w.email || '', lower: true, max: 120 }].filter(Boolean),
       onSubmit: async (v) => { view = await write('POST', `worker/${encodeURIComponent(w.id)}/edit`, workerEditBody(v, legacy)); render(true); toast(t('install.w.edited')); refresh(false); } });
+    emailFollows(dlg);
   }
   /** Taking someone off the list asks twice (the second tap after a pause). Someone holding a phone is told to return it
    *  first, before anything is sent. */

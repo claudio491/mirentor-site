@@ -30,13 +30,43 @@ test('the seed fills an empty folder with a coherent week and marks it as a samp
   assert.equal(andrea.feed.some((f) => f.play), true);
   const team = teamView(store.state, ctx);
   assert.equal(team.reps.length, 5);
-  assert.deepEqual(team.needs.confirm.map((x) => x.what).sort(), ['contract_sent', 'meeting_held']);
+  // Andrea's meeting this week, and the two she booked the week before last (one for yesterday nobody marked held, one for today)
+  // wave 2 adds a meeting three days past nobody marked, a contract out nine days whose signature waits, and the meeting
+  // booked yesterday for tomorrow that asks for a demo
+  assert.deepEqual(team.needs.confirm.map((x) => x.what).sort(), ['contract_sent', 'contract_signed', 'meeting_held', 'meeting_held', 'meeting_held', 'meeting_held', 'meeting_held']);
   assert.deepEqual(team.needs.silent.map((x) => x.name), ['Camila Herrera']);
   assert.equal(team.needs.late.length, 1);
   assert.equal(team.needs.pace.some((x) => x.name === 'Camila Herrera'), true);
   assert.equal(team.reps.find((x) => x.handle === 'nadia').isNew, true);
-  assert.equal(team.sites.length, 1);
-  assert.equal(store.leads().size, 20);
+  assert.equal(team.sites.length, 2, 'wave 2 adds a site that asked for phones and got none yet');
+  // wave 2: phones asked and arrived, what is stalled, the week's meetings with "Pide demo", the day's blockers,
+  // the qualification, and a worker with no email on purpose
+  assert.deepEqual(team.sites.map((x) => [x.id, x.requested, x.phones, x.owed]), [['s_sample_1', 30, 10, 20], ['s_sample_2', 12, null, 12]]);
+  assert.deepEqual(team.needs.stalled.map((x) => [x.kind, x.lead.name, x.days]), [['contract', 'Panadería Doña Tita', 9], ['meeting', 'Refrigeración Polo Norte', 3]]);
+  assert.equal(team.needs.meetings.some((m) => m.demo), true);
+  assert.deepEqual(team.needs.blockers.map((b) => [b.name, b.day]), [['Nadia Pérez', '2026-11-19'], ['Andrea Quintero', '2026-11-18']]);
+  const qual = (key) => store.state.biz.get(`EJ-${key}`)?.q;
+  assert.deepEqual([qual('P1'), qual('C1'), qual('P3'), qual('C2')], [{ workers: '10_29', wifi: 'yes', lead: 'yes' }, { wifi: 'no', lead: 'unknown' }, { workers: 'lt10', wifi: 'yes' }, { lead: 'yes' }]);
+  assert.deepEqual([store.state.workers.get('w_sampleNoEmail1').email, store.state.workers.get('w_sampleNoEmail1').noEmail], ['', true]);
+  assert.equal(store.leads().size, 28);
+  // the business in the rep's hand: every state of Andrea's book is there, through events
+  assert.deepEqual(andrea.agenda.counts, { overdue: 2, today: 2, soon: 3, nonext: 2, owned: 9 });
+  assert.deepEqual(andrea.agenda.meetings.map((m) => m.lead.name), ['Panificadora Santa Rita', 'Carpintería Don Chema']);
+  assert.equal(andrea.pending.some((p) => p.code === 'meeting_held' && !p.held && p.when < andrea.today.day), true, 'a meeting of yesterday nobody marked');
+  const crm = store.leads().get('EJ-P1');
+  assert.deepEqual([crm.phone, /@[a-z0-9-]+\.ejemplo\.test$/.test(crm.email), crm.maps.startsWith('https://maps.example/'), typeof crm.workers, typeof crm.walkin], ['+507 6000-0101', true, true, 'number', 'number']);
+  assert.deepEqual(team.needs.overdue.map((x) => x.name), ['Andrea Quintero', 'Luis Batista']);
+});
+
+test('the blockers and Pide demo show whatever the weekday the seed runs', () => {
+  // Monday 16 to Sunday 22, at 3:00 pm in Panama
+  for (let i = 0; i < 7; i += 1) {
+    const now = new Date(Date.parse('2026-11-16T20:00:00Z') + i * 86400000), dir = fresh(); seed(dir, { now });
+    const store = openTeamStore(dir), today = now.toISOString().slice(0, 10), yesterday = new Date(now - 86400000).toISOString().slice(0, 10);
+    const team = teamView(store.state, { now: now.toISOString(), leads: store.leads() });
+    assert.deepEqual(team.needs.blockers.map((b) => [b.name, b.day]), [['Nadia Pérez', today], ['Andrea Quintero', yesterday]], today);
+    assert.equal(team.needs.meetings.some((m) => m.demo), true, today);
+  }
 });
 
 test('the seed never touches a folder that already holds events', () => {

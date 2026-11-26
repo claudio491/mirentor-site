@@ -172,3 +172,66 @@ test('replay ignores a document event that does not hold: a bad url, an unknown 
   applyEvent(state, { type: 'doc.updated', id: 'd_good000001', patch: { step: 'pitch', order: 4 } });
   assert.deepEqual([state.docs.get('d_good000001').step, state.docs.get('d_good000001').order], ['pitch', 4]);
 });
+
+// Track F, F1: a document can be a card, a text read inside the app (Review Focus 1).
+test('a card is a document with a body: added with no address, listed with its body, a rep and a leader cannot add one', async (t) => {
+  const { s, a, ana, lia, add, read, docEvents } = await setup(t);
+  const body = { es: 'Ejemplo: así se abre.\r\n\r\n\r\nDi: <b>hola</b><script>alert(1)</script>', en: '' };
+  const r = await add({ title: { es: 'La apertura (ejemplo)' }, group: 'vender', body });
+  assert.equal(r.status, 200);
+  const ev = docEvents()[0];
+  assert.deepEqual([ev.url, ev.body], ['', { es: 'Ejemplo: así se abre.\n\nDi: <b>hola</b><script>alert(1)</script>', en: '' }]);
+  const listed = (await read(ana.cookie)).json.groups[0].docs[0];
+  assert.deepEqual(listed.body, ev.body);
+  assert.deepEqual(Object.keys(listed).sort(), ['body', 'group', 'id', 'lang', 'note', 'order', 'step', 't', 'title', 'url']);
+  // 5,000 characters are kept cut to the limit
+  await add({ title: { es: 'Larga' }, group: 'vender', body: { es: 'a'.repeat(5000) } });
+  assert.equal(docEvents().pop().body.es.length, 2400);
+  // neither an address nor a body, or a body of spaces only: doc_url, nothing appended
+  const n = docEvents().length;
+  for (const over of [{}, { body: { es: '   ' } }, { body: { es: 'Texto.' }, url: 'javascript:alert(1)' }]) {
+    const x = await add({ title: { es: 'Sin nada' }, group: 'vender', ...over });
+    assert.deepEqual([x.status, x.json.error], [400, 'doc_url'], JSON.stringify(over));
+  }
+  for (const who of [ana, lia]) assert.equal((await add({ title: { es: 'Ajena' }, group: 'vender', body: { es: 'x y z' } }, who.cookie)).status, 403);
+  assert.equal(docEvents().length, n);
+  // the new steps are taken
+  for (const step of ['kit', 'meeting']) assert.equal((await add({ title: { es: `Paso ${step}` }, group: 'vender', step, body: { es: 'Texto.' } }, a.cookie)).status, 200);
+});
+
+test('editing a card: its text changes, an address can be added, and clearing the text of a card with no address is refused', async (t) => {
+  const { s, a, add, read, ana, docEvents } = await setup(t);
+  const cookie = a.cookie;
+  await add({ title: { es: 'Tarjeta' }, group: 'vender', body: { es: 'Uno.' } });
+  await add(doc({ url: 'https://example.com/con-texto', body: { es: 'Con dirección.' } }));
+  const [cardId, both] = docEvents().map((e) => e.id);
+  assert.equal((await s.call('POST', `${API}/docs/${cardId}`, { patch: { body: { es: 'Dos.', en: 'Two.' } } }, { cookie })).status, 200);
+  assert.deepEqual(docEvents().pop().patch, { body: { es: 'Dos.', en: 'Two.' } });
+  const cleared = await s.call('POST', `${API}/docs/${cardId}`, { patch: { body: { es: '', en: '' } } }, { cookie });
+  assert.deepEqual([cleared.status, cleared.json.error], [400, 'doc_url']);
+  // a document with an address loses its text: the body goes from the list
+  assert.equal((await s.call('POST', `${API}/docs/${both}`, { patch: { body: { es: '', en: '' } } }, { cookie })).status, 200);
+  const listed = (await read(ana.cookie)).json.groups[0].docs.find((d) => d.id === both);
+  assert.equal('body' in listed, false);
+  // a move keeps the text
+  assert.equal((await s.call('POST', `${API}/docs/${cardId}/move`, { dir: 'down' }, { cookie })).status, 200);
+  assert.deepEqual((await read(ana.cookie)).json.groups[0].docs.find((d) => d.id === cardId).body, { es: 'Dos.', en: 'Two.' });
+});
+
+test('replay checks a card again: no address and no body is ignored, an older document with no body still shows, a cleared body goes', () => {
+  const state = emptyState();
+  const base = { title: { es: 'Ejemplo' }, note: {}, group: 'vender', lang: 'both', step: null, order: 0, t: '2026-11-20T12:00:00Z' };
+  applyEvent(state, { type: 'doc.added', id: 'd_none000001', ...base, url: '' });
+  applyEvent(state, { type: 'doc.added', id: 'd_none000002', ...base, url: '', body: { es: '  ' } });
+  assert.equal(state.docs.size, 0);
+  applyEvent(state, { type: 'doc.added', id: 'd_old0000001', ...base, url: 'https://example.com/x' });
+  assert.equal('body' in state.docs.get('d_old0000001'), false);
+  applyEvent(state, { type: 'doc.added', id: 'd_card000001', ...base, url: '', body: { es: 'a'.repeat(3000) } });
+  assert.equal(state.docs.get('d_card000001').body.es.length, 2400);
+  applyEvent(state, { type: 'doc.updated', id: 'd_card000001', patch: { body: { es: '' } } });   // would leave nothing: ignored
+  assert.equal(state.docs.get('d_card000001').body.es.length, 2400);
+  applyEvent(state, { type: 'doc.updated', id: 'd_old0000001', patch: { body: { en: 'Text.' } } });
+  assert.deepEqual(state.docs.get('d_old0000001').body, { es: '', en: 'Text.' });
+  applyEvent(state, { type: 'doc.updated', id: 'd_old0000001', patch: { body: null } });
+  assert.equal('body' in state.docs.get('d_old0000001'), false);
+});

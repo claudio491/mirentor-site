@@ -2,11 +2,11 @@
 // The server answers codes and numbers; every sentence comes from i18n.js through t().
 import { APP_NAME, LANGS } from './i18n.js';
 import { $, $$, h, put, icon, t, setLang, lang, applyStatic, giant, num, ord, wdShort, wdLong, dayMonth, monthName, upper, cap, isoWeek, addDays, clock, hourName, stamp, ago, cityName, joinList,
-  lock, buzz, quiet, EASE, countTo, recount, ringAt, flipList, toast, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, enterMoves, once, copyText, grain, reduce, formSheet, setExplain, newId, putFace, face, dayOf, showErr } from './ui.js';
+  lock, buzz, quiet, EASE, countTo, recount, ringAt, flipList, toast, toastErr, dropToast, leaveToast, toasts, showPop, hidePop, initPop, src, openSheet, closeSheet, initSheets, onSheetOpen, enterMoves, once, copyText, grain, reduce, formSheet, setExplain, newId, putFace, face, dayOf, showErr } from './ui.js';
 import { buildHand, paintHand, miniHand, rowWrist, levelBone, badgeGlyph, portrait, setPortrait, replayHand, drawIn, handGlyph, stepsGlyph, teachHand, daysBone } from './hand.js';
-import { swap, roll, floatUp, flyDot, reveal, stagger, lockIn, greet, isGreeting, celebrate, dayDone } from './fx.js';
-import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, tableNote, firstDays, untouched, anyLog, shortNames, closeCard, crewOf, historyRows } from './moments.js';
-import { STOPS, stopsOf, standOn, loopOf, rewardOf, landed, stepOf, climbFrames } from './stops.js';
+import { swap, roll, floatUp, flyDot, reveal, stagger, lockIn, greet, isGreeting, celebrate, dayDone, closeDayDone } from './fx.js';
+import { entrance, dayPart, localMinutes, nextStep, moments, stake, raceShare, tableNote, firstDays, untouched, anyLog, shortNames, closeCard, crewOf, historyRows, gapLine, behindLine, reportAction, reportOutcome, DONE_HOLD, stopCta, afterClose } from './moments.js';
+import { STOPS, stopsOf, standOn, loopOf, rewardOf, landed, stepOf, climbFrames, stageFit } from './stops.js';
 import { createStage } from './stage.js';
 import { ART, STEPS } from './art.js';
 import { createManager } from './manager.js';
@@ -16,16 +16,26 @@ import { createLeader } from './leader.js';
 import { createDocs } from './docs.js';
 import { createRoute } from './route.js';
 import { createSites } from './sites.js';
+import { createBiz } from './biz.js';
+import { createBook } from './book.js';
+import { createScorecard } from './scorecard.js';
+import { settingsKeys, inWorkOrder } from './craft-steps.js';
+import { fitArt, arriveArt } from './art-lead.js';
+import { followStop, stopPreset, dueLine } from './biz-steps.js';
 import { createReport } from './report.js';
 import { nudgeOf } from './report-steps.js';
 import { mateLine } from './sites-steps.js';
 import { shellFor } from './leader-steps.js';
-import { verdict, mine as waitingOf, requestTimeout, langWaiting, langOwner, langDone, madeEarlier } from './queue.js';
+import { verdict, mine as waitingOf, requestTimeout, langWaiting, langOwner, langDone, madeEarlier, landedNew, sentNotes } from './queue.js';
 import { sessionMove, HOME, LEAVE, toDoor, offDoor, tabOf } from './door.js';
 import { actingMode, readOnlyIn, repControls, withAs, logLocked, staleAs, practiceBarName, asMove } from './practice-steps.js';
 import { shortfall } from './paid.js';
-import { askTwice } from './taps.js';
+import { askTwice, arrives } from './taps.js';
+import { quickDays, checkNext, bizFields, contactAsked, LOG_TAGS, LOST_TAGS, LOST_REASONS, holdsIt, proposeNext, footHint, logBody, otherTagLine } from './next-steps.js';
 import { createReads } from './reads.js';
+import { backStep, tabMove, momentClose, restartAway, reloadSkip, keepDraft, takeDraft, DRAFT_KEY } from './back-steps.js';
+import { QUAL_KINDS, qualRows, qualBody, contractWarn, notFitOffer, notFitArmed, bizSwitch } from './qual-steps.js';
+import { similarAsk, zoneOptions, zoneOf, newReady, dupNote, zonePickFor, zonesOnOpen, sureFor, restoredNew } from './newlead-steps.js';
 
 const API = 'api';   // every address is relative to the page, so the app works wherever it is mounted
 const KEY = { lang: 'cancha.lang', queue: 'cancha.queue', me: 'cancha.me', greet: 'cancha.greet', langPending: 'cancha.langPending' };
@@ -66,7 +76,7 @@ const S = { me: null, sig: '', tab: null, docs: [], period: 'week', as: null, mg
   hold: null,     // the stop a log landed on, kept on the stage until its answer has played
   owed: null,     // an answer that waits for a sheet to close
   taught: false };
-const SCREENS = ['boot', 'gate', 'today', 'week', 'table', 'profile', 'team', 'needs', 'reps', 'install', 'worker', 'iclose', 'ladder', 'zones', 'learn', 'lead', 'docs', 'route', 'ways', 'sites'];
+const SCREENS = ['boot', 'gate', 'today', 'week', 'table', 'profile', 'team', 'needs', 'score', 'reps', 'install', 'worker', 'iclose', 'ladder', 'zones', 'learn', 'lead', 'docs', 'route', 'ways', 'sites', 'biz', 'book'];
 // A rep's three zones. On a wide screen they are one page, a band under the other; anywhere else one shows at a time.
 const BANDS = ['today', 'week', 'table'], WIDE = matchMedia('(min-width:1080px)');
 const banded = () => WIDE.matches && !S.mgr && !S.lead && !!S.me;
@@ -75,7 +85,6 @@ const REST_LOOP = [[0, 1500], [1, 1500], [2, 1900], [3, 1500]];   // a day off: 
 const FOLLOWS = new Set(['talk', 'absent', 'call', 'reply', 'meeting']);
 const CHANNELS = { message: ['whatsapp', 'linkedin', 'email', 'sms'], meeting: ['visit', 'call', 'whatsapp'], reply: ['whatsapp', 'linkedin', 'email', 'sms', 'call'], baddata: ['call', 'email'] };
 const TAGGED = new Set(['talk', 'call', 'reply']);
-const TAGS = ['meeting', 'waitlist', 'not_now', 'not_fit', 'not_interested', 'do_not_call'];
 const ONE_LEVEL = new Set(['first_log', 'first_meeting', 'first_site_live']);
 /** The history rows that belong to a business's route: a tap on their button opens it. */
 const ROUTE_CODES = new Set(['meeting_booked', 'meeting_held', 'contract_sent', 'contract_signed', 'site_signed', 'site_installed', 'site_first_hour']);
@@ -118,7 +127,7 @@ function renderTop() {
   $('#ptsChip').hidden = !rep; meBtn.hidden = !rep;
   if (rep) {
     const now = S.me.today;
-    countTo($('#ptsN'), S.me.week.points);
+    countTo($('#ptsN'), S.ptsHeld != null ? S.ptsHeld : S.me.week.points);   // while points fly to the chip it keeps its old number
     putFace($('#meLens'), shown(S.me.me), (person) => portrait(person, { share: 0 }));
     setPortrait($('#meLens .portrait'), now.isWork ? now.habits.filter(Boolean).length / 4 : 0);
     if (S.tab === 'profile') meBtn.setAttribute('aria-current', 'page'); else meBtn.removeAttribute('aria-current');
@@ -148,7 +157,12 @@ function renderNav() {
     icon(id), h('span', { text: t(`nav.${id}`) }), id === 'needs' && count ? h('span', { class: 'count num', text: String(count), 'aria-hidden': 'true' }) : null))),
   canLog ? h('button', { class: 'btn log', type: 'button', id: 'logBtn', onclick: openLog }, icon('plus'), t('nav.log')) : null);
   nav.classList.toggle('three', !canLog);
+  $('.tabs', nav).classList.toggle('four', tabs.length === 4);
   markTab();
+  // Pendientes' number rolls to its new value when a row leaves or comes (after this quiet repaint, so it can move)
+  const countNode = $('.tab[data-tab="needs"] .count', nav), was = renderNav.count;
+  renderNav.count = count;
+  if (countNode && was && was !== count && !reduce) { countNode.textContent = String(was); countNode.dataset.roll = String(was); setTimeout(() => { if (countNode.isConnected) roll(countNode, String(count)); }, 0); }
   nav.hidden = false;
   if (had) { const again = $$('#nav button').find((b) => (b.dataset.tab || b.id) === had); if (again) again.focus({ preventScroll: true }); }
 }
@@ -164,11 +178,28 @@ function markTab() {
 // A screen inside a zone (the profile, an install, a route, the documents...) leaves one step in the browser's history:
 // the phone's Back then comes back inside the app instead of leaving it, one screen at a time. A zone's tab is kept in
 // the address instead, so loading the page again lands on it. Nothing here changes what a screen shows.
-const DEEP = new Set(['profile', 'install', 'worker', 'iclose', 'ladder', 'zones', 'learn', 'route', 'ways', 'sites', 'docs']);
+const DEEP = new Set(['profile', 'install', 'worker', 'iclose', 'ladder', 'zones', 'learn', 'route', 'ways', 'sites', 'docs', 'biz', 'book']);
 // asDepth: how many steps this visit put above the team's own in the history for a rep's screens (view-as)
-const backNav = { trail: [], from: null, guarded: false, unguarding: false, asDepth: 0 };
+// away: the entry of a tab other than home (leaving home adds it, moving between other tabs replaces it); skip: how
+// many traversals the app made itself, whose Back events are only bookkeeping (back-steps.js)
+const backNav = { trail: [], from: null, guarded: false, skip: 0, asDepth: 0, away: false, moment: false };
 /** Nothing of a zone's trail is carried into other screens: a change of identity starts the history steps again. */
-function resetBack() { backNav.trail.length = 0; backNav.from = null; backNav.guarded = false; backNav.asDepth = 0; }
+function resetBack() { backNav.trail.length = 0; backNav.from = null; backNav.guarded = false; backNav.asDepth = 0; backNav.away = false; }
+/** The sheets open now that own an entry of the history, the top one last: Back closes the top one and stays where the
+ *  rep was; a sheet closed by its own controls gives its entry back without moving the screen under it. */
+const sheetStack = [];
+function sheetOpened(dlg) {
+  if (!S.me || sheetStack.includes(dlg)) return;   // opened again while open or leaving: it keeps its entry
+  try { history.pushState({ cancha: 'sheet' }, '', location.href); sheetStack.push(dlg); } catch { /* a page shown inside another may not change its history */ }
+}
+function sheetClosed(dlg) {
+  const i = sheetStack.indexOf(dlg);
+  if (i < 0) return;   // closed by Back: its entry is already gone
+  sheetStack.splice(i, 1);
+  backNav.skip += 1; history.back();
+}
+/** Undo the entries the app holds above where it should be: `n` of them, in one traversal. */
+function popEntries(n) { if (n > 0) { backNav.skip += 1; history.go(-n); } }
 const homeTab = () => (S.lead ? 'lead' : S.mgr ? 'team' : 'today');
 const isDeep = (name) => DEEP.has(name) || (name === 'lead' && !S.lead);   // the leadership view is a step in for a manager
 /** The tab in the address (none for the first one), so a reload lands on it. */
@@ -185,14 +216,24 @@ function track(name, from) {
     return;
   }
   backNav.trail.length = 0; backNav.from = null;
-  if (backNav.guarded) { backNav.guarded = false; backNav.unguarding = true; history.back(); return; }   // left by the screen's own button: the step goes
+  // the entries this tab needs (one when it is not home) against the ones held (a deep screen's, a tab's): the step of a
+  // screen left by its own button goes, leaving home adds one, moving between other tabs replaces it (back-steps.js)
+  const held = (backNav.guarded ? 1 : 0) + (backNav.away ? 1 : 0), move = tabMove({ to: name, home: homeTab(), away: backNav.away });
+  const need = move.away ? 1 : 0;
+  backNav.guarded = false; backNav.away = move.away;
+  if (need < held) { popEntries(held - need); return; }   // the address is set once the step is back (onBack)
+  if (need > held) { try { history.pushState({ cancha: 'tab' }, '', location.href); } catch { /* as above */ } }
   remember(name);
 }
 /** The phone's Back. On a screen inside a zone: one screen back, inside the app. Otherwise the address changed (a rep's
  *  screens through view-as, or back from them), and the screens start again from it. */
 function onBack() {
-  if (backNav.unguarding) { backNav.unguarding = false; remember(S.tab); return; }
-  if (backNav.guarded && backNav.trail.length) {
+  const step = backStep({ skip: backNav.skip, moment: backNav.moment, sheets: sheetStack.length, deep: backNav.guarded && backNav.trail.length > 0, away: backNav.away });
+  if (step === 'skip') { backNav.skip -= 1; if (!backNav.skip && S.tab) remember(S.tab); return; }   // no tab yet: the page is still starting
+  if (step === 'moment') { backNav.moment = false; closeDayDone(); return; }   // the day's completion closes; the rep stays on Hoy
+  if (step === 'sheet') { closeSheet(sheetStack.pop()); return; }   // the top sheet closes; the screen under it stays
+  if (step === 'home') { backNav.away = false; setTab(homeTab(), { replay: true }); remember(homeTab()); return; }
+  if (step === 'deep') {
     backNav.guarded = false;
     backNav.trail.pop();
     const to = backNav.trail.length ? backNav.trail[backNav.trail.length - 1] : (backNav.from || homeTab());
@@ -204,13 +245,23 @@ function onBack() {
     return;
   }
   resetBack();
+  // landed on a tab's entry (view-as started from a tab other than home): the screens start there, away from home, so
+  // the next Back comes home instead of starting the same screen again (back-steps.js restartAway)
+  backNav.away = restartAway(history.state);
   S.tab = null; start();
 }
-function setTab(name, { instant = false, replay = false } = {}) {
-  const from = S.tab, changed = from !== name;
+/** Each call of setTab is numbered: only the last one asked for runs its screen's own arrival. */
+let tabAsk = 0;
+/** onArrive: the screen's own arrival (a deep screen's headline and rows). It runs inside the change, with the screen
+ *  shown, so the screen wipes in already assembling instead of showing whole, going blank and assembling again. */
+function setTab(name, { instant = false, replay = false, onArrive = null } = {}) {
+  const from = S.tab, changed = from !== name, ask = ++tabAsk;
+  if (changed) leaveToast();   // a toast never follows the person to another tab or screen
   if (changed && !replay && S.me) track(name, from);
   // coming back to "Mis sitios activos" from a site's screens: it shows what those screens just changed
   if (name === 'sites' && S.me && !S.mgr && !S.lead) quiet(() => sites.render());
+  if (name === 'score' && S.me && S.mgr) scorecard.show({ fromCard: from === 'biz' });   // the week shown is read again each time the tab opens
+  else if (changed && name !== 'biz' && S.me && S.mgr) scorecard.leave();   // left another way: the list a card came from is forgotten
   S.tab = name;
   // A screen puts itself together the first time it is opened in a visit; after that it is simply there. It does so
   // inside the change, so the screen that wipes in is already assembling (started after it, the screen showed whole,
@@ -220,7 +271,10 @@ function setTab(name, { instant = false, replay = false } = {}) {
   const go = (arriving = []) => {
     const open = S.tab;
     show(open); hidePop();
+    if (open === 'today') fitStage();   // shown, it can be measured
+    else { fitArt($(`#s-${open}`)); if (changed) arriveArt($(`#s-${open}`)); }   // a later screen's picture takes only the room its first action leaves
     for (const n of arriving) if (!S.arrived.has(n)) { S.arrived.add(n); arrive(n); }
+    if (onArrive && arrives(ask, tabAsk, open, name)) onArrive();   // only the last change asked for arrives (taps.js)
     for (const b of $$('#nav .tab')) { if (b.dataset.tab === open) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
     markTab();
     if ($('#meBtn')) { if (open === 'profile') $('#meBtn').setAttribute('aria-current', 'page'); else $('#meBtn').removeAttribute('aria-current'); }
@@ -252,8 +306,9 @@ function arrive(name, { fast = false, landed: lensLanded = false } = {}) {
   if (name === 'today' && S.me.today) {
     reveal($('#todayGiant'));
     const dio = $('#dio');
-    if (dio.animate) dio.animate([{ opacity: 0, transform: 'translateY(-34px) scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 760, delay: 160, easing: EASE.lock, fill: 'backwards' });
-    stagger(there([$('#stopChip'), $('#stopCopy'), $('#nextBtn'), ...$$('#route .stop'), $('#closeCard'), $('#installCard'), $('#routeCard'), $('#ladderCard')]), { delay: 380, step: 60 });
+    // opened many times a day: it settles in without a bounce (the bounce is kept for the reward, .dio.bump)
+    if (dio.animate) dio.animate([{ opacity: 0, transform: 'translateY(-12px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 420, delay: 160, easing: EASE.out, fill: 'backwards' });
+    stagger(there([$('#hoyLine'), $('#stopChip'), $('#stopCopy'), $('#nextBtn'), ...$$('#route .stop'), $('#closeCard'), $('#bookCard'), $('#installCard'), $('#routeCard'), $('#ladderCard')]), { delay: 380, step: 60 });
     if (!lensLanded) drawIn($('#meLens'), 140);   // after the entrance the lens lands already drawn
     recount($('#ptsN'));
   } else if (name === 'week' && S.me.week) {
@@ -291,6 +346,7 @@ function arrive(name, { fast = false, landed: lensLanded = false } = {}) {
     lockIn($$('#wall .wl .pt'), { delay: 80 }); drawIn($('#wall'), 260, 60); drawIn($('#teamLenses'), 320, 90);
     stagger($$('#teamRows .brow'), { delay: 240, step: 45 });
   } else if (name === 'lead') leader.arrive();
+  else if (name === 'score') { reveal($('#scGiant')); stagger($$('#scTable .sc-card, #scTable .sc-wrap'), { delay: 140, step: 40 }); }
   else if (name === 'needs') { reveal($('#needsGiant')); stagger($$('#needsBody .items li'), { delay: 140, step: 40 }); }
   else if (name === 'reps') { reveal($('#repsGiant')); stagger($$('#repsBody .items li'), { delay: 140, step: 40 }); }
 }
@@ -306,6 +362,9 @@ function renderAll(animate = false) {
     if (LADDER_TABS.has(S.tab)) ladder.render(false);
     if (S.tab === 'docs') docs.render();
     if (S.tab === 'sites' && !S.mgr && !S.lead) sites.render();
+    if (S.tab === 'biz') biz.render();
+    if (S.tab === 'book') book.render();
+    if (S.mgr && S.tab === 'score') scorecard.render();
     if (!S.mgr && !S.lead) route.render(false);   // the route last opened, so coming back from its install finds it current
     $('#docsBtn').hidden = !S.mgr;   // a manager's way to the documents; a rep's is on Hoy and in the profile
     // a manager's way to what a new rep sees, on their own account
@@ -360,8 +419,10 @@ function renderToday(animate) {
     roll($('.gl', head), t('today.of', { a: done, b: 4 }));
     if (first && animate) reveal(head);   // the count takes the headline over from the invitation
   }
+  book.line($('#hoyLine'));         // Para hoy in one line, above the stage, when something is due
   paintStage(animate);
   renderCloseCard();
+  book.card($('#bookCard'));         // Para hoy: who to see today, oldest first
   install.card($('#installCard'));   // an install that waits: the phones reached the site
   route.card($('#routeCard'));       // the business furthest along on its route, with something to do now
   ladder.card($('#ladderCard'));     // the first days, while a step is open
@@ -386,15 +447,18 @@ function paintStage(animate = false) {
   dio.setAttribute('aria-label', t(`art.${sel}`));
   chip.textContent = today.closed && sel === 3 ? t('stop.chip.closed') : stop.done ? t('stop.chip.done', { n: sel + 1 }) : sel === at ? t('stop.chip.next') : t('stop.chip', { n: sel + 1 });
   $('#stopTitle').textContent = t(`habit.${sel}`);
-  $('#stopSub').textContent = sel === 3 ? t('habit.3.s', { time: hourName(rules.closeBy) }) : t(`habit.${sel}.s`);
-  if (animate && copy.dataset.sel != null && copy.dataset.sel !== String(sel)) stagger([$('#stopTitle'), $('#stopSub')], { step: 60, y: 8 });
+  const follow = sel === 2 ? followStop(S.me.agenda) : null;   // the follow-up stop names the oldest business due
+  $('#stopSub').textContent = sel === 3 ? t('habit.3.s', { time: hourName(rules.closeBy) }) : follow ? t('bk.stop.follow', follow) : t(`habit.${sel}.s`);
+  if (animate && copy.dataset.sel != null && copy.dataset.sel !== String(sel)) stagger([$('#stopTitle'), $('#stopSub'), $('#nextBtn')].filter((n) => !n.hidden), { step: 60, y: 8 });   // the button's label moves with its stop
   copy.dataset.sel = String(sel);
   // One button: log this stop, or go on to the next one when this one is done. A closed day has none, and neither
   // does a manager who is only looking.
   const step = readOnly() ? null : nextStep(today, rules, localMinutes(nowIso(), tz()));
-  cta.hidden = !step || today.closed || step.habit == null;
+  const button = stopCta({ today, step, sel, done: stop.done });   // a closed day has none (moments.js)
+  cta.hidden = !button;
+  cta.dataset.sel = String(sel);
   if (!cta.hidden) {
-    const onward = stop.done;
+    const onward = button.step === 'next';
     cta.classList.toggle('onward', onward);
     if (onward) { $('#nextText').textContent = t('stop.next'); $('#nextPts').textContent = ''; cta.dataset.step = 'next'; cta.removeAttribute('aria-label'); }
     else {
@@ -410,6 +474,30 @@ function paintStage(animate = false) {
     $('#nextPts').hidden = !$('#nextPts').textContent;
   }
   stage.paintRoute(stops, { sel, at: today.closed ? null : at });
+  fitStage();
+}
+/** Hoy on a phone: the stage gives up height until the four stops (their names and counts) clear the tab bar with 6 px
+ *  of air, never under 112 px (stops.js stageFit; the page scrolls by what is still missing). The illustration scales with the stage,
+ *  square, so it is never cropped. A wide screen lays Hoy out in two columns and keeps the stylesheet's size. */
+const STAGE_GAP = 6;   // px of air between the lowest thing of the four stops and the tab bar
+function fitStage() {
+  const box = $('#stopStage'), route = $('#route');
+  if (!box) return;
+  box.style.removeProperty('--stage-h');
+  // the place in the table takes its short words when the long ones would start a line of their own beside the date;
+  // the short words leave first, so a wide screen, a hidden Hoy or a rest day gets the full words back
+  const hud = $('.hoy-head .hud-row'), place = $('#placeChip'), date = $('#dateChip').closest('.chip');
+  if (hud) hud.classList.remove('tight');
+  if (WIDE.matches || $('#s-today').hidden || route.hidden || !route.childElementCount) return;
+  if (!place.hidden && place.offsetTop > date.offsetTop) hud.classList.add('tight');
+  const nav = $('#nav'), bar = !nav.hidden && getComputedStyle(nav).position === 'fixed' ? nav.offsetHeight : 0;
+  // where the stops end (their names and counts), in the page, from the layout (an arrival's transforms do not count)
+  let low = 0;
+  for (const stop of $$('.stop', route)) low = Math.max(low, stop.offsetTop + stop.offsetHeight);
+  const natural = box.getBoundingClientRect().height;
+  const over = route.getBoundingClientRect().top + scrollY + low + STAGE_GAP - (innerHeight - bar);
+  const fit = stageFit({ natural, over });
+  if (fit.height < natural) box.style.setProperty('--stage-h', `${fit.height}px`);
 }
 /** A log, or the close, landed on a stop: the stage shows that stop as it was, plays what happened there with the
  *  tracking ring around it, and only then lets the day move on. `before` and `after` are the day on each side. */
@@ -611,8 +699,10 @@ function renderTable(animate = false) {
     const gapText = (n) => (period === 'month' ? '' : pts(n)), parts = [];
     if (period === 'month') parts.push(t('table.sup.month'));
     else if (mine.place === 1) parts.push(h('b', { text: t('table.sup.lead') }));
-    else if (T.gap) parts.push(h('b', { text: T.gap.aheadOnPodium ? t('table.sup.gap.named', { gap: gapText(T.gap.pts), name: T.gap.aheadName }) : t('table.sup.gap.next', { gap: gapText(T.gap.pts) }) }));
-    if (T.behind && period !== 'month') parts.push(` ${t('table.sup.behind', { name: T.behind.name, gap: gapText(T.behind.pts) })}`);
+    // a gap of nothing is a tie, and says so
+    else if (T.gap) { const g = gapLine({ pts: T.gap.pts, name: T.gap.aheadOnPodium ? T.gap.aheadName : null }); parts.push(h('b', { text: t(g.key, { ...g, gap: g.pts ? gapText(g.pts) : '' }) })); }
+    const b = period === 'month' ? null : behindLine(T.behind);   // a tie for first says so
+    if (b) parts.push(` ${t(b.key, { ...b, gap: b.pts ? gapText(b.pts) : '' })}`);
     sup.replaceChildren(...parts);
   } else if (mine && mine.isNew) { giant(head, t('table.giant.new')); sup.textContent = t('table.sup.new', { n: 14 }); }
   else { giant(head, t('table.giant.zero')); sup.textContent = period === 'month' ? t('table.sup.month') : t('table.sup.zero'); }
@@ -703,7 +793,7 @@ function paintCloseSheet() {
 }
 async function openClose() {
   if (readOnly()) return;
-  if (S.stale) { toast(t('err.offline.stale', { date: dayMonth(S.stale) })); return; }   // a day kept from before cannot be closed from here
+  if (S.stale) { toastErr(t('err.offline.stale', { date: dayMonth(S.stale) })); return; }   // a day kept from before cannot be closed from here
   baseReport = ''; paintCloseSheet(); openSheet($('#closeSheet'));
   try {
     if (myQueue().length) await flush();   // the report counts what the server has, so waiting logs go out first
@@ -723,10 +813,25 @@ function submitClose() {
     try {
       const res = await api('POST', 'close', { tomorrow: $('#fTomorrow').value.trim(), blocker: $('#fBlock').value.trim() });
       const was = S.me.today.points, before = S.me;
-      if (before.today && !before.today.closed && res.me.today && res.me.today.closed) { S.hold = 3; S.stop = null; S.owed = { hit: 3, before: before.today, after: res.me.today }; }
-      baseReport = res.report; adopt(res.me); paintCloseSheet();
       const earned = Math.max(0, res.me.today.points - was);
-      playMoments(moments(before, res.me).map((m) => ({ ...m, gained: earned, streak: 0 })));   // closing can fill the finger: its moment plays when this sheet closes
+      const due = moments(before, res.me).map((m) => ({ ...m, gained: earned, streak: 0 }));
+      // closing can fill the finger (moments.js afterClose): then the day's moment is the stop's answer, so the stop
+      // owes none and Hoy under the moment already reads closed; any other close answers on the stop first, as before
+      const next = afterClose(due);
+      if (before.today && !before.today.closed && res.me.today && res.me.today.closed) {
+        S.stop = null;
+        if (next.owed) { S.hold = 3; S.owed = { hit: 3, before: before.today, after: res.me.today }; } else { answers += 1; S.hold = null; S.owed = null; }
+      }
+      baseReport = res.report; adopt(res.me); paintCloseSheet();
+      playMoments(due);   // it plays once this sheet is gone
+      // the day's completion comes before its paperwork: the sheet closes itself and the moment plays as it goes; the
+      // report is in the moment, and stays reachable from Hoy (the close card's "Ver y copiar el reporte")
+      // as soon as the sheet's entry is given back (its own Back event), not after the wait an owed answer needs: the
+      // moment's entry is pushed only once that traversal is done
+      if (next.now) {
+        $('#closeSheet').addEventListener('close', () => addEventListener('popstate', () => playMoments(), { once: true }), { once: true });
+        closeSheet($('#closeSheet'));
+      }
       if (!reduce) { const line = $('#slackPrev .scan'), height = $('#slackPrev').offsetHeight; line.animate([{ transform: 'translateY(0)', opacity: 1 }, { transform: `translateY(${height}px)`, opacity: 0 }], { duration: 620, easing: 'cubic-bezier(.2,.8,.2,1)' }); }
       renderAll(true);
       const gained = res.me.today.points - was;
@@ -772,7 +877,7 @@ async function clap(f, btn) {
   press(on); count(on ? 1 : -1);
   if (on) { buzz(8); lock($('svg', btn)); ringAt($('svg', btn)); }
   try { const res = await api('POST', 'kudos', { target: f.id, on }); adopt(res.me); }
-  catch (e) { press(!on); count(on ? -1 : 1); toast(errText(e)); }
+  catch (e) { press(!on); count(on ? -1 : 1); toastErr(errText(e)); }
 }
 function renderPlay() {
   const f = S.me.feed.find((x) => x.play && x.code !== 'badge'), card = $('#playCard');
@@ -798,7 +903,7 @@ function openGoal() {
     const tier = pick.options.length - 1 - i;   // the last option is the top one
     return h('button', { class: 'leadopt', type: 'button', 'aria-pressed': String(k === pick.picked), onclick: (e) => once(e.currentTarget, async () => {
       try { const res = await api('POST', 'goal', { k }); adopt(res.me); renderAll(false); closeSheet($('#goalSheet')); toast(t(pick.which === 'next' ? 'goal.next.picked' : 'goal.saved', { goal: goalName(k, top) })); }
-      catch (err) { toast(errText(err)); }
+      catch (err) { toastErr(errText(err)); }
     }) }, h('span', {}, h('b', { text: cap(goalName(k, top)) }), h('small', { text: t('goal.opt.s', { n: k }) })),
     h('span', { class: 'k', text: k === pick.picked && pick.isDefault ? t('goal.suggested') : t(`goal.opt.${Math.max(0, 2 - tier)}`) }));
   }));
@@ -844,7 +949,7 @@ function renderProfile() {
     else if (readOnly() && e.logId && e.code !== 'day_closed') act = h('button', { class: 'mini-btn', type: 'button', text: t('needs.btn.void'), 'aria-label': t('void.row'), onclick: () => manager.voidLog(e.logId) });
     else if (waiting && e.code === 'meeting_held' && p) {
       act = p.held ? h('small', { text: t('profile.held.done') }) : h('button', { class: 'mini-btn', type: 'button', text: t('profile.held'), onclick: (ev) => once(ev.currentTarget, async () => {
-        try { const res = await api('POST', 'held', { logId: e.logId }); adopt(res.me); renderAll(false); toast(t('profile.held.toast')); } catch (err) { toast(errText(err)); }
+        try { const res = await api('POST', 'held', { logId: e.logId }); adopt(res.me); renderAll(false); toast(t('profile.held.toast')); } catch (err) { toastErr(errText(err)); }
       }) });
     }
     // a row about a business on its way to a site opens that business's route
@@ -853,21 +958,20 @@ function renderProfile() {
   }));
   $('#ledgerEmpty').hidden = ledger.length > 0;
 
-  const box = $('#settings');
+  // the rep's work first (craft-steps.js WORK_ORDER); "ajustes" keeps the account, how points are earned and the way out
   const docsBtn = h('button', { class: 'btn', type: 'button', text: t('docs.chip'), onclick: () => docs.open('profile') });
-  if (mode() === 'practice') put(box, ...ladder.profileButtons(), ...route.profileButtons(), docsBtn, h('button', { class: 'btn', type: 'button', text: t('profile.rules'), 'data-open': 'rulesSheet' }));
-  else if (may().manage) {
-    put(box,
-      ...ladder.profileButtons(), ...route.profileButtons(), docsBtn,
-      h('button', { class: 'btn', type: 'button', text: t('reps.badge'), onclick: () => manager.giveBadge(me) }),
-      S.me.today && S.me.today.closed ? h('button', { class: 'btn', type: 'button', text: t('reps.reopen'), onclick: (ev) => manager.reopenDay(ev.currentTarget, me.id, S.me.today.day) }) : null);
-  } else {
-    // The account is the Google one the person came in with. A copy with no session (the demonstration) has none to show.
-    put(box, S.me.viewer.email ? h('div', { class: 'line' }, h('span', { text: t('profile.account', { email: S.me.viewer.email }) })) : null,
-      ...ladder.profileButtons(), ...route.profileButtons(), docsBtn,
-      h('button', { class: 'btn', type: 'button', text: t('profile.rules'), 'data-open': 'rulesSheet' }),
-      h('button', { class: 'btn signout', type: 'button', text: t('profile.signout'), onclick: (ev) => signOutAsked(ev.currentTarget, ev) }));
-  }
+  const [ladderBtn, learnBtn] = ladder.profileButtons();
+  put($('#work'), ...inWorkOrder({ book: book.profileButtons(), ladder: ladderBtn ? [ladderBtn] : [], learn: learnBtn ? [learnBtn] : [], ways: route.profileButtons(), sites: sites.profileButtons(), docs: [docsBtn] }));
+  const practice = mode() === 'practice', manage = !practice && may().manage, closed = !!(S.me.today && S.me.today.closed);
+  // The account is the Google one the person came in with. A copy with no session (the demonstration) has none to show.
+  const setting = {
+    account: () => h('div', { class: 'line' }, h('span', { text: t('profile.account', { email: S.me.viewer.email }) })),
+    rules: () => h('button', { class: 'btn', type: 'button', text: t('profile.rules'), 'data-open': 'rulesSheet' }),
+    signout: () => h('button', { class: 'btn signout', type: 'button', text: t('profile.signout'), onclick: (ev) => signOutAsked(ev.currentTarget, ev) }),
+    badge: () => h('button', { class: 'btn', type: 'button', text: t('reps.badge'), onclick: () => manager.giveBadge(me) }),
+    reopen: () => h('button', { class: 'btn', type: 'button', text: t('reps.reopen'), onclick: (ev) => manager.reopenDay(ev.currentTarget, me.id, S.me.today.day) }),
+  };
+  put($('#settings'), ...settingsKeys({ practice, manage, email: S.me.viewer.email, closed }).map((k) => setting[k]()));
 }
 function renderRules() {
   const r = S.me.rules, by = hourName(r.closeBy);
@@ -877,18 +981,90 @@ function renderRules() {
 }
 
 // ---- logging a contact ----
-const L = { lead: null, kind: null, channel: null, voicemail: false, tag: null, contact: '', when: '', note: '', more: false, q: '', found: null, searching: 0, from: null };
+// next: the next step the log sends (undefined: nothing, null: none, or { day, step }), proposed by the result until the
+// rep changes it (nextTouched); reason: why a business is Lost; biz: its card once read (null with no signal).
+const L = { lead: null, kind: null, channel: null, voicemail: false, tag: null, contact: '', phone: '', when: '', time: '', note: '', more: false, q: '', found: null, searching: 0, from: null,
+  next: undefined, nextTouched: false, nextOpen: false, reason: null, biz: null, bizFor: null, bizOff: false, bizTicket: 0,
+  qual: {}, qOpen: new Set(), armed: false, demo: false,   // qual: the qualification rows tapped in this sheet (q is the search's text)
+  // a business typed as new: its near twins (null: none asked), "Es nuevo" tapped, no signal to ask, an answer awaited;
+  // zones: the city's, read once (null: not yet)
+  similar: null, sure: false, dupOff: false, dupWait: false, dupTicket: 0, zones: null, zonesFailed: false };
 /** The log sheet. From a business's route it opens with that business and the result already picked, and goes back to
  *  the route once saved; from anywhere else (a click event is passed then) it opens empty. */
 function openLog(preset = null) {
   if (readOnly()) return;   // screens that are not the person's own (view-as, or leaving practice mode) log nothing
   if (!S.stale && logLocked(S.me.today, mode())) { toast(t('log.closed')); return; }   // the practice rep logs on after closing, for the demonstration
-  const given = preset && preset.lead ? preset : null;
-  Object.assign(L, { lead: null, kind: null, channel: null, voicemail: false, tag: null, contact: '', when: '', note: '', more: false, q: '', found: null, from: null });
-  if (given) Object.assign(L, { lead: { id: given.lead.id, name: given.lead.name, zone: '', known: true }, kind: given.kind, channel: CHANNELS[given.kind] ? CHANNELS[given.kind][0] : null, from: given.from || null });
-  $('#leadQ').value = ''; $('#newName').value = ''; $('#newZone').value = '';
+  const given = preset && preset.lead ? preset : null, plain = !preset || (typeof Event === 'function' && preset instanceof Event);
+  Object.assign(L, { lead: null, kind: null, channel: null, voicemail: false, tag: null, contact: '', phone: '', when: '', time: '', note: '', more: false, q: '', found: null, from: null,
+    next: undefined, nextTouched: false, nextOpen: false, reason: null, biz: null, bizFor: null, bizOff: false, first: null, qual: {}, qOpen: new Set(), armed: false, demo: false,
+    similar: null, sure: false, dupOff: false, dupWait: false });
+  L.dupTicket += 1; clearTimeout(similarTimer);
+  L.zones = zonesOnOpen({ zones: L.zones, failed: L.zonesFailed }); L.zonesFailed = false;   // a failed read of the zones is tried again
+  logInert(false);
+  if (preset && Array.isArray(preset.first)) L.first = preset.first;   // a stop's button: its results first, marked
+  // a preset kind of null picks only the business (the card's "Hecho" and "Registrar")
+  if (given) Object.assign(L, { lead: { id: given.lead.id, name: given.lead.name, zone: given.lead.zone || '', known: true }, kind: given.kind || null, channel: given.kind && CHANNELS[given.kind] ? CHANNELS[given.kind][0] : null, from: given.from || null });
+  $('#leadQ').value = ''; $('#newName').value = ''; $('#newZone').value = ''; $('#newZonePick').value = '';
+  // a log left half done comes back: on "+ Registrar", or for that same business (back-steps.js takeDraft); a stop's
+  // button for no business in particular starts clean
+  L.resumed = false; L.saved = false;
+  const draft = plain || given ? takeDraft(readDraft(), { rep: S.me.me.id, day: logToday(), now: Date.now(), lead: given ? given.lead.id : null }) : null;
+  if (draft) {
+    const kind = given && given.kind ? given.kind : draft.kind;
+    // where a save lands is this sheet's: a plain "+ Registrar" lands where a plain one does (takeDraft keeps no `from`)
+    Object.assign(L, draftOut(draft), given && given.kind ? { kind, channel: CHANNELS[kind] ? CHANNELS[kind][0] : null } : {}, { from: given ? given.from || null : null });
+    $('#newName').value = draft.newName || ''; $('#newZone').value = draft.newZone || ''; $('#newZonePick').value = draft.newZonePick || '';
+    L.resumed = true;
+  }
+  if (!draft || !L.nextTouched) propose();
   renderLog(); openSheet($('#logSheet'));
+  if (L.lead && !L.lead.isNew && L.lead.id) readBiz(L.lead.id);
+  // a new business back from a draft asks about its near twins again, as when its name is typed, and Guardar waits for
+  // the answer; "Es nuevo" stands only for the name it was said for (newlead-steps restoredNew)
+  if (draft && L.lead && L.lead.isNew) {
+    const back = restoredNew({ isNew: true, name: $('#newName').value, sureFor: draft.sureFor });
+    if (back.wait) { onSimilar(); L.sure = back.sure; paintNewLead(); paintLogFoot(); }
+  }
 }
+// ---- a log left half done (back-steps.js) ----
+// Kept when the sheet closes without saving: in memory and in the tab's session storage, for the same rep, the same day,
+// 30 minutes. A save clears it; view-as and a leader keep none.
+let draftMem = null;
+function readDraft() {
+  if (draftMem) return draftMem;
+  try { return JSON.parse(sessionStorage.getItem(DRAFT_KEY) || 'null'); } catch { return null; }
+}
+function storeDraft(d) {
+  draftMem = d;
+  try { if (d) sessionStorage.setItem(DRAFT_KEY, JSON.stringify(d)); else sessionStorage.removeItem(DRAFT_KEY); } catch { /* the memory copy is enough for this visit */ }
+}
+const DRAFT_FIELDS = ['lead', 'kind', 'channel', 'voicemail', 'tag', 'reason', 'next', 'nextTouched', 'nextOpen', 'note', 'contact', 'phone', 'when', 'time', 'qual', 'armed', 'more', 'demo', 'from'];
+/** What the sheet holds, as the draft keeps it (the rows opened as a list, the new business's name and zone typed). */
+function draftIn() {
+  const f = Object.fromEntries(DRAFT_FIELDS.filter((k) => L[k] !== undefined).map((k) => [k, L[k]]));
+  f.qOpen = [...L.qOpen];
+  f.newName = $('#newName').value; f.newZone = $('#newZone').value; f.newZonePick = $('#newZonePick').value;
+  f.sureFor = L.lead && L.lead.isNew ? sureFor({ sure: L.sure, name: f.newName }) : null;   // "Es nuevo", for that name only
+  return f;
+}
+/** The draft back into the sheet. A next step never proposed stays unproposed (undefined). */
+function draftOut(f) {
+  const out = Object.fromEntries(DRAFT_FIELDS.filter((k) => k in f).map((k) => [k, f[k]]));
+  if (!('next' in f)) out.next = undefined;
+  out.qual = f.qual && typeof f.qual === 'object' ? { ...f.qual } : {};
+  out.qOpen = new Set(Array.isArray(f.qOpen) ? f.qOpen : []);
+  return out;
+}
+/** The sheet closed: unless it was saved, what it holds is kept; a sheet with nothing in it forgets the old draft. */
+function keepLogDraft() {
+  const saved = L.saved; L.saved = false;
+  if (!S.me || !S.me.me) return;
+  if (!saved) keepFields();
+  storeDraft(keepDraft({ rep: S.me.me.id, day: logToday(), now: Date.now(), own: !readOnly() && !S.lead, saved, fields: draftIn() }));   // a save keeps none
+}
+/** "Guion" in the log sheet's head: only when "Para vender" has a document. The script opens over the sheet, which
+ *  keeps all it holds. */
+function paintGuion() { $('#logGuion').hidden = !docs.hasGuion(); }
 // What each result looks like on the route: the frame of a stop that tells it, or the scene of a meeting or a contract.
 const OUT_ART = { talk: ['visit', 3], absent: ['visit', 0], call: ['follow', 2], message: ['follow', 1], reply: ['follow', 3], noanswer: ['follow', 0], meeting: ['meeting'], contract: ['contract'] };
 function outArt(kind) {
@@ -901,28 +1077,36 @@ function outArt(kind) {
 function leadOption(l, pressed) {
   const today = S.me.today.day, mine = l.lastDay ? t('log.last', { date: l.lastDay === today ? t('nav.today').toLocaleLowerCase() : dayMonth(l.lastDay) }) : l.known ? t('log.known') : t('log.unknown');
   // The business's name gets the whole width: when it was last logged goes on the small line, under it, after its zone.
-  return h('button', { class: 'leadopt', type: 'button', 'aria-pressed': String(!!pressed), onclick: () => { keepFields(); L.lead = pressed ? null : l; renderLog(); } },
-    h('span', {}, h('b', { text: l.name }), h('small', { text: pressed ? (l.zone || l.id) : `${l.zone || l.id} · ${mine}` })), pressed ? h('span', { class: 'k', text: t('log.pick.change') }) : null);
+  const zone = l.zone || t('log.nozone');   // never the business's id
+  return h('button', { class: 'leadopt', type: 'button', 'aria-pressed': String(!!pressed), onclick: () => { keepFields(); L.lead = pressed ? null : l; L.biz = null; L.bizOff = false; L.nextTouched = false; Object.assign(L, bizSwitch(L)); propose(); renderLog(); if (!pressed) readBiz(l.id); } },
+    h('span', {}, h('b', { text: l.name }), h('small', { text: pressed ? zone : `${zone} · ${mine}` })), pressed ? h('span', { class: 'k', text: t('log.pick.change') }) : null);
 }
 function renderLog() {
+  paintGuion();
+  $('#logDraft').hidden = !L.resumed;
   const picked = $('#leadPicked'), pick = $('#leadPick'), isNew = L.lead && L.lead.isNew;
   // 1. the business
   picked.hidden = !L.lead || isNew; pick.hidden = !!L.lead && !isNew;
   if (L.lead && !isNew) picked.replaceChildren(h('div', { class: 'leads' }, leadOption(L.lead, true)));
+  // whose it is, who to ask for and the phone, under the picked line
+  biz.strip($('#bizStrip'), L.lead && !isNew ? (L.biz || L.lead) : null, { offline: L.bizOff, card: !!L.biz, from: L.from || 'today', kind: L.kind });
   const recents = S.me.recentLeads.slice(0, 4).map((l) => ({ ...l, known: true }));
   const list = L.q.length >= 2 ? (L.found || []) : recents;
   const newOpt = h('button', { class: 'leadopt dashed', type: 'button', 'aria-pressed': String(!!isNew), onclick: () => {
-    keepFields(); L.lead = isNew ? null : { isNew: true }; if (!isNew && L.q.length >= 2 && !$('#newName').value) $('#newName').value = L.q; renderLog(); if (!isNew) $('#newName').focus();
+    keepFields(); L.lead = isNew ? null : { isNew: true }; if (!isNew && L.q.length >= 2 && !$('#newName').value) $('#newName').value = L.q; renderLog();
+    if (!isNew) { $('#newName').focus(); readZones(); onSimilar(); }
   } }, h('span', {}, h('b', { text: t('log.new') }), h('small', { text: t('log.new.s') })), h('span', { class: 'k', text: isNew ? t('log.pick.change') : '' }));
   $('#leadOpts').replaceChildren(...(isNew ? [] : list.map((l) => leadOption(l, false))), newOpt);
   $('.field.search', pick).hidden = !!isNew;
   $('#newLead').hidden = !isNew;
+  if (isNew) paintNewLead();
   const note = $('#leadNote');
   note.hidden = isNew || !(L.q.length >= 2 && L.found && !L.found.length);
   if (!note.hidden) note.textContent = t(L.offline ? 'log.search.offline' : 'log.none');
 
   // 2. the result
-  const kinds = L.more ? [...MAIN_KINDS, ...MORE_KINDS] : MAIN_KINDS, P = S.me.rules.points;
+  const base = L.more ? [...MAIN_KINDS, ...MORE_KINDS] : MAIN_KINDS, P = S.me.rules.points;
+  const kinds = L.first ? [...L.first, ...base.filter((x) => !L.first.includes(x))] : base;
   const hint = (k) => {
     if (k === 'talk') return t('pts.plus', { n: P.visit + P.conversation });
     if (k === 'absent') return t('pts.plus', { n: P.visit });
@@ -939,10 +1123,10 @@ function renderLog() {
   if (outs.dataset.key !== outKey) {
     outs.dataset.key = outKey;
     outs.replaceChildren(...kinds.map((k) => h('button', { class: 'out', type: 'button', 'data-k': k, onclick: () => {
-      keepFields(); L.kind = L.kind === k ? null : k; L.channel = L.kind && CHANNELS[L.kind] ? CHANNELS[L.kind][0] : null; L.voicemail = false; L.tag = null; renderLog();
+      keepFields(); L.kind = L.kind === k ? null : k; L.channel = L.kind && CHANNELS[L.kind] ? CHANNELS[L.kind][0] : null; L.voicemail = false; L.tag = null; L.reason = null; L.armed = false; propose(); renderLog();
     } }, outArt(k), h('b', { text: t(`kind.${k}`) }), h('span', { class: 'pp' }))));
   }
-  for (const b of outs.children) { b.setAttribute('aria-pressed', String(L.kind === b.dataset.k)); $('.pp', b).textContent = hint(b.dataset.k); }
+  for (const b of outs.children) { b.setAttribute('aria-pressed', String(L.kind === b.dataset.k)); b.classList.toggle('bz-first', !!L.first && L.first.includes(b.dataset.k)); $('.pp', b).textContent = hint(b.dataset.k); }
   const more = $('#moreOuts'); more.textContent = t(L.more ? 'log.less' : 'log.more'); more.setAttribute('aria-expanded', String(L.more));
 
   // 3. the details this result asks for
@@ -953,35 +1137,194 @@ function renderLog() {
     if (CHANNELS[k]) nodes.push(h('p', { class: 'label', text: t('log.channel') }), h('div', { class: 'chipset', role: 'group', 'aria-label': t('log.channel') },
       CHANNELS[k].map((c) => h('button', { class: 'pick', type: 'button', 'aria-pressed': String(L.channel === c), text: t(`ch.${c}`), onclick: () => { L.channel = c; keepFields(); renderLog(); } }))));
     if (k === 'noanswer') { const box = h('input', { type: 'checkbox', checked: L.voicemail, onchange: (e) => { L.voicemail = e.target.checked; } }); nodes.push(h('label', { class: 'switch' }, box, t('log.voicemail'))); }
+    if (QUAL_KINDS.includes(k)) nodes.push(...qualNodes(k));
+    if (k === 'meeting') { const box = h('input', { id: 'lDemo', type: 'checkbox', checked: L.demo, onchange: (e) => { L.demo = e.target.checked; } }); nodes.push(h('label', { class: 'switch' }, box, t('log.demo'))); }
     if (k === 'meeting' || k === 'contract') {
+      const when = h('input', { id: 'lWhen', type: 'date', onchange: () => { keepFields(); if (k === 'meeting' && !L.nextTouched) { propose(); renderLog(); } } }); when.value = L.when;
+      const whenField = h('label', { class: 'field' }, h('span', { class: 'label', text: t(`log.when.${k}`) }), when);
+      if (k === 'meeting') {   // a meeting has a time, beside its date
+        const time = h('input', { id: 'lTime', type: 'time' }); time.value = L.time;
+        nodes.push(h('div', { class: 'bz-time' }, whenField, h('label', { class: 'field' }, h('span', { class: 'label', text: t('log.time') }), time)));
+      } else nodes.push(whenField);
+    }
+    if (contactAsked(k, L.biz)) {
       const who = h('input', { id: 'lContact', type: 'text', maxlength: 120, autocomplete: 'off', placeholder: t('log.contact.ph') }); who.value = L.contact;
-      const when = h('input', { id: 'lWhen', type: 'date' }); when.value = L.when;
-      nodes.push(h('label', { class: 'field' }, h('span', { class: 'label', text: t('log.contact') }), who), h('label', { class: 'field' }, h('span', { class: 'label', text: t(`log.when.${k}`) }), when));
+      const phone = h('input', { id: 'lPhone', type: 'tel', maxlength: 40, autocomplete: 'off', inputmode: 'tel' }); phone.value = L.phone;
+      nodes.push(h('label', { class: 'field' }, h('span', { class: 'label', text: t('log.contact') }), who), h('label', { class: 'field' }, h('span', { class: 'label', text: t('biz.f.phone') }), phone));
     }
     if (TAGGED.has(k)) nodes.push(h('p', { class: 'label', text: t('log.tag') }), h('div', { class: 'chipset', role: 'group', 'aria-label': t('log.tag') },
-      TAGS.map((g) => h('button', { class: 'pick', type: 'button', 'aria-pressed': String(L.tag === g), text: t(`tag.${g}`), onclick: () => { L.tag = L.tag === g ? null : g; keepFields(); renderLog(); } }))));
+      LOG_TAGS.map((g) => h('button', { class: 'pick', type: 'button', 'aria-pressed': String(L.tag === g), text: t(`tag.${g}`), onclick: () => { keepFields(); L.tag = L.tag === g ? null : g; L.reason = null; L.armed = false; propose(); renderLog(); } }))));
+    nodes.push(...nextNodes(k));
     if (k === 'contract') { const box = h('div', { class: 'doc-hooks' }); docs.hooks(box, 'contract'); nodes.push(box); }   // what to send or sign, at hand
     const noteIn = h('input', { id: 'lNote', type: 'text', maxlength: 500, autocomplete: 'off', placeholder: t('log.note.ph') }); noteIn.value = L.note;
     nodes.push(h('label', { class: 'field' }, h('span', { class: 'label', text: t('log.note') }), noteIn));
     fields.replaceChildren(...nodes);
-    enterMoves([$('#lContact'), $('#lNote')]);
+    enterMoves([$('#lContact'), $('#lPhone'), $('#nxStep'), $('#lNote')]);
   }
   paintLogFoot();
 }
+/** The three qualification rows on a conversation: how many work with their hands, Wi-Fi, who coordinates. A row the
+ *  card already knows is folded (its answer and "Cambiar"); nothing is preselected and saving never waits for them.
+ *  On a contract a line says what is still unconfirmed; a "No" on Wi-Fi or who coordinates offers to close it as not a fit. */
+function qualNodes(k) {
+  const known = L.biz ? L.biz.q : null;
+  const word = (row, v) => t(row === 'workers' ? `qf.workers.${v}` : `qf.${v}`);
+  const nodes = qualRows(known, L.qual, L.qOpen).map((r) => {
+    if (r.folded) return h('div', { class: 'qf-row' }, h('div', { class: 'qf-folded' }, h('span', {}, h('span', { class: 'label', text: t(`qf.${r.key}`) }), ' ', h('b', { text: word(r.key, r.value) })),
+      h('button', { class: 'mini-btn', type: 'button', text: t('qf.change'), 'aria-label': `${t('qf.change')}: ${t(`qf.${r.key}`)}`, onclick: () => { keepFields(); L.qOpen.add(r.key); renderLog(); } })));
+    return h('div', { class: 'qf-row', role: 'group', 'aria-labelledby': `qf-${r.key}` }, h('p', { class: 'label', id: `qf-${r.key}`, text: t(`qf.${r.key}`) }),
+      h('div', { class: r.options.length > 3 ? 'chipset qf-span' : 'chipset' }, r.options.map((o) => h('button', { class: 'pick', type: 'button', 'aria-pressed': String(r.value === o), text: word(r.key, o),
+        onclick: () => { keepFields(); L.qual = { ...L.qual, [r.key]: L.qual[r.key] === o ? undefined : o }; renderLog(); } }))));
+  });
+  if (contractWarn(k, known, L.qual)) nodes.push(h('p', { class: 'qf-warn', text: t('qf.contract') }));
+  const fit = notFitOffer(L.qual);
+  if ((fit || L.tag === 'not_fit') && logHolds()) {
+    const on = L.tag === 'not_fit';
+    nodes.push(h('div', { class: 'bz-acts' }, h('button', { class: on ? 'mini-btn armed' : 'mini-btn', type: 'button', 'aria-pressed': String(on), text: t('qf.notfit'), onclick: () => {
+      keepFields(); L.tag = on ? null : fit.tag; L.reason = on ? null : fit.lost; L.armed = !on; propose(); renderLog();
+    } })));
+  }
+  return nodes;
+}
 /** What was typed in the detail fields survives a redraw. */
 function keepFields() {
-  for (const [id, key] of [['#lContact', 'contact'], ['#lWhen', 'when'], ['#lNote', 'note']]) { const n = $(id); if (n) L[key] = n.value; }
+  for (const [id, key] of [['#lContact', 'contact'], ['#lPhone', 'phone'], ['#lWhen', 'when'], ['#lTime', 'time'], ['#lNote', 'note']]) { const n = $(id); if (n) L[key] = n.value; }
+}
+/** The day the log is made on, where the rep is. */
+const logToday = () => (S.me.today ? S.me.today.day : dayOf(nowIso(), tz()));
+/** Whether this log moves the business: it is the rep's, or free. */
+const logHolds = () => !L.lead || L.lead.isNew || holdsIt(L.biz || L.lead);
+/** The result proposes the next step, until the rep changes it. */
+function propose() {
+  if (L.nextTouched) return;
+  L.next = L.kind ? proposeNext(L.kind, L.tag, { today: logToday(), workdays: S.me.me.workdays, when: L.when }, (key) => t(key)) : undefined;
+}
+/** What the log sends about the business, or why it cannot be saved yet. */
+function logBiz() {
+  const f = bizFields({ kind: L.kind, tag: L.tag, next: L.next, reason: L.reason, holds: logHolds() });
+  if (f.error) return f;
+  if (f.next) { const c = checkNext(f.next, logToday()); if (c.error) return c; f.next = c.next; }
+  return f;
+}
+/** The next step's row in step 3: the words and the day, the quick days, or the reason of a Lost result. When another
+ *  rep holds the business, a note instead: their next step stays. */
+function nextNodes(k) {
+  if (k === 'baddata') return [];
+  if (!logHolds()) {   // another rep's: their next step stays, and a closing tag says what it does there
+    const other = otherTagLine(L.biz || L.lead, L.tag);
+    return [h('p', { class: 'note', text: other ? t(other.key, other) : t('nx.other', { name: (L.biz || L.lead).owner.name }) })];
+  }
+  if (LOST_TAGS.includes(L.tag)) return [h('p', { class: 'label', text: t('biz.reason.ask') }), h('p', { class: 'note', text: t('nx.lost') }),
+    h('div', { class: 'chipset bz-reason', role: 'group', 'aria-label': t('biz.reason.ask') },
+      LOST_REASONS.map((r) => h('button', { class: 'pick', type: 'button', 'aria-pressed': String(L.reason === r), text: t(`biz.reason.${r}`), onclick: () => { keepFields(); L.reason = L.reason === r ? null : r; L.armed = false; renderLog(); } })))];
+  if (L.tag === 'waitlist') return [h('p', { class: 'note', text: t('nx.waitlist') })];
+  // One sentence: the step in full, then its day in words and "Cambiar", which opens the two fields under it (they
+  // stay open until the sheet closes). The chips move the day and the sentence follows. "Sin próximo paso" reads so,
+  // and "Cambiar" then brings the proposal back. The business's own next step, when overdue, is said once, here.
+  const none = L.next === null, nx = L.next || { day: '', step: '' };
+  const was = L.biz && L.biz.next ? dueLine(L.biz.next, logToday()) : null;
+  const head = h('div', { class: 'nxs-h' }, h('p', { class: 'label', text: t('nx.title') }), was && was.key === 'biz.due.late' ? h('span', { class: 'nxs-late', text: t(was.key, { n: was.n }) }) : null);
+  const dayWords = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || '') ? `${wdShort(d)} ${dayMonth(d)}` : '');
+  const change = h('button', { class: 'mini-btn', type: 'button', text: t('c.change'), onclick: () => {
+    keepFields();
+    if (none) { L.nextTouched = false; L.next = undefined; propose(); renderLog(); return; }
+    L.nextOpen = true; renderLog(); const box = $('#nxStep'); if (box) box.focus();
+  } });
+  const say = h('div', { class: 'nxs-say' }, h('p', { class: `nxs-step${none || !nx.step.trim() ? ' quiet' : ''}`, id: 'nxSay', text: none ? t('nx.none') : nx.step.trim() || t('nx.step.ph') }),
+    h('p', { class: 'nxs-when' }, none ? null : h('span', { class: 'nxs-day', text: dayWords(nx.day) }), change));
+  let fields = null;
+  if (L.nextOpen && !none) {
+    const step = h('input', { id: 'nxStep', type: 'text', maxlength: 140, autocomplete: 'off', placeholder: t('nx.step.ph'),
+      oninput: (e) => { L.nextTouched = true; L.next = { day: (L.next && L.next.day) || '', step: e.target.value }; const s = $('#nxSay'); s.textContent = e.target.value.trim() || t('nx.step.ph'); s.classList.toggle('quiet', !e.target.value.trim()); paintLogFoot(); } });
+    const day = h('input', { id: 'nxDay', type: 'date', min: logToday(),
+      onchange: (e) => { L.nextTouched = true; L.next = { day: e.target.value, step: (L.next && L.next.step) || '' }; keepFields(); renderLog(); } });
+    step.value = nx.step; day.value = nx.day;
+    fields = h('div', { class: 'nxs-fields' }, h('label', { class: 'field' }, h('span', { class: 'label', text: t('nx.step.ph') }), step), h('label', { class: 'field' }, h('span', { class: 'label', text: t('nx.f.day') }), day));
+  }
+  const quick = quickDays(logToday()).map((q) => h('button', { class: 'pick', type: 'button', 'aria-pressed': String(!!L.next && L.next.day === q.day), text: t(q.key),
+    onclick: () => { keepFields(); L.nextTouched = true; L.next = { day: q.day, step: L.next ? L.next.step : '' }; renderLog(); } }));
+  const noneChip = h('button', { class: 'pick', type: 'button', 'aria-pressed': String(L.next === null), text: t('nx.none'), onclick: () => { keepFields(); L.nextTouched = true; L.next = L.next === null ? undefined : null; if (L.next === undefined) { L.nextTouched = false; propose(); } renderLog(); } });
+  return [head, say, fields, h('div', { class: 'chipset', role: 'group', 'aria-label': t('nx.title') }, quick, noneChip)].filter(Boolean);
+}
+/** The business's card, read once per business picked; an answer for a business picked before is dropped. */
+async function readBiz(id) {
+  if (!id || L.bizFor === id) return;
+  const ticket = ++L.bizTicket;
+  L.bizFor = id;
+  try {
+    const res = await api('GET', `biz/${encodeURIComponent(id)}`);
+    if (ticket !== L.bizTicket || !L.lead || L.lead.id !== id) return;
+    L.biz = res.biz; L.bizOff = false;
+  } catch (e) {
+    if (ticket !== L.bizTicket || !L.lead || L.lead.id !== id) return;
+    L.biz = null; L.bizOff = e.code === 'offline'; L.bizFor = null;
+  }
+  keepFields(); propose(); renderLog();
 }
 function logReady() {
   if (!L.kind || !L.lead) return false;
-  return L.lead.isNew ? $('#newName').value.trim().length >= 2 : true;
+  if (logBiz().error) return false;
+  // a new business waits for its near twins: one of them picked, or "Es nuevo" (newlead-steps newReady)
+  return L.lead.isNew ? !L.dupWait && newReady({ name: $('#newName').value, similar: L.similar, sure: L.sure, offline: L.dupOff }) : true;
+}
+/** The new business's block: the zone picked from the city's (with "Otra", which opens a field under it), and its near
+ *  twins under the name, at most five, each the row the search shows; one that may be picked becomes the business, as a
+ *  search pick does, and one that may not says why. "Es nuevo" says it is none of them. */
+function paintNewLead() {
+  const pick = $('#newZonePick'), zones = L.zones || [], opts = zoneOptions(zones), had = pick.value;
+  const key = `${lang()}|${opts.join('|')}`;
+  if (pick.dataset.key !== key) {
+    pick.dataset.key = key;
+    pick.replaceChildren(h('option', { value: '', text: t('log.new.zone') }), ...opts.map((z) => h('option', { value: z, text: z === '__other' ? t('log.zone.other') : z })));
+    pick.value = zonePickFor({ zones, had, typed: $('#newZone').value });   // a zone typed before the list came stays, as "Otra"
+  }
+  // with no zones to offer (none in the city, or no signal), the zone is typed
+  $('#newZonePickBox').hidden = !zones.length;
+  $('#newZoneBox').hidden = zones.length > 0 && pick.value !== '__other';
+  const twins = Array.isArray(L.similar) ? L.similar : [];
+  $('#dupBox').hidden = !twins.length;
+  put($('#dupList'), twins.map((r) => {
+    const why = dupNote(r);
+    if (!why) return h('li', {}, leadOption({ ...r, known: true }, false));
+    return h('li', {}, h('button', { class: 'leadopt', type: 'button', disabled: true, 'aria-pressed': 'false' }, h('span', {}, h('b', { text: r.name }), h('small', { text: `${r.zone || t('log.nozone')} · ${t(why.key)}` }))));
+  }));
+  const sure = $('#dupNew');
+  sure.setAttribute('aria-pressed', String(L.sure));
+  sure.classList.toggle('armed', L.sure);
+}
+/** The city's zones, read once per sheet's first new business; no signal leaves the zone typed. */
+async function readZones() {
+  if (L.zones) return;
+  try { const res = await api('GET', 'zones'); L.zones = Array.isArray(res.zones) ? res.zones : []; L.zonesFailed = false; }
+  catch { L.zones = []; L.zonesFailed = true; }
+  if (L.lead && L.lead.isNew) { paintNewLead(); paintLogFoot(); }
+}
+let similarTimer;
+/** "¿Es alguno de estos?": the typed name's near twins, asked a moment after the typing stops; an older answer is dropped.
+ *  Saving waits for the answer, then for a pick or "Es nuevo". No signal: the sheet saves, and the server still finds an
+ *  exact twin. */
+function onSimilar() {
+  const ask = similarAsk($('#newName').value), ticket = ++L.dupTicket;
+  L.sure = false; L.similar = null; L.dupOff = false; L.dupWait = !!ask;
+  clearTimeout(similarTimer);
+  if (!ask) { if (L.lead && L.lead.isNew) { paintNewLead(); paintLogFoot(); } return; }
+  paintLogFoot();
+  similarTimer = setTimeout(async () => {
+    try { const r = await api('GET', `leads?similar=${encodeURIComponent(ask)}`); if (ticket === L.dupTicket) L.similar = (r.leads || []).slice(0, 5); }
+    catch (e) { if (ticket === L.dupTicket) { L.similar = null; L.dupOff = true; } }
+    if (ticket !== L.dupTicket) return;
+    L.dupWait = false;
+    if (L.lead && L.lead.isNew) { paintNewLead(); paintLogFoot(); }
+  }, 260);
 }
 function paintLogFoot() {
-  const today = S.me.today.day, lead = L.lead, hintNode = $('#logHint');
+  // Guardar never waits in silence: why it waits comes before what the log is worth (next-steps footHint)
   $('#saveLog').disabled = !logReady();
-  if (!L.kind || !lead) hintNode.textContent = t('log.hint.pick');
-  else if (!lead.isNew && lead.known && (!lead.lastDay || lead.lastDay < today)) hintNode.textContent = FOLLOWS.has(L.kind) ? t('log.hint.follow', { n: S.me.rules.points.followup }) : t('log.hint.nofollow');
-  else hintNode.textContent = lead.isNew || !lead.known ? t('log.hint.first') : t('log.hint.pick');
+  const problem = L.kind && L.lead ? logBiz().error || null : null;
+  const f = footHint({ kind: L.kind, lead: L.lead, today: S.me.today ? S.me.today.day : logToday(), problem, follows: FOLLOWS.has(L.kind), points: S.me.rules.points.followup, closing: notFitArmed(L) && logHolds(), checking: !!(L.lead && L.lead.isNew && L.dupWait) });
+  $('#logHint').textContent = t(f.key, f);
+  // a new business with near twins waits for one of them, or "Es nuevo": the foot says so
+  if (L.kind && L.lead && L.lead.isNew && !L.sure && Array.isArray(L.similar) && L.similar.length) $('#logHint').textContent = t('log.dup.title');
 }
 let searchTimer;
 function onSearch() {
@@ -1004,27 +1347,44 @@ function renderLeadList() {
 function saveLog() {
   if (!logReady() || readOnly()) return undefined;
   keepFields();
-  const body = { id: newId(), kind: L.kind, clientAt: new Date().toISOString(), lead: L.lead.isNew ? { name: $('#newName').value.trim(), zone: $('#newZone').value.trim() } : { id: L.lead.id } };
-  if (L.channel) body.channel = L.channel;
-  if (L.voicemail) body.voicemail = true;
-  if (L.tag) body.tag = L.tag;
-  // a contact and a date are a meeting's or a contract's: typed for one and kept when the result changed, they stay here
-  for (const k of L.kind === 'meeting' || L.kind === 'contract' ? ['contact', 'when', 'note'] : ['note']) if (L[k]) body[k] = L[k];
-  return once($('#saveLog'), async () => {
-    closeSheet($('#logSheet')); setTab(L.from || 'today');
-    toast(`${t('c.saving')}…`);   // on a slow signal the tap is answered at once; the result replaces this line
-    try { const res = await api('POST', 'log', { ...body, sentAt: new Date().toISOString() }); setTimeout(() => logged(res, body), reduce ? 0 : 260); }
+  // only what is on screen now is sent: a contact typed for a meeting, then another result picked, stays here
+  // (next-steps logBody); the next step and Lost are what the holder's log says about the business
+  const zonePick = L.zones && L.zones.length ? $('#newZonePick').value : '__other';   // with no zones offered, the zone is typed
+  const body = logBody({ id: newId(), kind: L.kind, clientAt: new Date().toISOString(), lead: L.lead, newLead: L.lead.isNew ? { name: $('#newName').value.trim(), zone: zoneOf(zonePick, $('#newZone').value) } : null,
+    channel: L.channel, voicemail: L.voicemail, tag: L.tag, contact: L.contact, phone: L.phone, when: L.when, time: L.time, note: L.note, about: logBiz(), card: L.biz });
+  // the qualification: only the rows tapped, only on a conversation; a meeting may ask for a demo
+  const q = QUAL_KINDS.includes(L.kind) ? qualBody(L.qual) : undefined;
+  if (q) body.q = q;
+  if (L.kind === 'meeting' && L.demo) body.demo = true;
+  // The save button says it is saving (no toast of its own). The sheet stays for the answer, at most 1.2 s: on a slow
+  // signal it closes anyway and the answer arrives on the screen behind it.
+  const btn = $('#saveLog'), to = L.from || 'today';
+  let gone = false;
+  const leave = () => { if (gone) return; gone = true; L.saved = true; storeDraft(null); closeSheet($('#logSheet')); setTab(to); };   // a save leaves no draft
+  return once(btn, async () => {
+    btn.textContent = `${t('c.saving')}…`;
+    logInert(true);   // nothing typed while it saves is lost in silence: the fields take no input until the answer
+    if (!reduce && btn.animate) btn.animate([{ filter: 'blur(2px)', opacity: 0.4 }, { filter: 'blur(0)', opacity: 1 }], { duration: 200, easing: 'ease' });
+    const wait = setTimeout(leave, 1200);
+    try { const res = await api('POST', 'log', { ...body, sentAt: new Date().toISOString() }); clearTimeout(wait); leave(); setTimeout(() => logged(res, body), reduce ? 0 : 260); }
     catch (e) {
+      clearTimeout(wait);
       // No answer, a service that is restarting or a session that ended: the log waits on the phone. Only a plain refusal ends it.
-      if (verdict(e) === 'keep') { S.queue.push({ rep: S.me.me.id, body }); store.set(KEY.queue, S.queue); renderTop(); toast(t('toast.queued')); shutOut(e); }
-      else if (!shutOut(e)) { toast(errText(e)); renderLog(); openSheet($('#logSheet')); }   // refused: the sheet comes back with what was typed
-    }
+      if (verdict(e) === 'keep') { leave(); S.queue.push({ rep: S.me.me.id, body }); store.set(KEY.queue, S.queue); renderTop(); toast(t('toast.queued')); shutOut(e); }
+      else if (!shutOut(e)) { logInert(false); toastErr(errText(e)); renderLog(); if (gone) openSheet($('#logSheet')); }   // refused: the sheet stays, or comes back, with what was typed
+    } finally { btn.textContent = t('log.save'); }
   });
 }
+/** The log sheet's fields and chips take no input while a save is out (inert), and take it again on a refusal. */
+function logInert(on) { for (const sel of ['#leadPicked', '#bizStrip', '#leadPick', '#outOpts', '#moreOuts', '#logExtra']) { const n = $(sel); if (n) n.inert = on; } }
 function logged(res, body) {
   const before = S.me, hit = res.repeat || !before.today || !res.me.today ? null : landed(before.today, res.me.today, before.rules);
   if (hit != null) { S.hold = hit; S.stop = null; }   // the stop this landed on keeps its picture while the rest repaints
-  adopt(res.me); renderAll(true);
+  // the points chip keeps its old number until the dot that carries the points lands on it
+  const flies = !res.repeat && res.gained > 0;
+  if (flies && before.week) S.ptsHeld = before.week.points;
+  book.forget(); adopt(res.me); renderAll(true);   // a log can take a business: the free list is read again
+  if (body.lead.id && biz.current() && biz.current().id === body.lead.id) biz.refresh();   // the card it was logged from shows the contact
   const label = t(`kind.${body.kind}`);
   if (res.repeat) toast(t(res.updated ? 'toast.repeat.updated' : 'toast.repeat'));
   else {
@@ -1035,6 +1395,8 @@ function logged(res, body) {
     const bits = [label + (follow ? ` · ${t('toast.followup')}` : '')];
     if (why) bits.push(why);
     if (res.pending > 0) bits.push(t('toast.pending', { n: res.pending }));
+    if (res.took) bits.push(t('log.took'));
+    else if (res.owned && res.owned.name) bits.push(t('log.owned', { name: res.owned.name }));
     let text = bits.join(' · ');
     if (res.streakUp) text += `. ${t('toast.streak', { n: res.me.streak.current })}`;
     if (res.gained > 0 || res.pending > 0) toast(text, res.gained > 0 ? t('pts.plus', { n: res.gained }) : ''); else toast(why ? t('toast.zero.why', { why }) : t('toast.zero'));
@@ -1044,7 +1406,10 @@ function logged(res, body) {
   const played = hit != null ? answer(hit, before.today, res.me.today).catch(() => {}) : Promise.resolve();
   if (!res.repeat && res.gained > 0) {
     const tag = $('#ptsChip');
-    setTimeout(() => flyDot(hit != null ? $('#dio') : $('#logBtn'), tag, () => { ringAt($('#meLens .portrait'), { whole: true }); lock(tag); floatUp(tag, t('pts.plus', { n: res.gained })); }), hit != null && !reduce ? 520 : 0);
+    setTimeout(() => flyDot(hit != null ? $('#dio') : $('#logBtn'), tag, () => {
+      S.ptsHeld = null; countTo($('#ptsN'), S.me && S.me.week ? S.me.week.points : res.me.week.points);   // it lands: now the chip counts
+      ringAt($('#meLens .portrait'), { whole: true }); lock(tag); floatUp(tag, t('pts.plus', { n: res.gained }));
+    }), hit != null && !reduce ? 520 : 0);
   }
   if (res.streakUp) { lock($('#streakChip')); ringAt($('#streakChip .dot')); }
   const facts = { gained: res.gained, streak: res.streakUp ? res.me.streak.current : 0 };
@@ -1097,8 +1462,35 @@ async function fullFinger() {
   paintHand(hand, week.days.map((d, k) => (k === i ? { ...d, habits: [false, false, false, false] } : d)), { wrist: week.anyLog });
   setTimeout(() => paintHand(hand, week.days, { wrist: week.anyLog, animate: true, step: 230 }), reduce ? 0 : 760);
   const sub = [t('cel.finger.sub'), streak && streak.current > 1 ? t('toast.streak', { n: streak.current }) : ''].filter(Boolean).join(' ');
-  const go = await dayDone({ title: t('cel.finger.title'), sub, glyph: hand, from: $('#nextBtn').hidden ? $('#dio') : $('#nextBtn'), label: `${t('cel.finger.title')} ${sub} ${t('cel.finger.go')}.` });
-  if (go && S.me && !S.mgr) setTab('week');
+  // the report, from the moment: shared where the browser can share text, else copied (moments.js reportAction)
+  const text = today.closed ? ($('#slackText').textContent || '').trim() : '';
+  const canShare = !!text && typeof navigator.share === 'function' && (!navigator.canShare || navigator.canShare({ text }));
+  const how = reportAction(canShare);
+  const run = async (kind = how.kind) => {
+    let result;
+    if (kind === 'share') { try { await navigator.share({ text }); result = 'ok'; } catch (e) { result = e && e.name === 'AbortError' ? 'cancel' : 'fail'; } }
+    else result = (await copyText(text)) ? 'ok' : 'fail';
+    const o = reportOutcome(kind, result);
+    if (o.then) return run(o.then);
+    if (o.say && !o.close) toast(t(o.say));
+    return o.close;
+  };
+  // the moment owns one entry of the history while it is up: Back closes it and leaves the rep on Hoy
+  let pushed = false;
+  try { history.pushState({ cancha: 'moment' }, '', location.href); pushed = true; backNav.moment = true; } catch { /* a page shown inside another */ }
+  const go = await dayDone({ title: t('cel.finger.title'), sub, glyph: hand, from: $('#nextBtn').hidden ? $('#dio') : $('#nextBtn'), label: `${t('cel.finger.title')} ${sub}`,
+    report: text ? { label: t(how.key), hint: t(how.hint), run: () => run() } : null, done: t('dd.done'), hold: DONE_HOLD });
+  const toWeek = !!(go && S.me && !S.mgr);
+  if (!pushed || !backNav.moment) { if (toWeek) setTab('week'); return; }   // closed by Back (its entry is gone), or it had none
+  // closed by its own controls (back-steps.js momentClose): in place, its entry goes; toward the week, the moment's
+  // entry becomes the week's, so Back from Semana comes home and the app is never left early
+  backNav.moment = false;
+  const move = momentClose({ go: toWeek, held: (backNav.guarded ? 1 : 0) + (backNav.away ? 1 : 0) });
+  popEntries(move.pop);
+  if (!move.away) return;
+  backNav.trail.length = 0; backNav.from = null; backNav.guarded = false; backNav.away = true;
+  try { history.replaceState({ cancha: 'tab' }, '', location.href); } catch { /* as above */ }
+  setTab('week', { replay: true }); remember('week');
 }
 
 // ---- logs that wait for signal ----
@@ -1109,24 +1501,32 @@ async function flush() {
   if (flushing || !S.me || readOnly() || !myQueue().length) return;
   flushing = true;
   let sent = 0;
-  const went = [];   // the logs that reached the server, to say when one of them was made on an earlier day
+  const went = [];   // the logs that reached the server and added something, to say when one of them was made on an earlier day
+  const arrived = [];   // each sent log with the server's answer and its business's name, for what the toast adds (queue.js sentNotes)
+  const nameOf = (b, answer) => (b.lead && b.lead.name) || [...((answer && answer.me && answer.me.recentLeads) || []), ...((S.me && S.me.recentLeads) || [])].find((l) => l && l.id === b.lead.id)?.name || null;
   try {
     for (const item of myQueue()) {
-      try { await api('POST', 'log', { ...item.body, sentAt: new Date().toISOString() }); sent += 1; went.push(item); }   // clientAt stays the moment of the contact
+      try { const answer = await api('POST', 'log', { ...item.body, sentAt: new Date().toISOString() }); sent += 1; if (landedNew(answer)) went.push(item); arrived.push({ body: item.body, answer, name: nameOf(item.body, answer) }); }   // clientAt stays the moment of the contact
       catch (e) {
         if (verdict(e) === 'keep') { shutOut(e); break; }   // it stays in the queue for the next try
-        toast(t('toast.dropped', { why: errText(e) }));   // refused for good: it leaves the queue with the reason shown
+        toastErr(t('toast.dropped', { why: errText(e) }));   // refused for good: it leaves the queue with the reason shown
       }
       S.queue = S.queue.filter((q) => q !== item); store.set(KEY.queue, S.queue);
     }
   } finally { flushing = false; }
   renderTop();
   if (sent) {
+    book.forget();
     await refresh(true);
     // made yesterday with no signal, it counts today: the day it reached the server (the phone's clock carried to the server's)
     const tz = S.me && S.me.me ? S.me.me.tz : null, today = tz ? dayOf(nowIso(), tz) : null;
     const earlier = today ? madeEarlier(went, today, (iso) => dayOf(new Date(Date.parse(iso) + skew).toISOString(), tz)) : 0;
-    toast(t(earlier ? 'toast.sent.today' : 'toast.sent', { n: sent }));
+    // the count first, with whose the businesses are now; then a next step that was already past and was not kept,
+    // by the business's name (two at most, the rest counted)
+    const notes = today ? sentNotes(arrived, today) : { words: [], late: [], more: 0 };
+    const stop = (x) => (/[.!?]$/.test(x) ? x : `${x}.`);
+    const first = [t(earlier ? 'toast.sent.today' : 'toast.sent', { n: sent }), ...notes.words.map((w) => t(w.key, w))].map(stop).join(' ');
+    toasts([first, ...notes.late.map((name) => t('toast.sent.late', { name })), notes.more ? t('toast.sent.late.more', { n: notes.more }) : null]);
   }
 }
 
@@ -1172,10 +1572,10 @@ function enter(me) {
   S.mgr = !S.as && me.viewer.role !== 'rep';
   document.body.classList.remove('bare'); document.body.classList.toggle('mgr', S.mgr);
   if (!S.as) store.set(KEY.me, me.keptAt ? me : { ...me, keptAt: Date.now() });   // a view opened from the copy keeps the day it was kept
-  S.seenFeed = null; waiting.length = 0;
+  S.seenFeed = null; waiting.length = 0; book.forget();
   S.stop = null; S.hold = null; S.owed = null;
   const first = S.mgr ? 'team' : 'today';
-  const ready = S.mgr ? manager.load().then(() => { renderAll(false); }).catch((e) => toast(errText(e))) : Promise.resolve();
+  const ready = S.mgr ? manager.load().then(() => { renderAll(false); }).catch((e) => toastErr(errText(e))) : Promise.resolve();
   renderAll(false); setTab(S.tab && $(`#nav [data-tab="${S.tab}"]`) ? S.tab : first, { instant: true });
   // The full entrance plays on the first open of a day and after signing in again (signing out forgets the last one);
   // after that the screen just puts itself together.
@@ -1186,6 +1586,7 @@ function enter(me) {
   const arriveAll = (opts) => here.forEach((n, i) => setTimeout(() => arrive(n, opts), reduce ? 0 : i * 160));
   if (how === 'full') { store.set(KEY.greet, { id: me.me.id, day }); welcome(day, ready, arriveAll); }
   else ready.then(() => arriveAll({ fast: true }));
+  docs.restore();   // the copy kept on the phone first: a card opens with no signal
   loadDocs();
   flush();
 }
@@ -1195,8 +1596,8 @@ function loadDocs() { docs.load().then(() => { if (S.me) renderAll(false); }).ca
 function welcome(day, ready, arriveAll) {
   const me = S.me, who = me.me, st = stake(me), today = me.today;
   const line = st.kind === 'team' ? [t('greet.team.a', { w: st.working, p: st.players }), t('greet.team.b', { c: st.closed })]
-    : st.kind === 'lead' ? [t('greet.lead.a'), st.behind ? t('table.sup.behind', { name: st.behind.name, gap: pts(st.behind.pts) }) : t('greet.lead.b', { pts: pts(st.score) })]
-    : st.kind === 'place' ? [t('greet.place.a', { ord: ord(st.place), n: st.ranked }), !st.gap ? '' : st.gap.name ? t('table.sup.gap.named', { gap: pts(st.gap.pts), name: st.gap.name }) : t('table.sup.gap.next', { gap: pts(st.gap.pts) })]
+    : st.kind === 'lead' ? [t('greet.lead.a'), ((b) => (b ? t(b.key, { ...b, gap: b.pts ? pts(b.pts) : '' }) : t('greet.lead.b', { pts: pts(st.score) })))(behindLine(st.behind))]
+    : st.kind === 'place' ? [t('greet.place.a', { ord: ord(st.place), n: st.ranked }), ((g) => (g ? t(g.key, { ...g, gap: g.pts ? pts(g.pts) : '' }) : ''))(gapLine(st.gap))]   // a tie reads as a tie
     : st.kind === 'new' ? [t('greet.new.a', { d: st.day, n: st.of }), t('greet.new.b')]
     : [t(`greet.${st.kind}.a`), t(`greet.${st.kind}.b`)];
   const streak = me.streak && me.streak.current > 0 ? ` · ${upper(t('top.streak'))} ${num(me.streak.current)}` : '';
@@ -1270,7 +1671,7 @@ function shutOut(e) {
   return true;
 }
 /** Signing out ends the portal's session, which is the board's too. The next entrance plays in full. */
-function signOut() { store.del(KEY.me); store.del(KEY.greet); location.href = LEAVE; }
+function signOut() { store.del(KEY.me); store.del(KEY.greet); docs.forget(); storeDraft(null); location.href = LEAVE; }   // a log left half done leaves with the person
 /** With logs still waiting on this phone, signing out says so and asks for a second tap (they stay on the phone and go
  *  out at the next sign-in, but the person should know). */
 function signOutAsked(btn, e) {
@@ -1308,8 +1709,8 @@ async function start(as = undefined) {
       // its day against today on the server's clock, carried from when the view was kept (a phone's own clock can be off)
       const drift = cached.keptAt && Date.parse(cached.serverTime) ? Date.parse(cached.serverTime) - cached.keptAt : 0;
       const kept = cached.today && cached.today.day, now = cached.me && cached.me.tz ? dayOf(new Date(Date.now() + drift).toISOString(), cached.me.tz) : kept;
-      if (kept && now && kept !== now) { S.stale = kept; renderAll(false); toast(t('err.offline.stale', { date: dayMonth(kept) })); }
-      else toast(t('err.offline'));
+      if (kept && now && kept !== now) { S.stale = kept; renderAll(false); toastErr(t('err.offline.stale', { date: dayMonth(kept) })); }
+      else toastErr(t('err.offline'));
     }
     else if (!shutOut(e)) showGate('error', e);
   }
@@ -1342,35 +1743,45 @@ function reportNudge(node) {
   put(node, h('span', { class: 'sa-dot', 'aria-hidden': 'true' }), h('span', { class: 'rpt-en' }, h('span', { text: t('report.nudge') }), h('small', { text: site.name })));
 }
 /** The daily report of a site, from a rep's screens: the answer brings the screens up to date. */
-const openReport = (id) => report.open(id, { tz: tz(), after: (res) => { if (res.me) adopt(res.me); renderAll(false); } }).catch((e) => toast(errText(e)));
+const openReport = (id) => report.open(id, { tz: tz(), after: (res) => { if (res.me) adopt(res.me); renderAll(false); } }).catch((e) => toastErr(errText(e)));
 // ---- wiring ----
 const report = createReport({ api });
-const manager = createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs, openInstall: (id) => install.open(id, 'needs'),
-  openReport: (id, zone) => report.open(id, { tz: zone, after: () => refresh(false) }).catch((e) => toast(errText(e))) });
+const manager = createManager({ api, S, errText, refresh, renderAll, renderFeed, signOut, viewAs, openInstall: (id) => install.open(id, 'needs'), openBiz: (id, from, hit) => biz.open(id, from, hit),
+  openReport: (id, zone) => report.open(id, { tz: zone, after: () => refresh(false) }).catch((e) => toastErr(errText(e))),
+  docForm: (preset) => docs.form(null, preset, () => renderAll(false)) });
 const docs = createDocs({ api, S, errText, setTab });
 const install = createInstall({ api, S, errText, refresh, setTab, hooks: docs.hooks });
-const ladder = createLadder({ api, S, errText, adopt, renderAll, setTab, openLog, hooks: docs.hooks });
+const ladder = createLadder({ api, S, errText, adopt, renderAll, setTab, openLog, hooks: docs.hooks, openDocs: (from) => docs.open(from) });
 const route = createRoute({ api, S, errText, adopt, renderAll, setTab, openLog, openInstall: (id, from) => install.open(id, from), hooks: docs.hooks });
-const leader = createLeader({ api, S, errText, setTab });
+const scorecard = createScorecard({ api, S, errText, openBiz: (id, from, hit) => biz.open(id, from, hit) });
+const leader = createLeader({ api, S, errText, setTab, scorecard });
 const sites = createSites({ api, S, errText, adopt, renderAll, setTab, openInstall: (id, from, to) => install.open(id, from, to), openReport });
+const book = createBook({ api, S, errText, adopt, renderAll, setTab, openBiz: (id, from, hit) => biz.open(id, from, hit), openLog, today: logToday });
+const biz = createBiz({ api, S, errText, adopt, renderAll, setTab, openLog, openRoute: (id, from) => route.open(id, from), reps: () => manager.reps(), today: logToday, changed: () => book.forget(),
+  guion: { has: () => docs.hasGuion(), open: () => docs.openGuion() } });
 function wire() {
-  initPop(); initSheets(); enterMoves([$('#newName'), $('#newZone')]); enterMoves([$('#fTomorrow'), $('#fBlock')]); install.wire(); ladder.wire(); route.wire(); leader.wire(); docs.wire(); sites.wire();
+  initPop(); initSheets(); enterMoves([$('#newName'), $('#newZone')]); enterMoves([$('#fTomorrow'), $('#fBlock')]); install.wire(); ladder.wire(); route.wire(); leader.wire(); docs.wire(); sites.wire(); biz.wire(); book.wire();
   // the top bar's height, for what sticks under it (the practice bar) and for scrolling a heading into view below it
   const topBar = $('.top');
   if (topBar && 'ResizeObserver' in window) new ResizeObserver(() => document.documentElement.style.setProperty('--top-h', `${topBar.offsetHeight}px`)).observe(topBar);
+  $('#hoyLine').addEventListener('click', (e) => book.open('today', e.currentTarget));
+  addEventListener('resize', () => { if (S.me && S.tab === 'today') fitStage(); else if (S.me && S.tab) fitArt($(`#s-${S.tab}`)); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (S.me && S.tab === 'today') fitStage(); });
   $('#sitesCard').addEventListener('click', () => sites.open('today'));
   $('#reportCard').addEventListener('click', (e) => { const id = e.currentTarget.dataset.site; if (id) openReport(id); });
   $('#docsCard').addEventListener('click', () => docs.open('today'));
   $('#docsBtn').addEventListener('click', () => docs.open('team'));
   $('#ldDocs').addEventListener('click', () => docs.open('lead'));
   $('#previewBtn').addEventListener('click', () => ladder.open('team'));
+  $('#toast').addEventListener('click', dropToast);   // an error waits for a tap (or 6 s)
   $('#home').addEventListener('click', (e) => { if (!S.me) return; e.preventDefault(); if (S.as) viewAs(null); else setTab(S.lead ? 'lead' : S.mgr ? 'team' : 'today'); });
   $('#asExit').addEventListener('click', (e) => { e.preventDefault(); viewAs(null); });
   // Back and forward move between the team and a rep's screens, as the address says.
   addEventListener('popstate', onBack);
   $('#langSeg').addEventListener('click', (e) => { const b = e.target.closest('button[data-lang]'); if (b) switchLang(b.dataset.lang); });
   src($('#streakChip'), () => t('top.streak'), () => { const st = S.me.streak; return t('src.streak', { spares: st.spares, max: S.me.rules.spares, best: t('u.days', { n: st.best }) }); });
-  $('#queueChip').addEventListener('click', flush);
+  // a tap tries again at once; while a log still waits, it says what happens to it
+  $('#queueChip').addEventListener('click', async () => { if (flushing) return; await flush(); const n = myQueue().length; if (n && S.me) toast(t('top.queue.wait', { n })); });
   document.addEventListener('click', (e) => { const o = e.target.closest('[data-open]'); if (o) openSheet($(`#${o.dataset.open}`)); });
   $('#hand').addEventListener('click', (e) => { const hit = e.target.closest('.ahit'); if (hit) { e.stopPropagation(); if (stopTeach) stopTeach(); fingerDetail(hit); } });
   $('#teachBtn').addEventListener('click', teach);
@@ -1379,7 +1790,10 @@ function wire() {
   $('#goalBtn').addEventListener('click', openGoal);
   $('#nextBtn').addEventListener('click', () => {
     const step = $('#nextBtn').dataset.step;
-    if (step === 'next') { S.stop = null; paintStage(true); } else if (step === 'close') openClose(); else openLog();
+    const sel = Number($('#nextBtn').dataset.sel);
+    if (step === 'next') { S.stop = null; paintStage(true); } else if (step === 'close') openClose();
+    else if (sel === 2 && S.me.agenda && S.me.agenda.due.length) book.open('today', $('#nextBtn'));   // the follow-up stop: who is due, in Mis negocios
+    else openLog(stopPreset(sel));
   });
   src($('#ptsChip'), () => t('c.source'), () => t('src.points'));
   src($('#weekPts'), () => t('c.source'), () => t('src.points'));
@@ -1390,6 +1804,16 @@ function wire() {
   const wide = matchMedia('(min-width:980px)'), dock = () => { const nav = $('#nav'); if (wide.matches) $('.top').insertBefore(nav, $('.top-r')); else $('#app').append(nav); };
   wide.addEventListener('change', dock); dock();
   // An answer or a moment that had to wait for a form plays once the form is gone: first the stop, then the moment.
+  onSheetOpen(sheetOpened);
+  for (const dlg of $$('dialog.sheet')) dlg.addEventListener('close', () => sheetClosed(dlg));
+  $('#logSheet').addEventListener('close', keepLogDraft);
+  // the draft line leaves as soon as the rep changes anything
+  for (const type of ['input', 'click']) $('#logSheet').addEventListener(type, (e) => {
+    if (!L.resumed || !e.target.closest || e.target.closest('#logDraft,[data-close],#logGuion')) return;
+    if (type === 'click' && !e.target.closest('button,input,select,textarea,a')) return;
+    L.resumed = false; $('#logDraft').hidden = true;
+  }, true);
+  $('#logDraftClear').addEventListener('click', () => { storeDraft(null); openLog(); });
   for (const dlg of $$('dialog.sheet')) dlg.addEventListener('close', () => setTimeout(() => {
     const owed = S.owed; S.owed = null;
     (owed && S.me && S.me.today ? answer(owed.hit, owed.before, owed.after).catch(() => {}) : Promise.resolve()).then(() => playMoments());
@@ -1406,9 +1830,12 @@ function wire() {
   $('#closeSubmit').addEventListener('click', submitClose);
   for (const id of ['#fTomorrow', '#fBlock']) $(id).addEventListener('input', drawReport);
   $('#leadQ').addEventListener('input', onSearch);
-  $('#newName').addEventListener('input', paintLogFoot);
+  $('#newName').addEventListener('input', () => { onSimilar(); paintLogFoot(); });
+  $('#newZonePick').addEventListener('change', () => { paintNewLead(); if (!$('#newZoneBox').hidden) $('#newZone').focus(); });
+  $('#dupNew').addEventListener('click', () => { L.sure = !L.sure; paintNewLead(); paintLogFoot(); });
   $('#moreOuts').addEventListener('click', () => { L.more = !L.more; keepFields(); renderLog(); });
   $('#saveLog').addEventListener('click', saveLog);
+  $('#logGuion').addEventListener('click', () => { keepFields(); docs.openGuion(); });
   addEventListener('online', flush);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && S.me) { flush(); if (Date.now() - S.lastLoad > 45000) poll(); } });
   // The table and the feed stay current while the app is open and nobody is in the middle of a form.
@@ -1420,6 +1847,9 @@ setLang(store.get(KEY.lang, null) || ((navigator.language || 'es').toLowerCase()
 // The illustrations are named once, on the page itself; the stylesheet picks each one by its name.
 for (const [k, v] of Object.entries(ART)) document.documentElement.style.setProperty(`--art-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`, `url("${v}")`);
 applyStatic(); grain(); wire(); renderTop();
+// loaded again with a sheet's or the moment's entry on top: neither is open now, so that entry is stepped off and the
+// rep's first Back does something (back-steps.js reloadSkip)
+try { if (reloadSkip(history.state)) { backNav.skip += 1; history.back(); } } catch { /* a page shown inside another */ }
 start();
 // The worker that opens the board with no signal (sw.js). It is handed the files this page already loaded, so the next
 // start without signal works too. Where it cannot run (a copy shown inside another page, an old browser), nothing changes.

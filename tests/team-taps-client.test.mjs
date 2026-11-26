@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { clickActs, twiceStep, SETTLE_MS, PAUSE_MS, WINDOW_MS } from '../team/taps.js';
+import { clickActs, twiceStep, SETTLE_MS, PAUSE_MS, WINDOW_MS, arrives } from '../team/taps.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -59,4 +59,23 @@ test('every list a manager acts on is guarded, and "Desactivar" asks twice like 
   const deactivate = src.split('\n').find((line) => line.includes("'reps.deactivate'"));
   assert.ok(deactivate, 'the deactivate control is in manager.js');
   assert.match(deactivate, /twice\(e,/, 'deactivating asks twice');
+});
+
+// Fix round 1 (D8): the deep screens' arrival (P1) runs once per change. setTab numbers each call (tabAsk); a second tap
+// while the first transition still runs makes the first one's arrival stand down.
+test('a second tap while a transition runs does not start a second arrival', () => {
+  // two taps on the same deep screen: each setTab takes a number, and each transition's go() runs later, in order
+  let tabAsk = 0, arrivals = 0;
+  const tap = () => ++tabAsk;
+  const go = (ask, open, name) => { if (arrives(ask, tabAsk, open, name)) arrivals += 1; };
+  const first = tap(), second = tap();
+  go(first, 'route', 'route'); go(second, 'route', 'route');
+  assert.equal(arrivals, 1, 'only the last one asked for arrives');
+  // a tap on another screen meanwhile: the screen shown is the other one, so neither arrival of "route" runs
+  const a = tap(); tap();
+  go(a, 'sites', 'route');
+  assert.equal(arrivals, 1);
+  assert.equal(arrives(3, 3, 'route', 'route'), true);
+  const app = read('team/app.js');
+  assert.match(app.slice(app.indexOf('function setTab('), app.indexOf('function whenSeen(')), /if \(onArrive && arrives\(ask, tabAsk, open, name\)\) onArrive\(\);/);
 });

@@ -71,19 +71,29 @@ test('practiceHidden is mentioned once, as a count, with no site name', () => {
 
 test('a leader\'s shell has no log button and no tabs', () => {
   assert.deepEqual(shellFor('leader'), { tabs: [], log: false, home: 'lead' });
-  // the others are as they were: a rep logs and has their three zones, a manager has the team's three tabs
+  // a rep logs and has their three zones; a manager has the team's tabs, the Scorecard among them (wave 2)
   assert.deepEqual(shellFor('rep'), { tabs: ['today', 'week', 'table'], log: true, home: 'today' });
-  for (const role of ['manager', 'admin']) assert.deepEqual(shellFor(role), { tabs: ['team', 'needs', 'reps'], log: false, home: 'team' });
+  for (const role of ['manager', 'admin']) assert.deepEqual(shellFor(role), { tabs: ['team', 'needs', 'score', 'reps'], log: false, home: 'team' });
 });
 
 test('the hours graphic measures accepted hours against the Scorecard goal, newest week first', () => {
   const hours = [{ week: '2026-11-16', delivered: 600, accepted: 450, pct: 75, source: 'scorecard' }, { week: '2026-11-09', delivered: 1200, accepted: 300, pct: 25, source: 'manual' }];
   const m = hoursModel(hours, 3750 * 60);
   assert.equal(m.latest.week, '2026-11-16');
-  assert.equal(m.ofGoal, 450 / (3750 * 60));
+  // 25 Nov (MGMT-14): the Scorecard's goal states no period, so a week is never shown as a share of it ("0.9 % de la meta")
+  assert.equal('ofGoal' in m, false);
   // the weeks share one scale: the largest delivered week fills its track
   assert.deepEqual(m.weeks.map((w) => [w.week, w.d, w.a]), [['2026-11-16', 0.5, 0.375], ['2026-11-09', 1, 0.25]]);
-  assert.deepEqual(hoursModel([], 3750 * 60), { latest: null, goal: 3750 * 60, ofGoal: null, weeks: [] });
+  assert.deepEqual(hoursModel([], 3750 * 60), { latest: null, goal: 3750 * 60, weeks: [] });
+});
+
+test('next to the Scorecard goal the view says the week\'s accepted hours, never a percentage of the goal', () => {
+  for (const lang of ['es', 'en']) {
+    assert.equal('lead.goal.of' in DICT[lang], false, `${lang} lead.goal.of`);
+    assert.match(DICT[lang]['lead.acc.week'], /\{h\}/);
+    assert.doesNotMatch(DICT[lang]['lead.acc.week'], /%|\{share\}/);
+  }
+  assert.equal(makeT('es')('lead.acc.week', { h: '34 h 35 min', date: '16 nov' }), '34 h 35 min aceptadas, semana del 16 nov');
 });
 
 test('each site state has its own words, and only an install made with the app reads as installed', () => {
@@ -130,7 +140,7 @@ test('every number the city bands write carries its source: counts, site figures
 
 test('the Scorecard goal names no period: the Scorecard lists 3,750 on its Accepted Hours row and does not say per what', () => {
   for (const [lang, words] of [['es', /semana|semanal/i], ['en', /week/i]]) {
-    for (const key of ['lead.goal.label', 'lead.goal.per', 'lead.goal.of', 'lead.goal.src', 'lead.goal.aria']) assert.doesNotMatch(DICT[lang][key], words, `${lang} ${key}`);
+    for (const key of ['lead.goal.label', 'lead.goal.per', 'lead.goal.src', 'lead.goal.aria']) assert.doesNotMatch(DICT[lang][key], words, `${lang} ${key}`);
   }
   assert.match(DICT.es['lead.goal.label'], /meta del Scorecard/i);
 });

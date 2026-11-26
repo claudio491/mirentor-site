@@ -14,6 +14,14 @@ export function usd(cents) {
 /** An amount as a person reads it: dollars to the cent, or "monto por definir". */
 export const money = (cents, t) => usd(cents) ?? t('pay.tbd');
 
+/** The headline of "Mis sitios activos": the week's earnings, or, with no pay rate in force, the week's accepted hours
+ *  (`hours`), and its support line says the amount is still to be defined. `earn` is me.earn. */
+export function sitesHead(earn, t, show) {
+  const week = (earn && earn.week) || {}, last = (earn && earn.last) || {}, hours = week.cents == null, l = hm(last.minutes || 0, show);
+  return { hours, words: hours ? hm(week.minutes || 0, show) : money(week.cents, t),
+    support: hours ? t('sites.support.tbd', { l }) : t('sites.support', { h: hm(week.minutes || 0, show), l }) };
+}
+
 /** Where an amount comes from: the accepted hours times the rate per hour. With no rate, why there is no amount. */
 export const paySource = (minutes, rate, t, show) => (rate == null ? t('pay.src.none') : t('pay.src', { h: hm(minutes || 0, show), r: usd(rate) }));
 

@@ -52,15 +52,16 @@ export function practiceNote(view, t) {
  *  one page: no tabs, nothing to log. */
 export function shellFor(role) {
   if (role === 'leader') return { tabs: [], log: false, home: 'lead' };
-  if (role === 'manager' || role === 'admin') return { tabs: ['team', 'needs', 'reps'], log: false, home: 'team' };
+  if (role === 'manager' || role === 'admin') return { tabs: ['team', 'needs', 'score', 'reps'], log: false, home: 'team' };
   return { tabs: ['today', 'week', 'table'], log: true, home: 'today' };
 }
 
-/** The hours graphic: the newest week first, its accepted hours as a share of the Scorecard's goal, and the last weeks
- *  on one scale (the largest delivered week fills its track), so two weeks compare at a glance. */
+/** The hours graphic: the newest week first, drawn against the Scorecard's goal as a reference (the goal states no
+ *  period, so a week is never written as a share of it), and the last weeks on one scale (the largest delivered week
+ *  fills its track), so two weeks compare at a glance. */
 export function hoursModel(hours, goal, keep = 6) {
   const weeks = (hours || []).slice(0, keep), latest = weeks[0] || null;
   const top = Math.max(1, ...weeks.map((w) => Math.max(w.delivered, w.accepted)));
-  return { latest, goal, ofGoal: latest && goal ? latest.accepted / goal : null,
+  return { latest, goal,
     weeks: weeks.map((w) => ({ ...w, d: w.delivered / top, a: w.accepted / top })) };
 }

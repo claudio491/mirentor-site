@@ -215,3 +215,21 @@ test('a voided site still takes the accepted minutes of a week that ended before
   assert.deepEqual([(await manage({ what: 'phones', count: 2 })).status], [404]);
   assert.equal(s.lines().filter((e) => e.type === 'site.hours').length, 1);
 });
+
+test('"this week" for a pay rate is the latest current week among the active reps: a rep already in Monday keeps the week that just ended', async (t) => {
+  // Sunday 22 November, 23:00 in Panama (the admin's zone) is already Monday 01:00 in São Paulo (the rep's)
+  const s = await start({ clock: Date.parse('2026-11-16T15:00:00Z') }); t.after(() => s.srv.close());
+  const a = await s.admin(), sol = await s.addRep(a.cookie, 'sol', { tz: 'America/Sao_Paulo', country: 'BR', city: 'São Paulo' });
+  assert.equal((await s.call('POST', `${API}/pay`, { cents: 100, from: LAST_WEEK }, { cookie: a.cookie })).status, 200);
+  s.time.now = Date.parse('2026-11-23T04:00:00Z');
+  const set = await s.call('POST', `${API}/pay`, { cents: 300 }, { cookie: a.cookie });
+  assert.equal(set.status, 200);
+  assert.deepEqual(s.lines().filter((e) => e.type === 'pay.rate').map((e) => [e.cents, e.from]), [[100, LAST_WEEK], [300, '2026-11-23']]);
+  const mine = (await s.call('GET', `${API}/me`, undefined, { cookie: sol.cookie })).json;
+  assert.deepEqual([mine.earn.week.start, mine.earn.rate, mine.earn.last.start], ['2026-11-23', 300, THIS_WEEK]);
+  const state = s.lines().reduce((st, e) => applyEvent(st, e), emptyState());
+  assert.equal(rateFor(state, state.reps.get(mine.me.id), THIS_WEEK), 100, 'the week the rep just saw keeps its rate');
+  // both checks use that week: the rep's Monday is not "after this week", and the week that just ended is already shown
+  assert.equal((await s.call('POST', `${API}/pay`, { cents: 400, from: '2026-11-23' }, { cookie: a.cookie })).status, 200);
+  assert.deepEqual((await s.call('POST', `${API}/pay`, { cents: 500, from: THIS_WEEK }, { cookie: a.cookie })).json.error, 'week_shown');
+});

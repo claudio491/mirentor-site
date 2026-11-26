@@ -3,7 +3,7 @@
 // fills (site hours, the pay rate) and the example team's controls.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { usd, money, paySource, mateLine, mateCard, siteRows, hasSites, goneLine } from '../team/sites-steps.js';
+import { usd, money, paySource, mateLine, mateCard, siteRows, hasSites, goneLine, sitesHead } from '../team/sites-steps.js';
 import { siteHoursBody, payBody, recentMondays, payWeeks, siteActions } from '../team/manager-steps.js';
 import { exampleActions } from '../team/practice-steps.js';
 import { repFacts } from '../team/leader-steps.js';
@@ -113,4 +113,18 @@ test('the leadership rep card carries active sites as a number with its source',
 test('the pay form offers past weeks only for the first rate: once one is in force, a new one starts this week', () => {
   assert.deepEqual(payWeeks('2026-11-18', null, 3), ['2026-11-16', '2026-11-09', '2026-11-02'], 'no rate yet: the weeks that showed no amount');
   assert.deepEqual(payWeeks('2026-11-18', { cents: 100, from: '2026-11-09' }, 3), ['2026-11-16']);
+});
+
+// 25 Nov (REPUX-17): "Mis sitios activos" with no pay rate led with "monto por definir." as its giant headline.
+test('"Mis sitios activos" leads with the amount, or with the hours when no pay rate is set', () => {
+  const show = (n) => String(n);
+  const paid = sitesHead({ week: { minutes: 750, cents: 1250 }, last: { minutes: 60 } }, es, show);
+  assert.deepEqual([paid.words, paid.hours], ['US$12.50', false]);
+  assert.equal(paid.support, '12 h 30 min aceptadas esta semana · 1 h la semana pasada.');
+  const none = sitesHead({ week: { minutes: 750, cents: null }, last: { minutes: 60 } }, es, show);
+  assert.deepEqual([none.words, none.hours], ['12 h 30 min', true]);
+  assert.equal(/monto por definir/i.test(none.words), false);
+  assert.equal(none.support, 'Aceptadas esta semana. Monto por definir · 1 h la semana pasada.');
+  assert.equal(sitesHead({ week: { minutes: 0, cents: null }, last: { minutes: 0 } }, en, show).words, '0 min');
+  assert.equal(sitesHead({ week: { minutes: 90, cents: null }, last: { minutes: 0 } }, en, show).support, 'Accepted this week. Amount to be defined · 0 min last week.');
 });

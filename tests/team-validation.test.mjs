@@ -47,11 +47,11 @@ test('a meeting or contract date is kept only as a real day from 30 days back to
   assert.equal(s.lines().filter((e) => e.type === 'log.update').at(-1).patch.when, undefined);
 });
 
-test('a contact and a date belong to a meeting or a contract: sent with any other result, they are dropped and the log stands', async (t) => {
+test('a date belongs to a meeting or a contract and the contact to every conversation: sent with another result, the date is dropped and the log stands', async (t) => {
   const s = await start(); t.after(() => s.srv.close());   // Monday 16 Nov 2026
   const a = await s.admin(), m = await s.addRep(a.cookie, 'mario');
   const C = { cookie: m.cookie };
-  // typed for a meeting, then the result switched to a conversation: the screen kept the fields, the server keeps none
+  // typed for a meeting, then the result switched to a conversation: the screen kept the fields, the server keeps the contact only
   const talk = await s.call('POST', `${API}/log`, logBody('talk-extra-0001', { kind: 'talk', channel: 'visit', contact: 'Sra. Ruiz', when: '2026-11-20', note: 'Volver el jueves', lead: { name: 'Bar Uno', zone: 'Centro' } }), C);
   assert.equal(talk.status, 200, talk.text);
   const meet = await s.call('POST', `${API}/log`, logBody('meet-extra-0001', { kind: 'meeting', channel: 'visit', contact: 'Sra. Ruiz', when: '2026-11-20', lead: { name: 'Bar Dos', zone: 'Centro' } }), C);
@@ -59,7 +59,7 @@ test('a contact and a date belong to a meeting or a contract: sent with any othe
   const sent = await s.call('POST', `${API}/log`, logBody('cont-extra-0001', { kind: 'contract', contact: 'Sr. Paz', when: '2026-11-21', lead: { name: 'Bar Tres', zone: 'Centro' } }), C);
   assert.equal(sent.status, 200, sent.text);
   const byId = Object.fromEntries(s.lines().filter((e) => e.type === 'log').map((e) => [e.id, e]));
-  assert.deepEqual([byId['talk-extra-0001'].contact, byId['talk-extra-0001'].when, byId['talk-extra-0001'].note], [undefined, undefined, 'Volver el jueves'], 'the note stays: it belongs to any result');
+  assert.deepEqual([byId['talk-extra-0001'].contact, byId['talk-extra-0001'].when, byId['talk-extra-0001'].note], ['Sra. Ruiz', undefined, 'Volver el jueves'], 'the note stays: it belongs to any result');
   assert.deepEqual([byId['meet-extra-0001'].contact, byId['meet-extra-0001'].when], ['Sra. Ruiz', '2026-11-20']);
   assert.deepEqual([byId['cont-extra-0001'].contact, byId['cont-extra-0001'].when], ['Sr. Paz', '2026-11-21']);
 });
